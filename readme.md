@@ -12,6 +12,7 @@ A Flask-based web application to search and download books from ZLibrary using a
 - Create the file credentials.txt OR use the endpoint to create them late
 - Set `login_remix` to false and use the first line for your email/user and the second one for the password (less secure)
 - Login in like you normally would and grab the `remix_userid` and `remix_userkey` and put them into the credentials file
+- Leverages https://github.com/bipinkrish/Zlibrary-API/
 
 ### POST /books
 - **URL**: `http://localhost:5000/books`
