@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  zlibrary-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: zlibrary-app
+    container_name: zlibrary-app
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./download:/app/download
+      - ./app.py:/app/app.py
+    environment:
+      - FLASK_ENV=production
