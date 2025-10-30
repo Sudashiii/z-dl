@@ -12,5 +12,6 @@ services:
     volumes:
       - ./download:/app/download
       - ./app.py:/app/app.py
+      - ./.env:/app/.env
     environment:
       - FLASK_ENV=production

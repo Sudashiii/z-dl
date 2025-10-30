@@ -4,8 +4,6 @@ WORKDIR /app
 
 COPY app.py .
 COPY Zlibrary.py .
-COPY .env .
-COPY credentials.txt .
 
 RUN pip install --no-cache-dir flask requests python-dotenv
 
