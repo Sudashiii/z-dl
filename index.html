@@ -9,6 +9,8 @@
     .hidden { display: none; }
     form { margin-bottom: 2rem; border: 1px solid #ccc; padding: 1rem; border-radius: 8px; }
     input, button { margin-top: .5rem; display: block; }
+    #title { width: 400px; }
+    #titlefixdiv { display: flex; align-self: start; justify-content: flex-start; }
   </style>
 </head>
 <body>
@@ -23,10 +25,10 @@
   <div id="forms-section" class="hidden">
     <h2>Submit Book</h2>
     <form id="book-form">
-      <input type="text" name="title" placeholder="Title" required />
+      <input type="text" name="title" placeholder="Title" required id="title"/>
       <input type="text" name="lang" placeholder="Language" required value="german"/>
       <input type="text" name="format" placeholder="Format (e.g. epub)" required value="epub"/>
-      <div>
+      <div id="titlefixdiv">
           <input type="checkbox" id="titlefix" name="titlefix" />
           <label for="titlefix">AI title fix</label>
         </div>
