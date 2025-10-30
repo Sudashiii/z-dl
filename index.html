@@ -16,7 +16,7 @@
 
   <div id="apikey-section">
     <p>Enter your <strong>X-Api-Key</strong>:</p>
-    <input type="text" id="apikey-input" placeholder="Enter your API key" />
+    <input type="password" id="apikey-input" placeholder="Enter your API key" />
     <button id="save-key">Save Key</button>
   </div>
 
@@ -26,13 +26,13 @@
       <input type="text" name="title" placeholder="Title" required />
       <input type="text" name="lang" placeholder="Language" required value="german"/>
       <input type="text" name="format" placeholder="Format (e.g. epub)" required value="epub"/>
-      <button type="submit">Download book</button>
+      <button type="submit">Download</button>
     </form>
 
     <h2>Submit Credentials</h2>
     <form id="credentials-form">
-      <input type="text" name="remix_userid" placeholder="Id" required />
-      <input type="text" name="remix_userkey" placeholder="Auth" required />
+      <input type="password" id="userid-input" name="remix_userid" placeholder="User ID" required />
+      <input type="password" id="userkey-input" name="remix_userkey" placeholder="User Auth" required />
       <button type="submit">Update credentials</button>
     </form>
   </div>
@@ -45,14 +45,21 @@
     const apiKeyInput = document.getElementById("apikey-input");
     const saveKeyBtn = document.getElementById("save-key");
     const responseBox = document.getElementById("response");
+    const useridInput = document.getElementById("userid-input");
+    const userkeyInput = document.getElementById("userkey-input");
 
-    function getApiKey() {
-      return localStorage.getItem("x-api-key");
-    }
+    const LS_KEY = "x-api-key";
+    const LS_USERID = "remix_userid";
+    const LS_USERKEY = "remix_userkey";
+
+    const getApiKey = () => localStorage.getItem(LS_KEY);
+    const getUserId = () => localStorage.getItem(LS_USERID);
+    const getUserKey = () => localStorage.getItem(LS_USERKEY);
 
     function showForms() {
       apiKeySection.classList.add("hidden");
       formsSection.classList.remove("hidden");
+      loadStoredCredentials();
     }
 
     function showApiKeyPrompt() {
@@ -60,16 +67,50 @@
       formsSection.classList.add("hidden");
     }
 
-    saveKeyBtn.addEventListener("click", () => {
+    function loadStoredCredentials() {
+      const uid = getUserId();
+      const key = getUserKey();
+      if (uid) useridInput.value = uid;
+      if (key) userkeyInput.value = key;
+    }
+
+    async function checkAuth() {
+      const key = getApiKey();
+      if (!key) {
+        showApiKeyPrompt();
+        return;
+      }
+      try {
+        const res = await fetch("/auth-check", {
+          headers: { "X-Api-Key": key }
+        });
+        if (res.status === 200) {
+          showForms();
+        } else {
+          localStorage.removeItem(LS_KEY);
+          showApiKeyPrompt();
+        }
+      } catch {
+        showApiKeyPrompt();
+      }
+    }
+
+    saveKeyBtn.addEventListener("click", async () => {
       const key = apiKeyInput.value.trim();
-      if (key) {
-        localStorage.setItem("x-api-key", key);
+      if (!key) return;
+      const res = await fetch("/auth-check", {
+        headers: { "X-Api-Key": key }
+      });
+      if (res.status === 200) {
+        localStorage.setItem(LS_KEY, key);
         showForms();
+      } else {
+        alert("Invalid API key");
       }
     });
 
-    // On load
-    if (getApiKey()) showForms(); else showApiKeyPrompt();
+    // Run auth check when loading
+    checkAuth();
 
     // --- BOOK FORM (downloads file)
     document.getElementById("book-form").addEventListener("submit", async (e) => {
@@ -85,12 +126,10 @@
       });
 
       if (!res.ok) {
-        const text = await res.text();
-        responseBox.textContent = text;
+        responseBox.textContent = await res.text();
         return;
       }
 
-      // handle file download
       const blob = await res.blob();
       const contentDisposition = res.headers.get("Content-Disposition");
       let filename = "download.bin";
@@ -112,6 +151,11 @@
     document.getElementById("credentials-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const formData = Object.fromEntries(new FormData(e.target));
+
+      // Save credentials in localStorage
+      localStorage.setItem(LS_USERID, formData.remix_userid);
+      localStorage.setItem(LS_USERKEY, formData.remix_userkey);
+
       const res = await fetch("/credentials", {
         method: "POST",
         headers: {

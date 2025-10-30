@@ -77,6 +77,12 @@ except Exception as e:
 def index():
     return send_from_directory(".", "index.html")
 
+@app.route("/auth-check")
+def index():
+    if not check_api_key():
+        return jsonify({"error": "Invalid or missing API key"}), 401
+    return jsonify({"message": "API key is valid"}), 200
+
 @app.route("/books", methods=["POST"])
 def download_book():
     if not check_api_key():
