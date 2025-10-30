@@ -10,8 +10,6 @@ services:
     ports:
       - "6126:6126"
     volumes:
-      - ./download:/app/download
-      - ./app.py:/app/app.py
-      - ./.env:/app/.env
+      - ./:/app
     environment:
       - FLASK_ENV=production
