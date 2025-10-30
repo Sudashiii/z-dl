@@ -7,7 +7,7 @@ dist/
 build/
 
 # Environment and credentials
-# .env # ignore if sensitive data is stored
+.env
 credentials.txt
 
 # Downloaded books

@@ -1,5 +1,6 @@
 # /app/app.py
 from flask import Flask, request, jsonify, send_file, send_from_directory
+import requests
 from Zlibrary import Zlibrary
 import os
 import io
@@ -16,6 +17,8 @@ KEEP_BOOKS = os.getenv("keep_books", "false").lower() == "true"
 LOGIN_REMIX = os.getenv("login_remix", "true").lower() == "true"
 AUTH_ENABLED = os.getenv("auth", "false").lower() == "true"
 API_KEYS = os.getenv("api_keys", "").split(",") if os.getenv("api_keys") else []
+OPEN_ROUTER_API_KEY = os.getenv("open_router_api_key", "")
+OPEN_ROUTER_API_URL = os.getenv("open_router_url", "")
 
 # Middleware to check API key if auth is enabled
 def check_api_key():
@@ -100,6 +103,7 @@ def download_book():
     title = data.get("title")
     lang = data.get("lang")
     format = data.get("format")
+    titlefix = data.get("titlefix")
 
     if not title:
         return jsonify({"error": "Missing required field: title"}), 400
@@ -107,6 +111,9 @@ def download_book():
         return jsonify({"error": "Missing required field: lang"}), 400
     if not format:
         return jsonify({"error": "Missing required field: format"}), 400
+
+    if titlefix == "on":
+        title = normalize_book_title(title)
 
     try:
         # Create download directory if it doesn't exist
@@ -127,11 +134,12 @@ def download_book():
         book = books[0]
         book_format = book.get("extension", format)
 
+
         # Download the book
         filename, filecontent = zlib.downloadBook(book)
 
         # Use the provided title for the filename, sanitized
-        new_filename = sanitize_filename(title, book_format)
+        new_filename = sanitize_filename(book["title"], book_format)
 
         # Save to download directory with sanitized title
         file_path = os.path.join(DOWNLOAD_DIR, new_filename)
@@ -199,6 +207,61 @@ def update_credentials():
 
     except Exception as e:
         return jsonify({"error": f"Error updating credentials: {str(e)}"}), 500
+
+def normalize_book_title(title: str) -> str:
+    if not OPEN_ROUTER_API_KEY or not OPEN_ROUTER_API_URL:
+        print("OpenRouter API key or URL not set. Skipping title normalization.")
+        return title
+
+    try:
+        API_KEY = OPEN_ROUTER_API_KEY
+        API_URL = OPEN_ROUTER_API_URL
+
+        headers = {
+            "Authorization": f"Bearer {API_KEY}",
+            "Content-Type": "application/json",
+        }
+
+        data = {
+            "model": "openai/gpt-oss-20b:free",  
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an expert in book metadata correction. "
+                        "Given a possibly misspelled or incomplete title, "
+                        "return ONLY the most likely correct full title of a real book. "
+                        "Never invent new books or add commentary. "
+                        "Output must be just the title, nothing else."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": "harry poter and the goblt of fire",
+                },
+                {
+                    "role": "assistant",
+                    "content": "Harry Potter and the Goblet of Fire",
+                },
+                {
+                    "role": "user",
+                    "content": title.strip(),
+                },
+            ],
+            "extra_body":{"reasoning": "false"},
+
+            "temperature": 0.2,  
+        }
+
+        response = requests.post(API_URL, headers=headers, json=data)
+        response.raise_for_status()
+
+        result = response.json()
+        corrected = result["choices"][0]["message"]["content"].strip()
+        return corrected
+    except Exception as e:
+        print(f"Error normalizing title '{title}': {str(e)}")
+        return title
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=6126, debug=True)
