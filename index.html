@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Book & Credentials API</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    .hidden { display: none; }
+    form { margin-bottom: 2rem; border: 1px solid #ccc; padding: 1rem; border-radius: 8px; }
+    input, button { margin-top: .5rem; display: block; }
+  </style>
+</head>
+<body>
+  <h1>API Interface</h1>
+
+  <div id="apikey-section">
+    <p>Enter your <strong>X-Api-Key</strong>:</p>
+    <input type="text" id="apikey-input" placeholder="Enter your API key" />
+    <button id="save-key">Save Key</button>
+  </div>
+
+  <div id="forms-section" class="hidden">
+    <h2>Submit Book</h2>
+    <form id="book-form">
+      <input type="text" name="title" placeholder="Title" required />
+      <input type="text" name="lang" placeholder="Language" required value="german"/>
+      <input type="text" name="format" placeholder="Format (e.g. epub)" required value="epub"/>
+      <button type="submit">Download book</button>
+    </form>
+
+    <h2>Submit Credentials</h2>
+    <form id="credentials-form">
+      <input type="text" name="remix_userid" placeholder="Id" required />
+      <input type="text" name="remix_userkey" placeholder="Auth" required />
+      <button type="submit">Update credentials</button>
+    </form>
+  </div>
+
+  <pre id="response"></pre>
+
+  <script>
+    const apiKeySection = document.getElementById("apikey-section");
+    const formsSection = document.getElementById("forms-section");
+    const apiKeyInput = document.getElementById("apikey-input");
+    const saveKeyBtn = document.getElementById("save-key");
+    const responseBox = document.getElementById("response");
+
+    function getApiKey() {
+      return localStorage.getItem("x-api-key");
+    }
+
+    function showForms() {
+      apiKeySection.classList.add("hidden");
+      formsSection.classList.remove("hidden");
+    }
+
+    function showApiKeyPrompt() {
+      apiKeySection.classList.remove("hidden");
+      formsSection.classList.add("hidden");
+    }
+
+    saveKeyBtn.addEventListener("click", () => {
+      const key = apiKeyInput.value.trim();
+      if (key) {
+        localStorage.setItem("x-api-key", key);
+        showForms();
+      }
+    });
+
+    // On load
+    if (getApiKey()) showForms(); else showApiKeyPrompt();
+
+    // --- BOOK FORM (downloads file)
+    document.getElementById("book-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = Object.fromEntries(new FormData(e.target));
+      const res = await fetch("/books", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Api-Key": getApiKey()
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        responseBox.textContent = text;
+        return;
+      }
+
+      // handle file download
+      const blob = await res.blob();
+      const contentDisposition = res.headers.get("Content-Disposition");
+      let filename = "download.bin";
+      if (contentDisposition && contentDisposition.includes("filename=")) {
+        filename = contentDisposition.split("filename=")[1].replace(/["']/g, "");
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    });
+
+    // --- CREDENTIALS FORM
+    document.getElementById("credentials-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = Object.fromEntries(new FormData(e.target));
+      const res = await fetch("/credentials", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Api-Key": getApiKey()
+        },
+        body: JSON.stringify(formData)
+      });
+      responseBox.textContent = await res.text();
+    });
+  </script>
+</body>
+</html>

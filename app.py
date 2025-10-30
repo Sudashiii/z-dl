@@ -1,5 +1,5 @@
 # /app/app.py
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from Zlibrary import Zlibrary
 import os
 import io
@@ -72,6 +72,10 @@ try:
 except Exception as e:
     print(f"Error during ZLibrary login: {str(e)}")
     zlib = None
+
+@app.route("/")
+def index():
+    return send_from_directory(".", "index.html")
 
 @app.route("/books", methods=["POST"])
 def download_book():
