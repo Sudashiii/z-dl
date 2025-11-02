@@ -32,3 +32,5 @@ Thumbs.db
 # Virtual environments
 venv/
 env/
+
+/node_modules/

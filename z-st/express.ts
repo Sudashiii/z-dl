@@ -5,17 +5,20 @@ import { basicAuth } from "./basicAuth.ts";
 
 const app = express();
 const port = process.env.PORT || 1900;
-app.use(basicAuth);
+// app.use(basicAuth);
 app.use(express.raw({ type: "*/*", limit: "100mb" }));
 
 // @ts-ignore
 app.put("/{*splat}", async (req, res) => {
     const key = req.url.replace(/^\/+/, "");
+    console.log(`Uploading to key: ${key}`);
     //@ts-ignore
     const extension = req.url.split(".").pop().toLowerCase();
+    console.log(`Detected extension: ${extension}`);
     //@ts-ignore
     const contentType = mimeTypes[extension] || "application/octet-stream";
     const body = req.body;
+    console.log(body);
 
     const s3: IDavStorage = new S3Storage();
     await s3.put(key, body, contentType);

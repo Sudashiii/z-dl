@@ -6,6 +6,7 @@ import os
 import io
 import re
 from dotenv import load_dotenv
+from ebooklib import epub
 
 app = Flask(__name__)
 
@@ -146,6 +147,14 @@ def download_book():
         with open(file_path, "wb") as bookfile:
             bookfile.write(filecontent)
 
+        if book_format.lower() == "epub":
+            epubBook = epub.read_epub(file_path)
+            epubBook.set_title(book["title"])
+            epub.write_epub(file_path, epubBook)
+
+        upload_url = "http://localhost:1900/library/" + new_filename
+        upload_epub(file_path, upload_url)
+
         # Send the file as a binary response
         response = send_file(
             io.BytesIO(filecontent),
@@ -167,11 +176,20 @@ def download_book():
     except Exception as e:
         return jsonify({"error": f"Error downloading book '{title}': {str(e)}"}), 500
 
+def upload_epub(file_path: str, upload_url: str):
+    with open(file_path, "rb") as f:
+        data = f.read()
+    headers = {"Content-Type": "application/epub+zip"}
+    response = requests.put(upload_url, data=data, headers=headers)
+
+    print(f"Status: {response.status_code}")
+    print(f"Response: {response.text}")
+
 @app.route("/credentials", methods=["POST"])
 def update_credentials():
     if not check_api_key():
         return jsonify({"error": "Invalid or missing API key"}), 401
-
+ 
     # Get JSON payload
     data = request.get_json()
     if not data:
