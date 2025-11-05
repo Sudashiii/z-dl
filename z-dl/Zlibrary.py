@@ -316,6 +316,9 @@ class Zlibrary:
     def downloadBook(self, book: dict[str, str]) -> [(str, bytes), None]:
         return self.__getBookFile(book["id"], book["hash"])
 
+    def downloadBookByIdAndHash(self, id, hash) -> [(str, bytes), None]:
+        return self.__getBookFile(id, hash)
+
     def isLoggedIn(self) -> bool:
         return self.__loggedin
 

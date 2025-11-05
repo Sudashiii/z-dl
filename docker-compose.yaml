@@ -1,10 +1,10 @@
 version: '3.8'
 
 services:
-  zlibrary-app:
+  z-dl:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ./z-dl
+      dockerfile: dockerfile
     image: zlibrary-app
     container_name: zlibrary-app
     ports:
@@ -13,3 +13,38 @@ services:
       - ./z-dl:/app
     environment:
       - FLASK_ENV=production
+      - STORAGE_URL=http://z-st:1900
+    networks:
+      - znetwork
+
+  z-st:
+    build:
+      context: ./z-st
+      dockerfile: dockerfile
+    image: zlibrary-storage
+    container_name: zlibrary-storage
+    ports:
+      - "1900:1900"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - znetwork
+    depends_on:
+      - z-dl
+
+  z-ui:
+    build:
+      context: ./z-ui
+      dockerfile: dockerfile
+    image: zlibrary-ui
+    container_name: zlibrary-ui
+    ports:
+      - "5173:3000"
+    environment:
+      - PUBLIC_API_URL=http://z-dl:6126
+    networks:
+      - znetwork
+
+networks:
+  znetwork:
+    driver: bridge

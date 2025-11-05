@@ -1,0 +1,34 @@
+export interface Book {
+  _isUserSavedBook: boolean;
+  active: number;
+  author: string;
+  content_type: string;
+  cover: string;
+  deleted: number;
+  description: string;
+  dl: string;
+  edition: string | null;
+  extension: string;
+  filesize: number;
+  filesizeString: string;
+  hash: string;
+  href: string;
+  id: number;
+  identifier: string;
+  interestScore: string;
+  kindleAvailable: boolean;
+  language: string;
+  md5: string;
+  pages: number;
+  publisher: string;
+  qualityScore: string;
+  readOnlineAvailable: boolean;
+  readOnlineUrl: string;
+  sendToEmailAvailable: boolean;
+  series: string;
+  sha256: string;
+  terms_hash: string;
+  title: string;
+  volume: string;
+  year: number;
+}

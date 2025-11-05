@@ -4,8 +4,9 @@ WORKDIR /app
 
 COPY app.py .
 COPY Zlibrary.py .
+COPY .env .
 
-RUN pip install --no-cache-dir flask requests python-dotenv
+RUN pip install --no-cache-dir flask requests python-dotenv ebooklib flask_cors
 
 RUN mkdir -p /app/download
 

@@ -7,8 +7,10 @@ import io
 import re
 from dotenv import load_dotenv
 from ebooklib import epub
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 # Load environment variables
 load_dotenv()
@@ -20,6 +22,7 @@ AUTH_ENABLED = os.getenv("auth", "false").lower() == "true"
 API_KEYS = os.getenv("api_keys", "").split(",") if os.getenv("api_keys") else []
 OPEN_ROUTER_API_KEY = os.getenv("open_router_api_key", "")
 OPEN_ROUTER_API_URL = os.getenv("open_router_url", "")
+STORAGE_URL = os.getenv("STORAGE_URL")
 
 # Middleware to check API key if auth is enabled
 def check_api_key():
@@ -152,7 +155,7 @@ def download_book():
             epubBook.set_title(book["title"])
             epub.write_epub(file_path, epubBook)
 
-        upload_url = "http://localhost:1900/library/" + new_filename
+        upload_url = STORAGE_URL + "/" + new_filename
         upload_epub(file_path, upload_url)
 
         # Send the file as a binary response
@@ -175,6 +178,101 @@ def download_book():
 
     except Exception as e:
         return jsonify({"error": f"Error downloading book '{title}': {str(e)}"}), 500
+
+@app.route("/books-list", methods=["POST"])
+def books_list():
+    if not check_api_key():
+        return jsonify({"error": "Invalid or missing API key"}), 401
+
+    if not zlib or not zlib.isLoggedIn():
+        return jsonify({"error": "ZLibrary not initialized or login failed"}), 500
+
+    # Get JSON payload
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No JSON data provided"}), 400
+
+    # Validate required fields
+    title = data.get("title")
+    lang = data.get("lang")
+    format = data.get("format")
+    titlefix = data.get("titlefix")
+
+    try:
+        # Search for the book
+        results = zlib.search(message=title, languages=lang, extensions=format)
+        books = results.get("books", [])
+
+        if not books:
+            # Fallback to any format if specified format not found
+            results = zlib.search(message=title, languages=lang)
+            books = results.get("books", [])
+            if not books:
+                return jsonify({"error": f"No books found for title '{title}' in language '{lang}'"}), 404
+        
+        return jsonify(books), 200
+    except Exception as e:
+        return jsonify({"error": f"Error downloading book '{title}': {str(e)}"}), 500
+
+@app.route("/books-download", methods=["POST"])
+def download_book2():
+    if not check_api_key():
+        return jsonify({"error": "Invalid or missing API key"}), 401
+
+    if not zlib or not zlib.isLoggedIn():
+        return jsonify({"error": "ZLibrary not initialized or login failed"}), 500
+
+    # Get JSON payload
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No JSON data provided"}), 400
+
+    # Validate required fields
+    id = data.get("id")
+    hash = data.get("hash")
+    title = data.get("title")
+    format = data.get("format")
+
+    if not id:
+        return jsonify({"error": "Missing required field: id"}), 400
+    if not hash:
+        return jsonify({"error": "Missing required field: hash"}), 400
+    try:
+        # Create download directory if it doesn't exist
+        os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+        # Download the book
+        filename, filecontent = zlib.downloadBookByIdAndHash(id, hash)
+
+        # Use the provided title for the filename, sanitized
+        new_filename = sanitize_filename(title, format)
+
+        # Save to download directory with sanitized title
+        file_path = os.path.join(DOWNLOAD_DIR, new_filename)
+        with open(file_path, "wb") as bookfile:
+            bookfile.write(filecontent)
+
+        if format.lower() == "epub":
+            epubBook = epub.read_epub(file_path)
+            epubBook.set_title(title)
+            epub.write_epub(file_path, epubBook)
+
+        upload_url = STORAGE_URL + "/" + new_filename
+        upload_epub(file_path, upload_url)
+
+        # Send the file as a binary response
+        response = send_file(
+            io.BytesIO(filecontent),
+            download_name=new_filename,
+            as_attachment=True,
+            mimetype=f"application/{format.lower()}"
+        )
+
+        return response
+
+    except Exception as e:
+        return jsonify({"error": f"Error downloading book '{title}': {str(e)}"}), 500
+
 
 def upload_epub(file_path: str, upload_url: str):
     with open(file_path, "rb") as f:

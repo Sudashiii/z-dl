@@ -1,7 +1,8 @@
 {
   "type": "module",
   "scripts": {
-    "dev": "node --experimental-strip-types --env-file=.env --watch express.ts"
+    "dev": "node --experimental-strip-types --env-file=.env express.ts",
+    "dev:watch": "node --experimental-strip-types --env-file=.env --watch express.ts"
   },
   "dependencies": {
     "@types/express": "^5.0.5",
@@ -9,5 +10,8 @@
     "express-fileupload": "^1.5.2",
     "multer": "^2.0.2",
     "node-cloudflare-r2": "^0.5.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6"
   }
 }
