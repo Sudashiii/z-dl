@@ -1,15 +1,15 @@
 <script lang="ts">
-    import type { Book } from '$lib/types/Book';
     import { onMount } from 'svelte';
     import { env } from '$env/dynamic/public';
-    const apiUrl = env.PUBLIC_API_URL;
+    import type { ZBook } from '$lib/types/ZLibrary/ZBook';
+    const apiUrl = env.PUBLIC_ZDL_URL;
 
     let accessKey = '';
     let title = '';
     let lang = 'German';
     let format = 'EPUB';
     let titlefix = false;
-    let books: Book[] = [];
+    let books: ZBook[] = [];
 
     async function booksList() {
         if (!accessKey && typeof localStorage !== 'undefined') {
@@ -36,11 +36,11 @@
             console.error('Request failed', res.statusText);
             return;
         }
-        let booksResponse: Book[] = await res.json();
+        let booksResponse: ZBook[] = await res.json();
         books = booksResponse;
     }
 
-    async function downloadBook(book: Book) {
+    async function downloadBook(book: ZBook) {
         if (!accessKey && typeof localStorage !== 'undefined') {
             accessKey = localStorage.getItem('accessKey') || '';
         }

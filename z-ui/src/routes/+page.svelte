@@ -1,11 +1,11 @@
 <script>
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
-  import { PUBLIC_API_URL } from '$env/static/public';
+  import { PUBLIC_ZDL_URL } from '$env/static/public';
   
   let accessKey = "";
   let isValid = false;
-  const apiUrl = PUBLIC_API_URL;
+  const apiUrl = PUBLIC_ZDL_URL;
 
   async function checkKey() {
     if (!accessKey) return;

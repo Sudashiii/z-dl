@@ -1,4 +1,4 @@
-export interface Book {
+export interface ZBook {
   _isUserSavedBook: boolean;
   active: number;
   author: string;
