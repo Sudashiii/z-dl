@@ -1,0 +1,29 @@
+meta {
+  name: Logout
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/zlibrary/logout
+  body: none
+  auth: basic
+}
+
+auth:basic {
+  username: suda
+  password: shi
+}
+
+body:multipart-form {
+  etlogo2.png: @file(C:\Users\Sascha\Pictures\etlogo2.png) @contentType(image/png)
+}
+
+body:file {
+  file: @file()
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

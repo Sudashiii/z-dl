@@ -1,0 +1,36 @@
+meta {
+  name: Login
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/zlibrary/login
+  body: json
+  auth: basic
+}
+
+auth:basic {
+  username: suda
+  password: shi
+}
+
+body:json {
+  {
+    "userId": "45501539",
+    "userKey": "fb86f9943048667830fb2d786646bfef"
+  }
+}
+
+body:multipart-form {
+  etlogo2.png: @file(C:\Users\Sascha\Pictures\etlogo2.png) @contentType(image/png)
+}
+
+body:file {
+  file: @file()
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

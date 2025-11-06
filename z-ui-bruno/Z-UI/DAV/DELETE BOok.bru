@@ -1,0 +1,16 @@
+meta {
+  name: DELETE BOok
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{base_url}}/api/library/hp2.epub
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

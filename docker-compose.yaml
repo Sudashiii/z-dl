@@ -5,8 +5,8 @@ services:
     build:
       context: ./z-dl
       dockerfile: dockerfile
-    image: zlibrary-app
-    container_name: zlibrary-app
+    image: z-dl
+    container_name: z-dl
     ports:
       - "6126:6126"
     volumes:
@@ -17,31 +17,16 @@ services:
     networks:
       - znetwork
 
-  z-st:
-    build:
-      context: ./z-st
-      dockerfile: dockerfile
-    image: zlibrary-storage
-    container_name: zlibrary-storage
-    ports:
-      - "1900:1900"
-    environment:
-      - NODE_ENV=production
-    networks:
-      - znetwork
-    depends_on:
-      - z-dl
-
   z-ui:
     build:
       context: ./z-ui
       dockerfile: dockerfile
-    image: zlibrary-ui
-    container_name: zlibrary-ui
+    image: z-ui
+    container_name: z-ui
     ports:
       - "5173:3000"
     environment:
-      - PUBLIC_API_URL=http://z-dl:6126
+      - PUBLIC_ZDL_URL=http://z-dl:6126
     networks:
       - znetwork
 

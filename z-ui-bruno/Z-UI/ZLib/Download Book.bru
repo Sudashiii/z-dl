@@ -1,0 +1,26 @@
+meta {
+  name: Download Book
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/api/zlibrary/download?hash={{book_hash}}&bookId={{book_id}}
+  body: none
+  auth: basic
+}
+
+params:query {
+  hash: {{book_hash}}
+  bookId: {{book_id}}
+}
+
+auth:basic {
+  username: suda
+  password: shi
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

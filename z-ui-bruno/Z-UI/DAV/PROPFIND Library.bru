@@ -1,0 +1,22 @@
+meta {
+  name: PROPFIND Library
+  type: http
+  seq: 2
+}
+
+http {
+  method: propfind
+  url: {{base_url}}/api/dav/
+  body: none
+  auth: basic
+}
+
+auth:basic {
+  username: suda
+  password: shi
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

@@ -1,0 +1,57 @@
+meta {
+  name: Search Book
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/api/zlibrary/search
+  body: json
+  auth: basic
+}
+
+auth:basic {
+  username: suda
+  password: shi
+}
+
+body:json {
+  {
+    "searchText": "Erebos",
+    "yearFrom": "2010",
+    "yearTo": "2020",
+    "languages": ["german"],
+    "extensions": ["EPUB"],
+    "order": "desc",
+    "limit": 10
+  }
+}
+
+body:multipart-form {
+  etlogo2.png: @file(C:\Users\Sascha\Pictures\etlogo2.png) @contentType(image/png)
+}
+
+body:file {
+  file: @file()
+}
+
+script:post-response {
+  const body = res.body
+  
+  if (Array.isArray(body) && body.length > 0) {
+    const firstBook = body[0];
+  
+    bru.setEnvVar('book_id', firstBook.id);
+    bru.setEnvVar('book_hash', firstBook.hash);
+  
+    console.log(`✅ Stored book_id=${firstBook.id}, book_hash=${firstBook.hash}`);
+  } else {
+    console.warn('⚠️ No books found in response body');
+  }
+  
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

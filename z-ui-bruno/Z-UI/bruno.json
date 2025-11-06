@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Z-UI",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}
