@@ -17,7 +17,7 @@ export const GET: RequestHandler = async ({ request, locals }) => {
     };
 
     if (!locals.zuser) {
-		return json({ error: 'ZLib Login is not valid!' }, { status: 409 });
+		return json({ error: 'ZLib Login is not valid!' }, { status: 400 });
 	}
     
     try {
