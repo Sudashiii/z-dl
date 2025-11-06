@@ -6,14 +6,12 @@ import { json } from '@sveltejs/kit';
 
 const zlib = new ZLibrary("https://1lib.sk");
 
-
-
 // -------------------------------
 // GET /api/zlibrary/search
 // -------------------------------
 export const POST: RequestHandler = async ({ request, locals }) => {
-	const body = (await request.json()) as ZSearchBookRequest;
 
+	const body = (await request.json()) as ZSearchBookRequest;
 	if (!locals.zuser) {
 		return json({ error: 'ZLib Login is not valid!' }, { status: 409 });
 	}
@@ -25,6 +23,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         if(!loggedIn) {
             return json({ error: 'Z-Lib Login failed' }, { status: 401 });
         }
+
         var response = await zlib.search(body);
 
         return json(response.books);

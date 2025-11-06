@@ -1,5 +1,8 @@
 import { env } from '$env/dynamic/private';
 
+const validUsers = env.USER ? env.USER.split(',') : [];
+const validPasswords = env.PASSWORD ? env.PASSWORD.split(',') : [];
+
 /**
  * Simple HTTP Basic Authentication check.
  * Throws a Response if auth fails (SvelteKit style).
@@ -19,15 +22,20 @@ export function requireBasicAuth(request: Request): void {
 	const credentials = Buffer.from(base64Credentials, 'base64').toString('utf8');
 	const [username, password] = credentials.split(':');
 
-	const validUser = env.USER;
-	const validPass = env.PASSWORD;
+	const isAuthorized = validUsers.some(
+		(user, index) => user === username && validPasswords[index] === password
+	);
 
-	if (username !== validUser || password !== validPass) {
-		throw new Response('Authentication required', {
-			status: 401,
-			headers: {
-				'WWW-Authenticate': 'Basic realm="Secure Area"'
-			}
-		});
+	if (!isAuthorized) {
+		throwUnauthorized();
 	}
+}
+
+function throwUnauthorized(): never {
+	throw new Response('Authentication required', {
+		status: 401,
+		headers: {
+			'WWW-Authenticate': 'Basic realm="Secure Area"'
+		}
+	});
 }

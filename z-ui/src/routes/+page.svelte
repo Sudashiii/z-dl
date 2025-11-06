@@ -1,45 +1,57 @@
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
-  import { PUBLIC_ZDL_URL } from '$env/static/public';
-  
-  let accessKey = "";
-  let isValid = false;
-  const apiUrl = PUBLIC_ZDL_URL;
 
-  async function checkKey() {
-    if (!accessKey) return;
+  let username = "";
+  let password = "";
+  let isValid = false;
+  const apiUrl = "/api";
+  
+  async function checkAuth() {
+    if (!username || !password) return;
+
+    const credentials = btoa(`${username}:${password}`);
 
     try {
-      const res = await fetch(apiUrl + "/auth-check", {
-        headers: { "X-Api-Key": `${accessKey}` },
+      const res = await fetch(`${apiUrl}/auth-check`, {
+        headers: { Authorization: `Basic ${credentials}` },
       });
 
       if (res.status === 200) {
         isValid = true;
-        if (typeof localStorage !== "undefined")
-          localStorage.setItem("accessKey", accessKey);
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem("authUser", username);
+          localStorage.setItem("authPass", password);
+        }
         goto("/books");
       } else {
         isValid = false;
-        if (typeof localStorage !== "undefined")
-          localStorage.removeItem("accessKey");
+        clearStoredAuth();
       }
     } catch {
       isValid = false;
-      if (typeof localStorage !== "undefined")
-        localStorage.removeItem("accessKey");
+      clearStoredAuth();
     }
   }
 
   async function handleLogin() {
-    await checkKey();
+    await checkAuth();
+  }
+
+  function clearStoredAuth() {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("authUser");
+      localStorage.removeItem("authPass");
+    }
   }
 
   onMount(() => {
     if (typeof localStorage !== "undefined") {
-      accessKey = localStorage.getItem("accessKey") || "";
-      checkKey();
+      username = localStorage.getItem("authUser") || "";
+      password = localStorage.getItem("authPass") || "";
+      if (username && password) {
+        checkAuth();
+      }
     }
   });
 </script>
@@ -49,12 +61,20 @@
     <div class="card">
       <h1>Login</h1>
 
-      <label for="accessKey">Access Key</label>
+      <label for="username">Username</label>
       <input
-        id="accessKey"
+        id="username"
+        type="text"
+        bind:value={username}
+        placeholder="Enter username"
+      />
+
+      <label for="password">Password</label>
+      <input
+        id="password"
         type="password"
-        bind:value={accessKey}
-        placeholder="Enter access key"
+        bind:value={password}
+        placeholder="Enter password"
       />
 
       <button on:click={handleLogin}>Login</button>

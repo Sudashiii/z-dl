@@ -5,31 +5,35 @@ import { json } from '@sveltejs/kit';
 
 const zlib = new ZLibrary("https://1lib.sk");
 
-
-
 // -------------------------------
 // GET /api/zlibrary/download
 // -------------------------------
-export const GET: RequestHandler = async ({ request, locals }) => {
-    const r: ZSearchBookRequest = {
-        searchText: "Harry Potter and the Goblet of Fire",
-        limit: 1
-    };
+export const GET: RequestHandler = async ({ request, locals, url }) => {
 
     if (!locals.zuser) {
 		return json({ error: 'ZLib Login is not valid!' }, { status: 400 });
 	}
     
+    const bookId = url.searchParams.get('bookId');
+    const hash = url.searchParams.get('hash');
+
+    if(!bookId || !hash) {
+        return json({ error: 'Missing bookId or hash parameter' }, { status: 400 });
+    }
+
     try {
 
         var loggedIn = await zlib.tokenLogin(locals.zuser.userId, locals.zuser.userKey);
-        var response = await zlib.search(r);
 
-        var dlRes = await zlib.download(response.books[0].id.toString(), response.books[0].hash);
-        var buffer = await dlRes.arrayBuffer();
+        if(!loggedIn) {
+            return json({ error: 'Z-Lib Login failed' }, { status: 401 });
+        }
 
-		return new Response(buffer, {
-			headers: dlRes.headers
+        var bookDownloadResponse = await zlib.download(bookId, hash);
+        var fileBuffer = await bookDownloadResponse.arrayBuffer();
+
+		return new Response(fileBuffer, {
+			headers: bookDownloadResponse.headers
 		});
 
     } catch (err: any) {

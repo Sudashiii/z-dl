@@ -3,6 +3,7 @@ import type { ZBookFileResponse } from "$lib/types/ZLibrary/Responses/ZBookFileR
 import type { ZSearchBookResponse } from "$lib/types/ZLibrary/Responses/ZSearchBookResponse";
 import type { ZBook } from "$lib/types/ZLibrary/ZBook";
 import type { IZLibrary } from "../abstractions/IZLibrary";
+import { toUrlEncoded } from "../util/toUrlEncode";
 
 export class ZLibrary implements IZLibrary
 {
@@ -30,10 +31,12 @@ export class ZLibrary implements IZLibrary
         if (searchText) body.message = searchText;
         if (yearFrom) body.yearFrom = yearFrom;
         if (yearTo) body.yearTo = yearTo;
-        if (languages) body.languages = languages;
-        if (extensions?.length) body['extensions[]'] = extensions;
+        if (languages?.length) body.languages = languages;
+        if (extensions?.length) body.extensions = extensions;
         if (order) body.order = order;
         if (limit !== undefined) body.limit = limit;
+
+        console.log(toUrlEncoded(body));
 
         const res = await this.post('/eapi/book/search', body);
 
@@ -132,7 +135,7 @@ export class ZLibrary implements IZLibrary
         const res = await fetch(this.baseUrl + path, {
             method: 'POST',
             headers: this.getHeaders(),
-            body: new URLSearchParams(data)
+            body: toUrlEncoded(data)
         });
 
         if (!res.ok) {

@@ -1,33 +1,43 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { env } from '$env/dynamic/public';
     import type { ZBook } from '$lib/types/ZLibrary/ZBook';
-    const apiUrl = env.PUBLIC_ZDL_URL;
+    import { goto } from "$app/navigation";
+    import type { ZSearchBookRequest } from '$lib/types/ZLibrary/Requests/ZSearchBookRequest';
+    import type { ZLoginRequest } from '$lib/types/ZLibrary/Requests/ZLoginRequest';
 
-    let accessKey = '';
+    const apiUrl = "/api"
+
+    let authUser = '';
+    let authPass = '';
     let title = '';
-    let lang = 'German';
+    let lang = 'german';
     let format = 'EPUB';
     let titlefix = false;
     let books: ZBook[] = [];
 
+    let zUser = '';
+    let zPass = '';
+
     async function booksList() {
-        if (!accessKey && typeof localStorage !== 'undefined') {
-            accessKey = localStorage.getItem('accessKey') || '';
+        if ((!authUser || !authPass) && typeof localStorage !== 'undefined') {
+            authUser = localStorage.getItem('authUser') || '';
+            authPass = localStorage.getItem('authPass') || '';
         }
+        const credentials = btoa(`${authUser}:${authPass}`);
+        
 
-        const payload = {
-            title,
-            lang,
-            format,
-            titlefix,
-        };
+        const payload: ZSearchBookRequest = { 
+            searchText: title, 
+            languages: [lang], 
+            extensions: [format],
+         };
 
-        const res = await fetch(apiUrl + '/books-list', {
+
+        const res = await fetch(apiUrl + '/zlibrary/search', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Api-Key': accessKey,
+		        'Authorization': `Basic ${credentials}`,
             },
             body: JSON.stringify(payload),
         });
@@ -41,24 +51,20 @@
     }
 
     async function downloadBook(book: ZBook) {
-        if (!accessKey && typeof localStorage !== 'undefined') {
-            accessKey = localStorage.getItem('accessKey') || '';
+        if ((!authUser || !authPass) && typeof localStorage !== 'undefined') {
+            authUser = localStorage.getItem('authUser') || '';
+            authPass = localStorage.getItem('authPass') || '';
         }
+        const credentials = btoa(`${authUser}:${authPass}`);
 
-        const payload = {
-            id: book.id,
-            hash: book.hash,
-            title: book.title,
-            format: book.extension
-        };
+  
 
-        const res = await fetch(apiUrl + '/books-download', {
-            method: 'POST',
+        const res = await fetch(apiUrl + '/zlibrary/download' + `?bookId=${book.id}&hash=${book.hash}`, {
+            method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Api-Key': accessKey,
-            },
-            body: JSON.stringify(payload),
+		        'Authorization': `Basic ${credentials}`,
+            }
         });
 
         if (!res.ok) {
@@ -75,9 +81,55 @@
         window.URL.revokeObjectURL(url);
     }
 
-    onMount(() => {
-        if (typeof localStorage !== 'undefined') {
-            accessKey = localStorage.getItem('accessKey') || '';
+    async function login() {
+        if ((!authUser || !authPass) && typeof localStorage !== 'undefined') {
+            authUser = localStorage.getItem('authUser') || '';
+            authPass = localStorage.getItem('authPass') || '';
+        }
+        const credentials = btoa(`${authUser}:${authPass}`);
+        
+        const payload: ZLoginRequest = { 
+            userId: zUser, 
+            userKey: zPass, 
+         };
+
+
+        const res = await fetch(apiUrl + '/zlibrary/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+		        'Authorization': `Basic ${credentials}`,
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+            console.error('Request failed', res.statusText);
+            return;
+        }
+        let booksResponse: ZBook[] = await res.json();
+        books = booksResponse;
+    }
+
+    onMount(async () => {
+        if ((!authUser || !authPass) && typeof localStorage !== 'undefined') {
+            authUser = localStorage.getItem('authUser') || '';
+            authPass = localStorage.getItem('authPass') || '';
+        }
+        const credentials = btoa(`${authUser}:${authPass}`);
+
+        try {
+        const res = await fetch(`${apiUrl}/auth-check`, {
+            headers: { Authorization: `Basic ${credentials}` },
+        });
+
+        if (res.status === 200) {
+
+        } else {
+            goto("/");
+        }
+        } catch {
+            goto("/");
         }
     });
 </script>
@@ -93,6 +145,11 @@
         </label>
 
         <button on:click={booksList}>Search</button>
+
+        <input type="text" placeholder="zUser" bind:value={zUser} />
+        <input type="text" placeholder="zPass" bind:value={zPass} />
+        <button on:click={login}>Login</button>
+
     </div>
 
     <div class="book-list">
