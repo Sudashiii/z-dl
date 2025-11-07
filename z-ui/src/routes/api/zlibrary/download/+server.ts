@@ -37,7 +37,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
             const uploadService = DavUploadServiceFactory.createS3();
             const key = `${title}_${bookId}.${extension}`;
             await uploadService.upload(key, Buffer.from(fileBuffer));
-            BookRepository.create({  s3_storage_key: key, title: title });
+            BookRepository.create({  s3_storage_key: key, title: title, zLibId: bookId });
         }
 
 		return new Response(fileBuffer, {

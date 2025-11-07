@@ -1,0 +1,23 @@
+meta {
+  name: POST Confirm Download
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base_url}}/api/library/confirmDownload
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "deviceId": "1",
+    "bookId": {{book_id}}
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
