@@ -1,6 +1,7 @@
 import { DavUploadServiceFactory } from '$lib/server/application/factories/DavUploadServiceFactory';
 import { S3Storage } from '$lib/server/application/S3Storage';
 import { mimeTypes } from '$lib/server/constants/mimeTypes';
+import { BookRepository } from '$lib/server/infrastructure/repositories/BookRepository';
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 
@@ -11,7 +12,7 @@ const s3 = new S3Storage();
 // -------------------------------
 export const GET: RequestHandler = async ({ params }) => {
 	const { title } = params;
-
+	console.log("Fetching title:", title);
 	const key = `library/${title}`;
     const extension = key.split(".").pop()?.toLowerCase() || "default";
 	//@ts-ignore
@@ -19,8 +20,9 @@ export const GET: RequestHandler = async ({ params }) => {
 
 	try {
 		const data: Buffer<ArrayBufferLike> = await s3.get(key);
+		console.log("Fetching data of length: ", data.length.toString());
+
 		const arrayBuffer = data.buffer as ArrayBuffer;
-		console.log(data.length)
 		return new Response(arrayBuffer, {
 			headers: {
 				'Content-Type': contentType,
@@ -50,6 +52,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 
 		const uploadService = DavUploadServiceFactory.createS3();
 		await uploadService.upload(title, Buffer.from(body));
+		BookRepository.create({  s3_storage_key: title, title: title, zLibId: "000000" });
 		
 		return json({ success: true });
 	} catch (err: any) {

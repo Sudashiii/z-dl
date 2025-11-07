@@ -5,17 +5,17 @@ import { requireBasicAuth } from '$lib/server/auth/basicAuth';
 const basicAuthHandle: Handle = async ({ event, resolve }) => {
 	const { request, url } = event;
 
-	if (url.pathname.startsWith('/api/')) {
-		try {
-			requireBasicAuth(request);
-		} catch (err) {
-			if (err instanceof Response) {
-				return err;
-			}
-			console.error('Auth error:', err);
-			return new Response('Authentication error', { status: 500 });
-		}
-	}
+	// if (url.pathname.startsWith('/api/')) {
+	// 	try {
+	// 		requireBasicAuth(request);
+	// 	} catch (err) {
+	// 		if (err instanceof Response) {
+	// 			return err;
+	// 		}
+	// 		console.error('Auth error:', err);
+	// 		return new Response('Authentication error', { status: 500 });
+	// 	}
+	// }
 
 	return resolve(event);
 };
