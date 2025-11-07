@@ -45,7 +45,6 @@ export class ZLibrary implements IZLibrary
 
     async download(bookId: string, hash: string) {
         console.log(`Downloading book ${bookId} with hash ${hash}`);
-        //@ts-ignore
         const response = await this.get(`/eapi/book/${bookId}/${hash}/file`);
         const json: ZBookFileResponse = await response.json();
 

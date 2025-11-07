@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/private';
 
-const validUsers = env.USER ? env.USER.split(',') : [];
-const validPasswords = env.PASSWORD ? env.PASSWORD.split(',') : [];
+const validUsers = env.USERS ? env.USERS.split(',') : [];
+const validPasswords = env.PASSWORDS ? env.PASSWORDS.split(',') : [];
 
 /**
  * Simple HTTP Basic Authentication check.

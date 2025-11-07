@@ -1,3 +1,4 @@
+import { DavUploadServiceFactory } from '$lib/server/application/factories/DavUploadServiceFactory';
 import { S3Storage } from '$lib/server/application/S3Storage';
 import { mimeTypes } from '$lib/server/constants/mimeTypes';
 import type { RequestHandler } from '@sveltejs/kit';
@@ -19,7 +20,7 @@ export const GET: RequestHandler = async ({ params }) => {
 	try {
 		const data: Buffer<ArrayBufferLike> = await s3.get(key);
 		const arrayBuffer = data.buffer as ArrayBuffer;
-
+		console.log(data.length)
 		return new Response(arrayBuffer, {
 			headers: {
 				'Content-Type': contentType,
@@ -38,19 +39,19 @@ export const GET: RequestHandler = async ({ params }) => {
 // -------------------------------
 export const PUT: RequestHandler = async ({ params, request }) => {
 	const { title } = params;
-	const key = `library/${title}`;
+
+	if(!title) {
+		return json({ error: 'Missing title parameter' }, { status: 400 });
+	}
 
 	try {
 		// Read the binary body from the request
 		const body = await request.arrayBuffer();
 
-		// Detect MIME type (optional but nice for R2 / S3 metadata)
-		const extension = key.split('.').pop()?.toLowerCase() || 'default';
-		const contentType: string = mimeTypes[extension] || mimeTypes.default;
-
-		await s3.put(key, Buffer.from(body), contentType);
-
-		return json({ success: true, key });
+		const uploadService = DavUploadServiceFactory.createS3();
+		await uploadService.upload(title, Buffer.from(body));
+		
+		return json({ success: true });
 	} catch (err: any) {
 		console.error('Upload failed:', err);
 		return json({ error: 'Upload failed' }, { status: 500 });

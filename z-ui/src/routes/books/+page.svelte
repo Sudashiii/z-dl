@@ -59,12 +59,19 @@
 
   
 
-        const res = await fetch(apiUrl + '/zlibrary/download' + `?bookId=${book.id}&hash=${book.hash}`, {
-            method: 'GET',
+        const res = await fetch(apiUrl + '/zlibrary/download', {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
 		        'Authorization': `Basic ${credentials}`,
-            }
+            },
+            body: JSON.stringify({
+                bookId: book.id,
+                hash: book.hash,
+                title: book.title,
+                upload: true,
+                extension: book.extension
+            }),
         });
 
         if (!res.ok) {
