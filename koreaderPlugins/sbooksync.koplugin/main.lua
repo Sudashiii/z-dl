@@ -33,13 +33,10 @@ SBookSync.get_new_books_route = "/new?deviceId="
 SBookSync.post_confirm_book_download_route = "/confirmDownload"
 SBookSync.get_download_book = "/"
 SBookSync.confirm_download_book = "/confirmDownload"
-SBookSync.debug_mode = true
-SBookSync.books_downloaded_counter = 0
+SBookSync.debug_mode = false
 
-
-SBookSync.basic_user = "sudashi"
-SBookSync.basic_pass = "dek29fme2l59dnrk3d"
-
+SBookSync.basic_user = "###"
+SBookSync.basic_pass = "###"
 
 function SBookSync:init()
     self:onDispatcherRegisterActions()
@@ -52,18 +49,31 @@ function SBookSync:init()
     end
     self.onResume = self._onResume
     self.onSuspend = self._onSuspend
-    -- UIManager:scheduleIn(1, self.scheduled_callback)
+    UIManager:scheduleIn(1, self.scheduled_callback)
 end
 
 function SBookSync:getNewBooks()
     self:showInfoDebug("Searching for new Books...")
+    local auth_header_value = self:createBasicAuthHeader()
+    self.showInfoDebug("Auth Header: " .. auth_header_value)    
 
-    local body, code, headers, status = http.request(self.request_url .. self.get_new_books_route .. self.device_id)
+    local target_url = self.request_url .. self.get_new_books_route .. self.device_id
+    
+    local response_body = {}
+    local success, statusCode, headers, statusText = http.request{
+        url = target_url,
+        method = "GET",
+        headers = {
+            ["Authorization"] = auth_header_value,
+        },
+        sink = ltn12.sink.table(response_body)
+    }
 
-    if code ~= 200 then
+    if statusCode ~= 200 then
         return false, "Getting new Book failed - " .. tostring(code)
     end
 
+    local body = table.concat(response_body)
     local ok, result = pcall(function()
         return json.decode(body)
     end)
@@ -97,10 +107,15 @@ function SBookSync:downloadBook(s3Key, bookId)
             error("Failed to open file: " .. tostring(err))
         end
 
+        local auth_header_value = self:createBasicAuthHeader()
+
         local success, statusCode, headers, statusText = http.request{
             url = download_url,
             sink = ltn12.sink.file(file),
             redirect = true,
+            headers = {
+                ["Authorization"] = auth_header_value,
+            },
         }
 
         if not success then
@@ -112,8 +127,8 @@ function SBookSync:downloadBook(s3Key, bookId)
         end
 
         local registerSuccess, registerMessage = self:registerBookAsDownloaded(bookId)
-        self.books_downloaded_counter = self.books_downloaded_counter + 1
-
+        self:showInfoDebug(registerMessage)
+        
         if not registerSuccess then
             error(registerMessage)
         end
@@ -144,13 +159,17 @@ function SBookSync:registerBookAsDownloaded(bookId)
 
     local target_url = self.request_url .. self.confirm_download_book
     local response_body = {}
+    local auth_header_value = self:createBasicAuthHeader()
 
     local success, statusCode, headers, statusText = http.request{
         url = target_url,
         method = "POST",
         headers = {
             ["Content-Type"] = "application/json",
-            ["Content-Length"] = tostring(#body)
+            ["Content-Length"] = tostring(#body),
+            headers = {
+                ["Authorization"] = auth_header_value,
+            },
         },
         source = ltn12.source.string(body),
         sink = ltn12.sink.table(response_body)
@@ -167,15 +186,7 @@ function SBookSync:registerBookAsDownloaded(bookId)
     return true, "Confirmed book download"
 end
 
-
-function SBookSync:sanitizeFilename(name)
-    name = string.gsub(name, "%s+", "_")
-
-    name = string.gsub(name, "[^%w%._%-]", "")
-    return name
-end
-
-function createBasicAuthHeader(username, password)
+function SBookSync:createBasicAuthHeader()
     local credentials = self.basic_user .. ":" .. self.basic_pass
     
     local encoded_credentials = (mime.b64(credentials))
@@ -183,31 +194,12 @@ function createBasicAuthHeader(username, password)
     return "Basic " .. encoded_credentials
 end
 
-function SBookSync:show()
-    -- local path = G_reader_settings:readSetting("home_dir")
-    -- local texttoshow = path
-    
-    -- local body, code, headers, status = http.request(self.request_url .. self.get_new_books_route .. self.device_id)
-    -- texttoshow = "HTTP code: " .. tostring(code)
-    -- if code == 200 and body then
-    -- local ok, result = pcall(function()
-    --     return json.decode(body)
-    -- end)
 
-        -- if ok and result then
-        --     texttoshow = result.name
-        -- else
-        --     texttoshow = "Failed to parse JSON:" .. tostring(result)
-        -- end
-    -- else
-    --     texttoshow = "HTTP request failed with code: " .. tostring(code)
-    -- end
+function SBookSync:sanitizeFilename(name)
+    name = string.gsub(name, "%s+", "_")
 
-
-    -- UIManager:show(InfoMessage:new{
-    --     text = texttoshow,
-    -- })
-    -- UIManager:scheduleIn(15, self.scheduled_callback)
+    name = string.gsub(name, "[^%w%._%-]", "")
+    return name
 end
 
 function SBookSync:showInfoDebug(msg)
@@ -219,66 +211,18 @@ function SBookSync:showInfoDebug(msg)
     })
 end
 
-function SBookSync:showInfo(msg)
+function SBookSync:showDebug(msg)
     UIManager:show(InfoMessage:new{
         text = msg,
     })
-end
-
-
-function SBookSync:showMsg(msg)
-    local ok, msg = self:saveBinary()
-    UIManager:show(InfoMessage:new{
-        text = msg,
-    })
-end
-
-function SBookSync:saveBinary()
-    -- local ok, result, message = pcall(function()
-    --     local output_path = G_reader_settings:readSetting("home_dir") .. "/todo_get_book_title.epub"
-
-    --     local file, err = io.open(output_path, "wb")
-    --     if not file then
-    --         error("Failed to open file: " .. tostring(err))
-    --     end
-
-    --     local success, statusCode, headers, statusText = http.request{
-    --         url = self.request_url,
-    --         sink = ltn12.sink.file(file),
-    --         redirect = true,
-    --     }
-
-    --     if not success then
-    --         error("HTTP request failed: " .. tostring(statusCode))
-    --     end
-
-    --     if tonumber(statusCode) ~= 200 then
-    --         error("Unexpected status: " .. tostring(statusCode))
-    --     end
-
-    --     return true, "Downloaded to " .. output_path
-    -- end)
-
-    -- if not ok then
-    --     return false, "saveBinary failed: " .. tostring(result)
-    -- end
-
-    -- return result, message
 end
 
 function SBookSync:_onResume()
-    if self.books_downloaded_counter != 0 then
-        self:showInfo("Downloaded " .. tostring(self.books_downloaded_counter) .. " new books while away.")
-        self.books_downloaded_counter = 0
-    end
 end
 
 function SBookSync:_onSuspend()
     UIManager:scheduleIn(3, self.scheduled_callback)
 end
-
-
-
 
 function SBookSync:onDispatcherRegisterActions()
     Dispatcher:registerAction("helloworld_action", {category="none", event="HelloWorld", title=_("Hello World"), general=true,})
