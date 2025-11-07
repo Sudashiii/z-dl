@@ -25,8 +25,8 @@ local SBookSync = WidgetContainer:extend{
     is_doc_only = false,
 }
 SBookSync.scheduled_callback = nil
-SBookSync.request_url = "https://undaubed-decapodous-prudence.ngrok-free.dev/api/library"
--- SBookSync.request_url = "https://z-dl.codingsascha.dev/api/library"
+-- SBookSync.request_url = "https://undaubed-decapodous-prudence.ngrok-free.dev/api/library"
+SBookSync.request_url = "https://z-dl.codingsascha.dev/api/library"
 SBookSync.device_id = "kindle_001"
 
 SBookSync.get_new_books_route = "/new?deviceId="
@@ -37,6 +37,9 @@ SBookSync.debug_mode = false
 
 SBookSync.basic_user = "###"
 SBookSync.basic_pass = "###"
+
+SBookSync.books_downloaded = 0
+
 
 function SBookSync:init()
     self:onDispatcherRegisterActions()
@@ -49,7 +52,7 @@ function SBookSync:init()
     end
     self.onResume = self._onResume
     self.onSuspend = self._onSuspend
-    UIManager:scheduleIn(1, self.scheduled_callback)
+    -- UIManager:scheduleIn(1, self.scheduled_callback)
 end
 
 function SBookSync:getNewBooks()
@@ -126,6 +129,8 @@ function SBookSync:downloadBook(s3Key, bookId)
             error("Download new Book failed - " .. tostring(statusCode))
         end
 
+        self.books_downloaded = self.books_downloaded + 1
+
         local registerSuccess, registerMessage = self:registerBookAsDownloaded(bookId)
         self:showInfoDebug(registerMessage)
         
@@ -167,9 +172,7 @@ function SBookSync:registerBookAsDownloaded(bookId)
         headers = {
             ["Content-Type"] = "application/json",
             ["Content-Length"] = tostring(#body),
-            headers = {
-                ["Authorization"] = auth_header_value,
-            },
+            ["Authorization"] = auth_header_value,
         },
         source = ltn12.source.string(body),
         sink = ltn12.sink.table(response_body)
@@ -211,13 +214,17 @@ function SBookSync:showInfoDebug(msg)
     })
 end
 
-function SBookSync:showDebug(msg)
+function SBookSync:showInfo(msg)
     UIManager:show(InfoMessage:new{
         text = msg,
     })
 end
 
 function SBookSync:_onResume()
+    if self.books_downloaded ~= 0 then
+        self:showInfo("Books while away: " .. tostring(self.books_downloaded))
+        self.books_downloaded = 0
+    end
 end
 
 function SBookSync:_onSuspend()
