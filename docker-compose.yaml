@@ -1,22 +1,6 @@
 version: '3.8'
 
 services:
-  z-dl:
-    build:
-      context: ./z-dl
-      dockerfile: dockerfile
-    image: z-dl
-    container_name: z-dl
-    ports:
-      - "6126:6126"
-    volumes:
-      - ./z-dl:/app
-    environment:
-      - FLASK_ENV=production
-      - STORAGE_URL=http://z-st:1900
-    networks:
-      - znetwork
-
   z-ui:
     build:
       context: ./z-ui
@@ -27,6 +11,11 @@ services:
       - "5173:3000"
     environment:
       - PUBLIC_ZDL_URL=http://z-dl:6126
+    volumes:
+      - ./z-ui/src:/app/src
+      - /app/node_modules   
+    env_file:
+      - ./z-ui/.env
     networks:
       - znetwork
 
