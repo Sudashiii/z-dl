@@ -88,36 +88,6 @@
         window.URL.revokeObjectURL(url);
     }
 
-    async function login() {
-        if ((!authUser || !authPass) && typeof localStorage !== 'undefined') {
-            authUser = localStorage.getItem('authUser') || '';
-            authPass = localStorage.getItem('authPass') || '';
-        }
-        const credentials = btoa(`${authUser}:${authPass}`);
-        
-        const payload: ZLoginRequest = { 
-            userId: zUser, 
-            userKey: zPass, 
-         };
-
-
-        const res = await fetch(apiUrl + '/zlibrary/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-		        'Authorization': `Basic ${credentials}`,
-            },
-            body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-            console.error('Request failed', res.statusText);
-            return;
-        }
-        let booksResponse: ZBook[] = await res.json();
-        books = booksResponse;
-    }
-
     onMount(async () => {
         if ((!authUser || !authPass) && typeof localStorage !== 'undefined') {
             authUser = localStorage.getItem('authUser') || '';
@@ -142,20 +112,27 @@
 </script>
 
 <main class="books">
-    <div class="search-bar">
-        <input type="text" placeholder="Title" bind:value={title} />
-        <input type="text" placeholder="Lang" bind:value={lang} />
-        <input type="text" placeholder="Format" bind:value={format} />
 
-        <label class="checkbox">
-            <input type="checkbox" bind:checked={titlefix} /> Titlefix
-        </label>
+    <div class="search">
 
-        <button on:click={booksList}>Search</button>
+        <div class="search-bar">
+            <input type="text" placeholder="Search for Books" bind:value={title} />
+        </div>
 
-        <input type="text" placeholder="zUser" bind:value={zUser} />
-        <input type="text" placeholder="zPass" bind:value={zPass} />
-        <button on:click={login}>Login</button>
+        <div class="search-options">
+            <input type="text" placeholder="Lang" bind:value={lang} />
+            <input type="text" placeholder="Format" bind:value={format} />
+
+            <label class="checkbox">
+                <input type="checkbox" bind:checked={titlefix} /> Titlefix
+            </label>
+            <button on:click={booksList}>Search</button>
+        </div>
+        <div>
+        </div>
+    </div>
+    <div>
+
 
     </div>
 
@@ -165,14 +142,17 @@
                 <div class="book-card">
                     <img src={book.cover} alt={book.title} />
                     <div class="details">
-                        <h3>{book.title}</h3>
-                        <p><strong>Author:</strong> {book.author}</p>
-                        <p><strong>Publisher:</strong> {book.publisher}</p>
-                        <p><strong>Type:</strong> {book.extension}</p>
-                        <p><strong>Year:</strong> {book.year}</p>
-                        <p><strong>Language:</strong> {book.language}</p>
-                        <p><strong>Size:</strong> {book.filesizeString}</p>
-                        <p><strong>Book Score/Quality:</strong> {book.interestScore}/{book.qualityScore}</p>
+                        <div>
+                            <h3>{book.title}</h3>
+                            <p>by {book.author}</p>
+                        </div>
+                        <!-- <p><strong>Publisher:</strong> {book.publisher}</p>
+                        <p><strong>Type:</strong> </p>
+                        <p><strong>Year:</strong> </p>
+                        <p><strong>Language:</strong> </p>
+                        <p><strong>Size:</strong> </p>
+                        <p><strong>Book Score/Quality:</strong> {book.interestScore}/{book.qualityScore}</p> -->
+                        <p>{book.language} | {book.year} | {book.filesizeString} | {book.extension} | Interest Score: {book.interestScore} | Quality Score: {book.qualityScore}</p>
                     </div>
                     <button class="download-btn" on:click={() => downloadBook(book)}>⬇️</button>
                 </div>
@@ -187,25 +167,45 @@
     .books {
         padding: 2rem;
         color: #fff;
-        background: #1e1e2f;
         min-height: 100vh;
         font-family: system-ui, sans-serif;
     }
 
-    .search-bar {
+    .search {
         display: flex;
         gap: 0.5rem;
         flex-wrap: wrap;
         margin-bottom: 2rem;
+        flex-direction: column;
+        gap: 2rem;
     }
 
     input, button {
         padding: 0.6rem 0.8rem;
         border-radius: 0.5rem;
-        border: 1px solid #444;
-        background: #2e2e40;
+        border: none;
+        background-color: rgb(39, 54, 71);
         color: #fff;
         font-size: 0.95rem;
+        width: inherit;
+    }
+
+    .search-bar {
+        width: 100%;
+        height: 120%;
+    }
+
+    .search-bar input {
+        padding-block: 1rem;
+        padding-inline: 1.6rem;
+        box-sizing: border-box;
+    }
+
+    .search-options {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-wrap: wrap;
     }
 
     input:focus {
@@ -240,16 +240,22 @@
     .book-card {
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        background: #2e2e40;
+        background: rgb(28, 38, 50);
+        border: 1px solid #324d67;
         border-radius: 0.75rem;
         padding: 1rem;
         gap: 1rem;
     }
 
+    .book-card .details {
+        display: flex;
+        justify-content: space-between;
+        flex-direction: column;
+    }
+
     .book-card img {
-        width: 80px;
-        height: 120px;
+        width: calc(80px * 1.5);
+        height: calc(120px * 1.5);
         border-radius: 0.3rem;
         object-fit: cover;
     }
