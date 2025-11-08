@@ -15,7 +15,8 @@ body:multipart-form {
 }
 
 body:file {
-  file: @file(C:\Users\Sascha\Downloads\harry_potter_stein_der_weisen.epub) @contentType(application/epub+zip)
+  file: @file(/Users/sascha/Downloads/Harry Potter & the Goblet of Fire.epub) @contentType(application/epub+zip)
+  ~file: @file(C:\Users\Sascha\Downloads\harry_potter_stein_der_weisen.epub) @contentType(application/epub+zip)
 }
 
 settings {

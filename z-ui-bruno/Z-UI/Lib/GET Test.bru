@@ -1,0 +1,32 @@
+meta {
+  name: GET Test
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{base_url}}/api/library/test
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  const body = res.body
+  
+  if (Array.isArray(body) && body.length > 0) {
+    const firstBook = body[0];
+  
+    bru.setEnvVar('s3_storage_key', firstBook.s3_storage_key);
+    bru.setEnvVar('book_id', firstBook.id);
+  
+    console.log(`✅ Stored s3_storage_key=${firstBook.s3_storage_key}, book_hash=${firstBook.hash}`);
+  } else {
+    console.warn('⚠️ No books found in response body');
+  }
+  
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
