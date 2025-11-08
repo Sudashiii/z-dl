@@ -36,8 +36,6 @@ export class ZLibrary implements IZLibrary
         if (order) body.order = order;
         if (limit !== undefined) body.limit = limit;
 
-        console.log(toUrlEncoded(body));
-
         const res = await this.post('/eapi/book/search', body);
 
         return res;

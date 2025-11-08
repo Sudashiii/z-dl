@@ -25,7 +25,7 @@ export function requireBasicAuth(request: Request): void {
 	const isAuthorized = validUsers.some(
 		(user, index) => user === username && validPasswords[index] === password
 	);
-
+	
 	if (!isAuthorized) {
 		throwUnauthorized();
 	}
