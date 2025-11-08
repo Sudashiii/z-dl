@@ -73,7 +73,7 @@ function SBookSync:getNewBooks()
     }
 
     if statusCode ~= 200 then
-        return false, "Getting new Book failed - " .. tostring(code)
+        return false, "Getting new Book failed - " .. tostring(statusCode)
     end
 
     local body = table.concat(response_body)

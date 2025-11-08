@@ -59,6 +59,14 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com">
+
+	<link
+		href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Literata:wght@400;500;600&display=swap"
+		rel="stylesheet"
+	>
+
 </svelte:head>
 
 <div>
@@ -98,13 +106,22 @@
 {/if}
 
 <style>
+	:root {
+		--font-ui: 'Inter', sans-serif;
+		--font-reading: 'Literata', serif;
+	}
+
 	:global(body) {
-		font-family: system-ui, sans-serif;
+  		font-family: var(--font-ui);
 		background: rgb(19, 26, 33);
 		color: #fff;
 		max-width: 1200px;
 		margin: 0 auto;
 		padding: 0 2rem;
+	}
+
+	:global(h1, h2, h3) {
+		font-family: var(--font-reading);
 	}
 
 	.zlib-login {
