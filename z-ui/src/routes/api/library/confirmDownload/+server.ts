@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	// Create new download entry
-	const download = DeviceDownloadRepository.create({ deviceId, bookId });
+	const download = await DeviceDownloadRepository.create({ deviceId, bookId });
 
 	return new Response(JSON.stringify(download), {
 		status: 201,

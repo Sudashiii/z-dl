@@ -1,21 +1,25 @@
-import { db } from '$lib/server/infrastructure/db';
+import { db } from '$lib/server/infrastructure/db/db';
 import type { DeviceDownload } from '$lib/server/infrastructure/dbModels/models';
 
 export class DeviceDownloadRepository {
-	static getAll(): DeviceDownload[] {
-		return db.prepare('SELECT * FROM DeviceDownloads').all() as DeviceDownload[];
+	static async getAll(): Promise<DeviceDownload[]> {
+		const result = await db.execute('SELECT * FROM DeviceDownloads');
+		return result.rows as unknown as DeviceDownload[];
 	}
 
-	static getByDevice(deviceId: string): DeviceDownload[] {
-		return db
-			.prepare('SELECT * FROM DeviceDownloads WHERE deviceId = ?')
-			.all(deviceId) as DeviceDownload[];
+	static async getByDevice(deviceId: string): Promise<DeviceDownload[]> {
+		const result = await db.execute({
+			sql: 'SELECT * FROM DeviceDownloads WHERE deviceId = ?',
+			args: [deviceId]
+		});
+		return result.rows as unknown as DeviceDownload[];
 	}
 
-	static create(download: Omit<DeviceDownload, 'id'>): DeviceDownload {
-		const result = db
-			.prepare('INSERT INTO DeviceDownloads (deviceId, bookId) VALUES (?, ?)')
-			.run(download.deviceId, download.bookId);
+	static async create(download: Omit<DeviceDownload, 'id'>): Promise<DeviceDownload> {
+		const result = await db.execute({
+			sql: 'INSERT INTO DeviceDownloads (deviceId, bookId) VALUES (?, ?)',
+			args: [download.deviceId, download.bookId]
+		});
 
 		return {
 			id: Number(result.lastInsertRowid),
@@ -23,7 +27,10 @@ export class DeviceDownloadRepository {
 		};
 	}
 
-	static delete(id: number): void {
-		db.prepare('DELETE FROM DeviceDownloads WHERE id = ?').run(id);
+	static async delete(id: number): Promise<void> {
+		await db.execute({
+			sql: 'DELETE FROM DeviceDownloads WHERE id = ?',
+			args: [id]
+		});
 	}
 }

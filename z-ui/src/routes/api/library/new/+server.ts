@@ -9,7 +9,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		return new Response(JSON.stringify({ error: 'Missing deviceId parameter' }), { status: 400 });
 	}
 
-	const books = BookRepository.getNotDownloadedByDevice(deviceId);
+	const books = await BookRepository.getNotDownloadedByDevice(deviceId);
 	return new Response(JSON.stringify(books), {
 		status: 200,
 		headers: { 'Content-Type': 'application/json' }

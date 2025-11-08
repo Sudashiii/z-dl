@@ -1,40 +1,50 @@
-import { db } from '$lib/server/infrastructure/db';
 import type { Book } from '$lib/server/infrastructure/dbModels/models';
+import { db } from '../db/db';
 
 export class BookRepository {
-	static getAll(): Book[] {
-		return db.prepare('SELECT * FROM Books').all() as Book[];
+	static async getAll(): Promise<Book[]> {
+		const result = await db.execute('SELECT * FROM Books');
+		return result.rows as unknown as Book[];
 	}
 
-	static getById(id: number): Book | undefined {
-		return db.prepare('SELECT * FROM Books WHERE id = ?').get(id) as Book | undefined;
+	static async getById(id: number): Promise<Book | undefined> {
+		const result = await db.execute({
+			sql: 'SELECT * FROM Books WHERE id = ?',
+			args: [id]
+		});
+		return (result.rows[0] as unknown as Book) ?? undefined;
 	}
 
-	static create(book: Omit<Book, 'id'>): Book {
-		const result = db
-			.prepare('INSERT INTO Books (s3_storage_key, title) VALUES (?, ?)')
-			.run(book.s3_storage_key, book.title);
+	static async create(book: Omit<Book, 'id'>): Promise<Book> {
+		const result = await db.execute({
+			sql: 'INSERT INTO Books (s3_storage_key, title) VALUES (?, ?)',
+			args: [book.s3_storage_key, book.title]
+		});
 
+		// Turso returns `last_insert_rowid` in `result.lastInsertRowid`
 		return {
 			id: Number(result.lastInsertRowid),
 			...book
 		};
 	}
 
-	static delete(id: number): void {
-		db.prepare('DELETE FROM Books WHERE id = ?').run(id);
+	static async delete(id: number): Promise<void> {
+		await db.execute({
+			sql: 'DELETE FROM Books WHERE id = ?',
+			args: [id]
+		});
 	}
 
-	static getNotDownloadedByDevice(deviceId: string): Book[] {
-		return db
-			.prepare(
-				`
+	static async getNotDownloadedByDevice(deviceId: string): Promise<Book[]> {
+		const result = await db.execute({
+			sql: `
 				SELECT b.*
 				FROM Books b
 				LEFT JOIN DeviceDownloads d ON b.id = d.bookId AND d.deviceId = ?
 				WHERE d.bookId IS NULL
-				`
-			)
-			.all(deviceId) as Book[];
+			`,
+			args: [deviceId]
+		});
+		return result.rows as unknown as Book[];
 	}
 }
