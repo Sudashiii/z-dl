@@ -10,6 +10,7 @@ export const db = createClient({
 });
 
 export async function initializeDatabase() {
+
 	await db.execute(`
 		CREATE TABLE IF NOT EXISTS Books (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,

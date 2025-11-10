@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  z-mg-runner:
+    build:
+      context: ./z-mg
+      dockerfile: dockerfile
+    image: z-mg-runner
+    container_name: z-mg-runner
+    command: ["deno", "task", "migrate"]
+    env_file:
+      - ./z-mg/.env
+    networks:
+      - znetwork
+    restart: "no"
+
   z-ui:
     build:
       context: ./z-ui
@@ -18,6 +31,9 @@ services:
       - ./z-ui/.env
     networks:
       - znetwork
+    depends_on:
+      z-mg-runner:
+        condition: service_completed_successfully
 
 networks:
   znetwork:
