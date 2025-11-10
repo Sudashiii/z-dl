@@ -9,20 +9,17 @@ jobs:
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
-
+    environment: prod
+    
     steps:
       - name: SSH and Deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
-          # --- Server Credentials ---
-          # These are stored in your repo's Settings > Secrets > Actions
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: 22 # Default is 22, change if yours is different
+          port: 22 
 
-          # --- Deployment Script ---
-          # This script runs on your VPS
           script: |
             cd /home/ubuntu/z-dl
 
