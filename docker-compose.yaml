@@ -13,7 +13,7 @@ services:
     networks:
       - znetwork
     restart: "no"
-
+ 
   z-ui:
     build:
       context: ./z-ui
