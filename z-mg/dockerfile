@@ -1,0 +1,13 @@
+FROM denoland/deno:latest
+
+WORKDIR /app
+
+COPY deno.jsonc .
+
+COPY scripts/ ./scripts/
+
+COPY migrations/ ./migrations/
+
+RUN deno cache scripts/new_migration.ts scripts/migrate.ts scripts/rollback.ts
+
+CMD ["deno", "task", "migrate"]
