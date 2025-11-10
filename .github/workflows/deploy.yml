@@ -9,8 +9,9 @@ jobs:
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
+
     environment: prod
-    
+
     steps:
       - name: SSH and Deploy
         uses: appleboy/ssh-action@v1.0.3
@@ -22,15 +23,14 @@ jobs:
 
           script: |
             cd /home/ubuntu/z-dl
-
-            git pull origin master
-
-            echo "${{ secrets.Z_MG_ENV }}" > ./z-mg/.env
-
-            echo "${{ secrets.Z_UI_ENV }}" > ./z-ui/.env
-
-            docker-compose build --no-cache
-
-            docker-compose up -d --remove-orphans
-
-            docker image prune -f
+            
+            sudo git config --global --add safe.directory /home/ubuntu/z-dl
+            
+            sudo git pull origin master
+            
+            echo "${{ secrets.Z_MG_ENV }}" | sudo tee ./z-mg/.env > /dev/null
+            echo "${{ secrets.Z_UI_ENV }}" | sudo tee ./z-ui/.env > /dev/null
+            
+            sudo docker-compose build --no-cache
+            sudo docker-compose up -d --remove-orphans
+            sudo docker image prune -f
