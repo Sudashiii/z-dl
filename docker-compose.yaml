@@ -13,8 +13,8 @@ services:
     networks:
       - znetwork
     restart: "no"
- 
-  z-ui:
+  
+  z-ui: 
     build:
       context: ./z-ui
       dockerfile: dockerfile
