@@ -1,11 +1,11 @@
 meta {
-  name: DELETE Book
+  name: GET Auth Check
   type: http
-  seq: 2
+  seq: 1
 }
 
-delete {
-  url: {{base_url}}/api/library/{{s3_storage_key}}
+get {
+  url: {{base_url}}/api/auth-check
   body: none
   auth: inherit
 }

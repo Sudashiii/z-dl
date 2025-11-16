@@ -1,17 +1,11 @@
 <script lang="ts">
-    import { onMount } from "svelte";
     import type { ZBook } from "$lib/types/ZLibrary/ZBook";
-    import { goto } from "$app/navigation";
     import type { ZSearchBookRequest } from "$lib/types/ZLibrary/Requests/ZSearchBookRequest";
     import DropDown from "$lib/components/DropDown.svelte";
     import Loading from "$lib/components/Loading.svelte";
     import BookCard from "$lib/components/BookCard.svelte";
-    import { downloadBook } from "$lib/client/downloadBook";
+    import { ZUI } from "$lib/client/zui";
 
-    const apiUrl = "/api";
-
-    let authUser = "";
-    let authPass = "";
     let title = "";
     let lang = "german";
     let format = "epub";
@@ -20,11 +14,6 @@
 
     async function booksList() {
         isLoading = true;
-        if ((!authUser || !authPass) && typeof localStorage !== "undefined") {
-            authUser = localStorage.getItem("authUser") || "";
-            authPass = localStorage.getItem("authPass") || "";
-        }
-        const credentials = btoa(`${authUser}:${authPass}`);
 
         const payload: ZSearchBookRequest = {
             searchText: title,
@@ -32,46 +21,10 @@
             extensions: [format],
         };
 
-        const res = await fetch(apiUrl + "/zlibrary/search", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Basic ${credentials}`,
-            },
-            body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-            console.error("Request failed", res.statusText);
-            isLoading = false;
-            return;
-        }
-        let booksResponse: ZBook[] = await res.json();
-        books = booksResponse;
+        const res = await ZUI.searchBook(payload);
+        books = res.books;
         isLoading = false;
     }
-
-
-    onMount(async () => {
-        if ((!authUser || !authPass) && typeof localStorage !== "undefined") {
-            authUser = localStorage.getItem("authUser") || "";
-            authPass = localStorage.getItem("authPass") || "";
-        }
-        const credentials = btoa(`${authUser}:${authPass}`);
-
-        try {
-            const res = await fetch(`${apiUrl}/auth-check`, {
-                headers: { Authorization: `Basic ${credentials}` },
-            });
-
-            if (res.status === 200) {
-            } else {
-                goto("/");
-            }
-        } catch {
-            goto("/");
-        }
-    });
 </script>
 
 <main class="books">
@@ -106,7 +59,7 @@
     <div class="book-list">
         {#if books.length > 0}
             {#each books as book}
- 	            <BookCard {book} downloadBook={downloadBook} shareBook={downloadBook}/>
+ 	            <BookCard {book} downloadBook={ZUI.downloadBook} shareBook={ZUI.downloadBook}/>
             {/each}
         {:else}
             <p>No books found.</p>

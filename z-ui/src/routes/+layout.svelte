@@ -1,15 +1,21 @@
 <script lang="ts">
+    import { goto } from '$app/navigation';
 	import favicon from '$lib/assets/favicon.svg';
+    import { authCheck } from '$lib/client/routes/authCheck';
+	import { ZUI } from '$lib/client/zui';
     import type { ZLoginRequest } from '$lib/types/ZLibrary/Requests/ZLoginRequest';
+    import type { ZTokenLoginRequest } from '$lib/types/ZLibrary/Requests/ZTokenLoginRequest';
+    import { onMount } from 'svelte';
 
 	let { children } = $props();
 
 	let showModal = $state(false);
 	let username = $state('');
 	let password = $state('');
-    const apiUrl = "/api"
-        let authUser = '';
+	let authUser = '';
     let authPass = '';
+    let zlibName = $state('');
+	let loginWithToken = $state(false);
 
 	function openModal() {
 		showModal = true;
@@ -20,31 +26,22 @@
 	}
 
     async function login() {
-        if ((!authUser || !authPass) && typeof localStorage !== 'undefined') {
-            authUser = localStorage.getItem('authUser') || '';
-            authPass = localStorage.getItem('authPass') || '';
-        }
-        const credentials = btoa(`${authUser}:${authPass}`);
-        
-        const payload: ZLoginRequest = { 
-            userId: username, 
-            userKey: password, 
-         };
+		if(loginWithToken){
 
-
-        const res = await fetch(apiUrl + '/zlibrary/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-		        'Authorization': `Basic ${credentials}`,
-            },
-            body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-            alert('Request failed ' + res.statusText);
-            return;
-        }
+			const payload: ZTokenLoginRequest = { 
+				userId: username, 
+				userKey: password, 
+			};
+			
+			await ZUI.tokenLogin(payload);
+		} else {
+			const payload: ZLoginRequest = { 
+				email: username, 
+				password: password, 
+			};
+			const res = await ZUI.passwordLogin(payload);
+			localStorage.setItem("zlibName", res.user.name);
+		}	
 
         closeModal();
     }
@@ -55,6 +52,21 @@
 			fn();
 		}
 	}
+
+	onMount(async () => {
+        if ((!authUser || !authPass) && typeof localStorage !== "undefined") {
+            authUser = localStorage.getItem("authUser") || "";
+            authPass = localStorage.getItem("authPass") || "";
+            zlibName = localStorage.getItem("zlibName") || "";
+        }
+
+        try {
+            await authCheck();
+
+        } catch {
+            goto("/");
+        }
+    });
 </script>
 
 <svelte:head>
@@ -74,10 +86,29 @@
 		class="zlib-login"
 		role="button"
 		tabindex="0"
-		onclick={openModal}
-		onkeydown={(e) => handleKey(e, openModal)}
 	>
-		Log in with ZLib
+
+	{#if zlibName != ''}
+		<span>Welcome {zlibName}</span>
+		<span> | </span>
+		<span 
+			role="button" 
+			aria-label="logout"
+			tabindex="0"
+			onclick={openModal}>
+			Logout
+		</span>
+	{:else}
+		<span
+			role="button"
+			tabindex="0"
+			onclick={openModal}
+			onkeydown={(e) => handleKey(e, openModal)}
+			aria-label="login"
+		>
+			Log in with ZLib
+		</span>
+	{/if}
 	</div>
 
 	{@render children()}
@@ -96,6 +127,10 @@
 			<label>
 				Password
 				<input type="password" bind:value={password} />
+			</label>
+			<label>
+				Token login
+				<input type="checkbox" bind:checked={loginWithToken} style="align-self: flex-start;"/>
 			</label>
 			<div class="actions">
 				<button onclick={login}>Login</button>

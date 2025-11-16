@@ -4,6 +4,7 @@ import type { ZSearchBookResponse } from "$lib/types/ZLibrary/Responses/ZSearchB
 import type { ZBook } from "$lib/types/ZLibrary/ZBook";
 import type { IZLibrary } from "../abstractions/IZLibrary";
 import { toUrlEncoded } from "../util/toUrlEncode";
+import type { ZLoginRequest } from "$lib/types/ZLibrary/Requests/ZLoginRequest";
 
 export class ZLibrary implements IZLibrary
 {
@@ -54,8 +55,12 @@ export class ZLibrary implements IZLibrary
         throw new Error("Method not implemented.");
     }
 
-    passwordLogin(name: string, password: string): Promise<boolean> {
-        throw new Error("Method not implemented.");
+    async passwordLogin(name: string, password: string): Promise<ZLoginResponse> {
+        const request: ZLoginRequest = { email: name, password: password };
+        
+        const response = await this.post(ZLibraryRoutes.passwordLogin, request) as ZLoginResponse;
+
+        return response;
     }
 
     async tokenLogin(id: string, token: string): Promise<boolean> {

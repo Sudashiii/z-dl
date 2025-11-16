@@ -4,7 +4,7 @@ import type { ZSearchBookResponse } from "$lib/types/ZLibrary/Responses/ZSearchB
 export interface IZLibrary {
 
     signup(email: string, name: string, password: string): Promise<boolean>;
-    passwordLogin(name: string, password: string): Promise<boolean>;
+    passwordLogin(name: string, password: string): Promise<ZLoginResponse>;
     tokenLogin(id: string, token: string): Promise<boolean>;
     search(SearchBookRequest: ZSearchBookRequest): Promise<ZSearchBookResponse>;
 }

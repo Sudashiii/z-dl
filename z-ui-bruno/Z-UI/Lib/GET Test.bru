@@ -1,13 +1,24 @@
 meta {
   name: GET Test
   type: http
-  seq: 6
+  seq: 7
 }
 
-get {
+post {
   url: {{base_url}}/api/library/test
-  body: none
+  body: json
   auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "",
+    "password": ""
+  }
 }
 
 script:post-response {
