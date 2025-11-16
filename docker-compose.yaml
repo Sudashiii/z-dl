@@ -11,7 +11,7 @@ services:
     env_file:
       - ./z-mg/.env
     networks:
-      - znetwork
+      - caddy_net
     restart: "no"
   
   z-ui: 
@@ -30,11 +30,11 @@ services:
     env_file:
       - ./z-ui/.env
     networks:
-      - znetwork
+      - caddy_net
     depends_on:
       z-mg-runner:
         condition: service_completed_successfully
 
 networks:
-  znetwork:
-    driver: bridge
+  caddy_net:
+    external: true
