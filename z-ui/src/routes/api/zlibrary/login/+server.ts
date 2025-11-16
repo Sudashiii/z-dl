@@ -1,5 +1,5 @@
 import { ZLibrary } from '$lib/server/application/ZLibrary';
-import type { ZLoginRequest } from '$lib/types/ZLibrary/Requests/ZLoginRequest';
+import type { ZTokenLoginRequest } from '$lib/types/ZLibrary/Requests/ZTokenLoginRequest';
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 
@@ -9,7 +9,7 @@ const zlib = new ZLibrary("https://1lib.sk");
 // GET /api/zlibrary/login
 // -------------------------------
 export const POST: RequestHandler = async ({ request }) => {
-	const body = (await request.json()) as ZLoginRequest;
+	const body = (await request.json()) as ZTokenLoginRequest;
 
     try {
 

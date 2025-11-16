@@ -1,6 +1,7 @@
 import type { ZBook } from "$lib/types/ZLibrary/ZBook";
-import { generateAuthHeader } from "./base/authHeader";
-import { post } from "./base/post";
+import { generateAuthHeader } from "../base/authHeader";
+import { okGuard } from "../base/okGuard";
+import { post } from "../base/post";
 
 const ENDPOINT = '/api/zlibrary/download';
 
@@ -18,12 +19,9 @@ export async function downloadBook(book: ZBook): Promise<void> {
 				upload: true,
 				extension: book.extension
 			});
+			
         const res = await post(ENDPOINT, body);
-
-		if (!res.ok) {
-			const text = await res.text();
-			throw new Error(`Download failed: ${res.status} ${res.statusText} - ${text}`);
-		}
+		okGuard(res);
 
 		const blob = await res.blob();
 		const url = window.URL.createObjectURL(blob);

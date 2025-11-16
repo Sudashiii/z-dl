@@ -26,7 +26,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
         var response = await zlib.search(body);
 
-        return json(response.books);
+        return json(response);
 
     } catch (err: any) {
         console.error(err);

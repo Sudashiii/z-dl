@@ -1,11 +1,13 @@
-import { BookRepository } from '$lib/server/infrastructure/repositories/BookRepository';
 import type { RequestHandler } from '@sveltejs/kit';
-import { db, initializeDatabase } from '$lib/server/infrastructure/db/db';
+import { ZLibrary } from '$lib/server/application/ZLibrary';
+import type { ZLoginRequest } from '$lib/types/ZLibrary/Requests/ZLoginRequest';
 
-export const GET: RequestHandler = async ({ url }) => {
-    
-    await initializeDatabase();
-    //const b = await BookRepository.getAll();
+const zlib = new ZLibrary("https://1lib.sk");
+
+export const POST: RequestHandler = async ({ request }) => {
+	const body = (await request.json()) as ZLoginRequest;
+
+    zlib.passwordLogin(body.email, body.password);
 
     return new Response(JSON.stringify("1"), {
         status: 200,
