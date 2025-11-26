@@ -1,8 +1,10 @@
 import type { ZBook } from "$lib/types/ZLibrary/ZBook";
+
 import { okGuard } from "../base/okGuard";
 import { post } from "../base/post";
 
 const ENDPOINT = '/zlibrary/download';
+
 
 /**
  * Downloads a book file from the API and triggers a browser download.
