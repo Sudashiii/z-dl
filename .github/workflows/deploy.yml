@@ -22,9 +22,9 @@ jobs:
           port: 22 
 
           script: |
-            cd /home/ubuntu/z-dl
+            cd /home/sudash/apps/z-dl
             
-            sudo git config --global --add safe.directory /home/ubuntu/z-dl
+            sudo git config --global --add safe.directory /home/sudash/apps/z-dl
             
             sudo git pull origin master
             
