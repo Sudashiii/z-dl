@@ -1,83 +1,72 @@
 <script lang="ts">
-	import { onMount } from "svelte";
-	import { goto } from "$app/navigation";
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { AuthService } from '$lib/client/services/authService';
+	import type { ApiError } from '$lib/types/ApiError';
 
-	let username = "";
-	let password = "";
-	let isValid = false;
-	const apiUrl = "/api";
-
-	async function checkAuth() {
-		if (!username || !password) return;
-
-		const credentials = btoa(`${username}:${password}`);
-
-		try {
-			const res = await fetch(`${apiUrl}/auth-check`, {
-				headers: { Authorization: `Basic ${credentials}` }
-			});
-
-			if (res.status === 200) {
-				isValid = true;
-				if (typeof localStorage !== "undefined") {
-					localStorage.setItem("authUser", username);
-					localStorage.setItem("authPass", password);
-				}
-				goto("/books");
-			} else {
-				isValid = false;
-				clearStoredAuth();
-			}
-		} catch {
-			isValid = false;
-			clearStoredAuth();
-		}
-	}
+	let username = $state('');
+	let password = $state('');
+	let isAuthenticated = $state(false);
+	let isLoading = $state(false);
+	let error = $state<ApiError | null>(null);
 
 	async function handleLogin() {
-		await checkAuth();
-	}
-
-	function clearStoredAuth() {
-		if (typeof localStorage !== "undefined") {
-			localStorage.removeItem("authUser");
-			localStorage.removeItem("authPass");
+		if (!username || !password) {
+			return;
 		}
+
+		isLoading = true;
+		error = null;
+
+		const result = await AuthService.validateCredentials({ username, password });
+
+		if (result.ok) {
+			isAuthenticated = true;
+			goto('/books');
+		} else {
+			error = result.error;
+		}
+
+		isLoading = false;
 	}
 
-	onMount(() => {
-		if (typeof localStorage !== "undefined") {
-			username = localStorage.getItem("authUser") || "";
-			password = localStorage.getItem("authPass") || "";
-			if (username && password) {
-				checkAuth();
+	onMount(async () => {
+		if (AuthService.hasStoredCredentials()) {
+			isLoading = true;
+			const result = await AuthService.restoreSession();
+
+			if (result.ok) {
+				username = result.value.username;
+				password = result.value.password;
+				isAuthenticated = true;
+				goto('/books');
 			}
+
+			isLoading = false;
 		}
 	});
 </script>
 
 <main class="login">
-	{#if !isValid}
+	{#if !isAuthenticated}
 		<div class="card">
 			<h1>Login</h1>
 
+			{#if error}
+				<div class="error">
+					<p>{error.message}</p>
+				</div>
+			{/if}
+
 			<label for="username">Username</label>
-			<input
-				id="username"
-				type="text"
-				bind:value={username}
-				placeholder="Enter username"
-			/>
+			<input id="username" type="text" bind:value={username} placeholder="Enter username" />
 
 			<label for="password">Password</label>
-			<input
-				id="password"
-				type="password"
-				bind:value={password}
-				placeholder="Enter password"
-			/>
+			<input id="password" type="password" bind:value={password} placeholder="Enter password" />
 
-			<button onclick={handleLogin}>Login</button>
+			<button onclick={handleLogin} disabled={isLoading}>
+				{isLoading ? 'Logging in...' : 'Login'}
+			</button>
 		</div>
 	{:else}
 		<h2>Authenticated</h2>
@@ -155,11 +144,29 @@
 		transition: background 0.2s, transform 0.1s;
 	}
 
-	button:hover {
+	button:hover:not(:disabled) {
 		background: rgb(80, 105, 130);
 	}
 
-	button:active {
+	button:active:not(:disabled) {
 		transform: scale(0.98);
+	}
+
+	button:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.error {
+		background: rgba(239, 68, 68, 0.2);
+		border: 1px solid rgba(239, 68, 68, 0.5);
+		border-radius: 0.5rem;
+		padding: 0.75rem;
+		color: #fca5a5;
+		font-size: 0.9rem;
+	}
+
+	.error p {
+		margin: 0;
 	}
 </style>

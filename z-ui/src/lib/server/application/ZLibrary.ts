@@ -1,10 +1,10 @@
-import type { ZSearchBookRequest } from "$lib/types/ZLibrary/Requests/ZSearchBookRequest";
-import type { ZBookFileResponse } from "$lib/types/ZLibrary/Responses/ZBookFileResponse";
-import type { ZSearchBookResponse } from "$lib/types/ZLibrary/Responses/ZSearchBookResponse";
-import type { ZBook } from "$lib/types/ZLibrary/ZBook";
-import type { IZLibrary } from "../abstractions/IZLibrary";
-import { toUrlEncoded } from "../util/toUrlEncode";
-import type { ZLoginRequest } from "$lib/types/ZLibrary/Requests/ZLoginRequest";
+import type { ZSearchBookRequest } from '$lib/types/ZLibrary/Requests/ZSearchBookRequest';
+import type { ZBookFileResponse } from '$lib/types/ZLibrary/Responses/ZBookFileResponse';
+import type { ZSearchBookResponse } from '$lib/types/ZLibrary/Responses/ZSearchBookResponse';
+import type { ZLoginResponse } from '$lib/types/ZLibrary/Responses/ZLoginResponse';
+import type { IZLibrary } from '../abstractions/IZLibrary';
+import { toUrlEncoded } from '../util/toUrlEncode';
+import type { ZLoginRequest } from '$lib/types/ZLibrary/Requests/ZLoginRequest';
 
 export class ZLibrary implements IZLibrary
 {
