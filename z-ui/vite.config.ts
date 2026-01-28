@@ -4,6 +4,10 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	plugins: [sveltekit()],
 	server: {
-		allowedHosts: ['undaubed-decapodous-prudence.ngrok-free.dev', 'localhost', 'z-dl.codingsascha.devs']       
-  }
+		allowedHosts: [
+			'localhost',
+			'suda.sh',
+			'z-dl.codingsascha.devs'
+		]
+	}
 });
