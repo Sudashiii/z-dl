@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { AuthService } from '$lib/client/services/authService';
-	import type { ApiError } from '$lib/types/ApiError';
+	import { onMount } from "svelte";
+	import { goto } from "$app/navigation";
+	import { AuthService } from "$lib/client/services/authService";
+	import type { ApiError } from "$lib/types/ApiError";
 
-	let username = $state('');
-	let password = $state('');
+	let username = $state("");
+	let password = $state("");
 	let isAuthenticated = $state(false);
 	let isLoading = $state(false);
 	let error = $state<ApiError | null>(null);
@@ -18,11 +18,14 @@
 		isLoading = true;
 		error = null;
 
-		const result = await AuthService.validateCredentials({ username, password });
+		const result = await AuthService.validateCredentials({
+			username,
+			password,
+		});
 
 		if (result.ok) {
 			isAuthenticated = true;
-			goto('/books');
+			goto("/search");
 		} else {
 			error = result.error;
 		}
@@ -39,7 +42,7 @@
 				username = result.value.username;
 				password = result.value.password;
 				isAuthenticated = true;
-				goto('/books');
+				goto("/search");
 			}
 
 			isLoading = false;
@@ -59,13 +62,23 @@
 			{/if}
 
 			<label for="username">Username</label>
-			<input id="username" type="text" bind:value={username} placeholder="Enter username" />
+			<input
+				id="username"
+				type="text"
+				bind:value={username}
+				placeholder="Enter username"
+			/>
 
 			<label for="password">Password</label>
-			<input id="password" type="password" bind:value={password} placeholder="Enter password" />
+			<input
+				id="password"
+				type="password"
+				bind:value={password}
+				placeholder="Enter password"
+			/>
 
 			<button onclick={handleLogin} disabled={isLoading}>
-				{isLoading ? 'Logging in...' : 'Login'}
+				{isLoading ? "Logging in..." : "Login"}
 			</button>
 		</div>
 	{:else}
@@ -119,7 +132,9 @@
 		background-color: rgb(39, 54, 71);
 		color: #fff;
 		font-size: 0.95rem;
-		transition: background 0.2s, box-shadow 0.2s;
+		transition:
+			background 0.2s,
+			box-shadow 0.2s;
 	}
 
 	input::placeholder {
@@ -141,7 +156,9 @@
 		font-weight: 600;
 		font-size: 1rem;
 		cursor: pointer;
-		transition: background 0.2s, transform 0.1s;
+		transition:
+			background 0.2s,
+			transform 0.1s;
 	}
 
 	button:hover:not(:disabled) {

@@ -11,6 +11,8 @@ import { downloadBook } from './routes/downloadBook';
 import { passwordLogin } from './routes/passwordLogin';
 import { searchBook } from './routes/searchBook';
 import { tokenLogin } from './routes/tokenLogin';
+import { getLibrary, type LibraryResponse } from './routes/getLibrary';
+import { resetDownloadStatus } from './routes/resetDownloadStatus';
 
 /**
  * Facade for all Z-Library UI client operations.
@@ -28,7 +30,13 @@ export const ZUI = {
 
 	authCheck: (): Promise<Result<void, ApiError>> => authCheck(),
 
-	downloadBook: (book: ZBook): Promise<Result<void, ApiError>> => downloadBook(book)
+	downloadBook: (book: ZBook, options?: { downloadToDevice?: boolean }): Promise<Result<void, ApiError>> =>
+		downloadBook(book, options),
+
+	getLibrary: (): Promise<Result<LibraryResponse, ApiError>> => getLibrary(),
+
+	resetDownloadStatus: (bookId: number): Promise<Result<void, ApiError>> =>
+		resetDownloadStatus(bookId)
 } as const;
 
 export type ZUIClient = typeof ZUI;

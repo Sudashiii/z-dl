@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
-	import favicon from '$lib/assets/favicon.svg';
-	import { ZUI } from '$lib/client/zui';
-	import { ZLibAuthService } from '$lib/client/services/zlibAuthService';
-	import type { ApiError } from '$lib/types/ApiError';
-	import type { Snippet } from 'svelte';
+	import { goto } from "$app/navigation";
+	import { page } from "$app/stores";
+	import { onMount } from "svelte";
+	import favicon from "$lib/assets/favicon.svg";
+	import { ZUI } from "$lib/client/zui";
+	import { ZLibAuthService } from "$lib/client/services/zlibAuthService";
+	import Sidebar from "$lib/components/Sidebar.svelte";
+	import type { ApiError } from "$lib/types/ApiError";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		children: Snippet;
@@ -13,13 +15,19 @@
 
 	const { children }: Props = $props();
 
+	const SIDEBAR_COLLAPSED_KEY = "sidebarCollapsed";
+
 	let showModal = $state(false);
-	let username = $state('');
-	let password = $state('');
-	let zlibName = $state('');
+	let username = $state("");
+	let password = $state("");
+	let zlibName = $state("");
 	let loginWithToken = $state(false);
 	let isLoading = $state(false);
 	let error = $state<ApiError | null>(null);
+	let sidebarCollapsed = $state(false);
+
+	// Check if we're on the login page (don't show sidebar there)
+	let isLoginPage = $derived($page.url.pathname === "/");
 
 	function openModal() {
 		error = null;
@@ -28,8 +36,8 @@
 
 	function closeModal() {
 		showModal = false;
-		username = '';
-		password = '';
+		username = "";
+		password = "";
 		error = null;
 	}
 
@@ -49,7 +57,10 @@
 				closeModal();
 			}
 		} else {
-			const result = await ZLibAuthService.passwordLogin(username, password);
+			const result = await ZLibAuthService.passwordLogin(
+				username,
+				password,
+			);
 			if (result.ok) {
 				zlibName = result.value.user.name;
 				closeModal();
@@ -63,11 +74,20 @@
 
 	function handleLogout() {
 		ZLibAuthService.clearUserName();
-		zlibName = '';
+		zlibName = "";
+	}
+
+	function handleSidebarToggle() {
+		if (typeof localStorage !== "undefined") {
+			localStorage.setItem(
+				SIDEBAR_COLLAPSED_KEY,
+				String(sidebarCollapsed),
+			);
+		}
 	}
 
 	function handleKeyDown(event: KeyboardEvent, action: () => void) {
-		if (event.key === 'Enter' || event.key === ' ') {
+		if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
 			action();
 		}
@@ -80,51 +100,82 @@
 	onMount(async () => {
 		zlibName = ZLibAuthService.getStoredUserName();
 
+		// Restore sidebar state
+		if (typeof localStorage !== "undefined") {
+			sidebarCollapsed =
+				localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+		}
+
 		const result = await ZUI.authCheck();
 		if (!result.ok) {
-			goto('/');
+			goto("/");
 		}
 	});
+	import ToastContainer from "$lib/components/ToastContainer.svelte";
 </script>
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	<link
+		rel="preconnect"
+		href="https://fonts.gstatic.com"
+		crossorigin="anonymous"
+	/>
 	<link
 		href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Literata:wght@400;500;600&display=swap"
 		rel="stylesheet"
 	/>
 </svelte:head>
 
-<div>
-	<div class="zlib-login">
-		{#if zlibName}
-			<span>Welcome {zlibName}</span>
-			<span> | </span>
-			<span
-				role="button"
-				aria-label="logout"
-				tabindex="0"
-				onclick={handleLogout}
-				onkeydown={(e) => handleKeyDown(e, handleLogout)}
-			>
-				Logout
-			</span>
-		{:else}
-			<span
-				role="button"
-				tabindex="0"
-				onclick={openModal}
-				onkeydown={(e) => handleKeyDown(e, openModal)}
-				aria-label="login"
-			>
-				Log in with ZLib
-			</span>
-		{/if}
-	</div>
+<ToastContainer />
 
-	{@render children()}
+<div
+	class="app-layout"
+	class:with-sidebar={!isLoginPage}
+	class:sidebar-collapsed={sidebarCollapsed}
+>
+	{#if !isLoginPage}
+		<Sidebar
+			bind:collapsed={sidebarCollapsed}
+			onToggle={handleSidebarToggle}
+		/>
+	{/if}
+
+	<div class="main-content">
+		<header class="top-bar">
+			<div class="spacer"></div>
+			<div class="zlib-login">
+				{#if zlibName}
+					<span>Welcome {zlibName}</span>
+					<span> | </span>
+					<span
+						role="button"
+						aria-label="logout"
+						tabindex="0"
+						onclick={handleLogout}
+						onkeydown={(e) => handleKeyDown(e, handleLogout)}
+					>
+						Logout
+					</span>
+				{:else}
+					<span
+						role="button"
+						tabindex="0"
+						onclick={openModal}
+						onkeydown={(e) => handleKeyDown(e, openModal)}
+						aria-label="login"
+					>
+						Log in with ZLib
+					</span>
+				{/if}
+			</div>
+		</header>
+
+		<main class="content">
+			{@render children()}
+		</main>
+	</div>
 </div>
 
 {#if showModal}
@@ -152,12 +203,12 @@
 			{/if}
 
 			<label>
-				{loginWithToken ? 'User ID' : 'Email'}
+				{loginWithToken ? "User ID" : "Email"}
 				<input type="text" bind:value={username} />
 			</label>
 
 			<label>
-				{loginWithToken ? 'User Key' : 'Password'}
+				{loginWithToken ? "User Key" : "Password"}
 				<input type="password" bind:value={password} />
 			</label>
 
@@ -168,7 +219,7 @@
 
 			<div class="actions">
 				<button onclick={handleLogin} disabled={isLoading}>
-					{isLoading ? 'Logging in...' : 'Login'}
+					{isLoading ? "Logging in..." : "Login"}
 				</button>
 				<button class="cancel" onclick={closeModal}>Cancel</button>
 			</div>
@@ -178,31 +229,76 @@
 
 <style>
 	:root {
-		--font-ui: 'Inter', sans-serif;
-		--font-reading: 'Literata', serif;
+		--font-ui: "Inter", sans-serif;
+		--font-reading: "Literata", serif;
+		--sidebar-width: 240px;
+		--sidebar-collapsed-width: 60px;
 	}
 
 	:global(body) {
 		font-family: var(--font-ui);
 		background: rgb(19, 26, 33);
 		color: #fff;
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: 0 2rem;
+		margin: 0;
+		padding: 0;
 	}
 
 	:global(h1, h2, h3) {
 		font-family: var(--font-reading);
 	}
 
+	.app-layout {
+		min-height: 100vh;
+	}
+
+	.app-layout.with-sidebar .main-content {
+		margin-left: var(--sidebar-width);
+		transition: margin-left 0.2s ease;
+	}
+
+	.app-layout.with-sidebar.sidebar-collapsed .main-content {
+		margin-left: var(--sidebar-collapsed-width);
+	}
+
+	.main-content {
+		display: flex;
+		flex-direction: column;
+		min-height: 100vh;
+	}
+
+	.top-bar {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.5rem 1rem;
+		background: rgba(0, 0, 0, 0.2);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+		position: sticky;
+		top: 0;
+		z-index: 50;
+	}
+
+	.spacer {
+		flex: 1;
+	}
+
 	.zlib-login {
-		position: fixed;
-		top: 0.5rem;
-		right: 1rem;
 		color: rgba(255, 255, 255, 0.7);
 		cursor: pointer;
 		font-size: 0.8rem;
-		z-index: 1000;
+	}
+
+	.zlib-login span[role="button"]:hover {
+		color: #fff;
+	}
+
+	.content {
+		flex: 1;
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0 2rem;
+		width: 100%;
+		box-sizing: border-box;
 	}
 
 	.modal-backdrop {

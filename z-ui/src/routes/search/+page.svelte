@@ -1,15 +1,17 @@
 <script lang="ts">
-	import type { ZBook } from '$lib/types/ZLibrary/ZBook';
-	import type { ZSearchBookRequest } from '$lib/types/ZLibrary/Requests/ZSearchBookRequest';
-	import type { ApiError } from '$lib/types/ApiError';
-	import DropDown from '$lib/components/DropDown.svelte';
-	import Loading from '$lib/components/Loading.svelte';
-	import BookCard from '$lib/components/BookCard.svelte';
-	import { ZUI } from '$lib/client/zui';
+	import type { ZBook } from "$lib/types/ZLibrary/ZBook";
+	import type { ZSearchBookRequest } from "$lib/types/ZLibrary/Requests/ZSearchBookRequest";
+	import type { ApiError } from "$lib/types/ApiError";
+	import DropDown from "$lib/components/DropDown.svelte";
+	import Loading from "$lib/components/Loading.svelte";
+	import BookCard from "$lib/components/BookCard.svelte";
+	import { ZUI } from "$lib/client/zui";
 
-	let title = $state('');
-	let lang = $state('german');
-	let format = $state('epub');
+	import { toastStore } from "$lib/client/stores/toastStore.svelte";
+
+	let title = $state("");
+	let lang = $state("german");
+	let format = $state("epub");
 	let books = $state<ZBook[]>([]);
 	let isLoading = $state(false);
 	let error = $state<ApiError | null>(null);
@@ -23,7 +25,7 @@
 		const payload: ZSearchBookRequest = {
 			searchText: title,
 			languages: [lang],
-			extensions: [format]
+			extensions: [format],
 		};
 
 		const result = await ZUI.searchBook(payload);
@@ -39,28 +41,45 @@
 	}
 
 	async function handleDownload(book: ZBook) {
-		const result = await ZUI.downloadBook(book);
+		const result = await ZUI.downloadBook(book, { downloadToDevice: true });
 		if (!result.ok) {
 			error = result.error;
+			toastStore.add(`Download failed: ${result.error.message}`, "error");
+		} else {
+			toastStore.add(`Download started for "${book.title}"`, "success");
 		}
 	}
 
 	async function handleShare(book: ZBook) {
-		const result = await ZUI.downloadBook(book);
+		// "Share" here means clean save to library without downloading to device
+		const result = await ZUI.downloadBook(book, {
+			downloadToDevice: false,
+		});
 		if (!result.ok) {
 			error = result.error;
+			toastStore.add(
+				`Failed to add to library: ${result.error.message}`,
+				"error",
+			);
+		} else {
+			toastStore.add(`Added "${book.title}" to library`, "success");
 		}
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
-		if (event.key === 'Enter') {
+		if (event.key === "Enter") {
 			searchBooks();
 		}
 	}
 </script>
 
-<main class="books">
+<div class="books">
 	<Loading bind:show={isLoading} />
+
+	<header class="page-header">
+		<h1>Z-Library Search</h1>
+		<p>Search and download books from Z-Library</p>
+	</header>
 
 	<div class="search">
 		<div class="search-bar">
@@ -73,8 +92,14 @@
 		</div>
 
 		<div class="search-options">
-			<DropDown bind:selected={lang} options={['english', 'german', 'french', 'spanish']} />
-			<DropDown bind:selected={format} options={['epub', 'mobi', 'pdf']} />
+			<DropDown
+				bind:selected={lang}
+				options={["english", "german", "french", "spanish"]}
+			/>
+			<DropDown
+				bind:selected={format}
+				options={["epub", "mobi", "pdf"]}
+			/>
 		</div>
 	</div>
 
@@ -87,20 +112,37 @@
 	<div class="book-list">
 		{#if books.length > 0}
 			{#each books as book (book.id)}
-				<BookCard {book} onDownload={handleDownload} onShare={handleShare} />
+				<BookCard
+					{book}
+					onDownload={handleDownload}
+					onShare={handleShare}
+				/>
 			{/each}
 		{:else if !isLoading && title}
 			<p>No books found.</p>
 		{/if}
 	</div>
-</main>
+</div>
 
 <style>
 	.books {
-		padding: 2rem;
+		padding: 2rem 0;
 		color: #fff;
-		min-height: 100vh;
-		font-family: system-ui, sans-serif;
+	}
+
+	.page-header {
+		margin-bottom: 2rem;
+	}
+
+	.page-header h1 {
+		margin: 0 0 0.5rem 0;
+		font-size: 1.75rem;
+	}
+
+	.page-header p {
+		margin: 0;
+		color: rgba(255, 255, 255, 0.6);
+		font-size: 0.9rem;
 	}
 
 	.search {

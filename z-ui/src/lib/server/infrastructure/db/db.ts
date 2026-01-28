@@ -1,8 +1,5 @@
 import { createClient } from '@libsql/client';
-import { 
-  TURSO_DB_URL, 
-  TURSO_DB_AUTH_TOKEN
-} from '$env/static/private';
+import { TURSO_DB_URL, TURSO_DB_AUTH_TOKEN } from '$env/static/private';
 
 export const db = createClient({
 	url: TURSO_DB_URL,
@@ -10,7 +7,6 @@ export const db = createClient({
 });
 
 export async function initializeDatabase() {
-
 	await db.execute(`
 		CREATE TABLE IF NOT EXISTS Books (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,

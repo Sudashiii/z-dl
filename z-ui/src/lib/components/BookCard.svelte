@@ -1,7 +1,7 @@
 <script lang="ts">
-	import DownloadIcon from '$lib/assets/icons/DownloadIcon.svelte';
-	import ShareIcon from '$lib/assets/icons/ShareIcon.svelte';
-	import type { ZBook } from '$lib/types/ZLibrary/ZBook';
+	import DownloadIcon from "$lib/assets/icons/DownloadIcon.svelte";
+	import ShareIcon from "$lib/assets/icons/ShareIcon.svelte";
+	import type { ZBook } from "$lib/types/ZLibrary/ZBook";
 
 	interface Props {
 		book: ZBook;
@@ -21,18 +21,18 @@
 		</div>
 		<p class="info">
 			{book.language} | {book.year} | {book.filesizeString} |
-			{book.extension} | Interest Score: {book.interestScore} |
-			Quality Score: {book.qualityScore} | published by {book.publisher}
+			{book.extension} | Interest Score: {book.interestScore} | Quality Score:
+			{book.qualityScore} | published by {book.publisher}
 		</p>
 	</div>
 	<div class="icon-btn-wrapper">
 		<button class="icon-btn" onclick={() => onDownload(book)}>
-			<ShareIcon />
+			<DownloadIcon />
 		</button>
 	</div>
 	<div class="icon-btn-wrapper">
 		<button class="icon-btn" onclick={() => onShare(book)}>
-			<DownloadIcon />
+			<ShareIcon />
 		</button>
 	</div>
 </div>

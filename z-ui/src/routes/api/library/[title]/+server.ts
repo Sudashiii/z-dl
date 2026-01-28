@@ -52,7 +52,17 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 
 		const uploadService = DavUploadServiceFactory.createS3();
 		await uploadService.upload(title, Buffer.from(body));
-		await BookRepository.create({  s3_storage_key: title, title: title, zLibId: "000000" });
+		await BookRepository.create({
+			s3_storage_key: title,
+			title: title,
+			zLibId: "000000",
+			author: null,
+			cover: null,
+			extension: null,
+			filesize: null,
+			language: null,
+			year: null
+		});
 		
 		return json({ success: true });
 	} catch (err: any) {
