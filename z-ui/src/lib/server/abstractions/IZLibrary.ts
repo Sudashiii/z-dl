@@ -1,5 +1,6 @@
 import type { ZSearchBookRequest } from '$lib/types/ZLibrary/Requests/ZSearchBookRequest';
-import type { ZSearchBookResponse } from "$lib/types/ZLibrary/Responses/ZSearchBookResponse";
+import type { ZSearchBookResponse } from '$lib/types/ZLibrary/Responses/ZSearchBookResponse';
+import type { ZLoginResponse } from '$lib/types/ZLibrary/Responses/ZLoginResponse';
 
 export interface IZLibrary {
 

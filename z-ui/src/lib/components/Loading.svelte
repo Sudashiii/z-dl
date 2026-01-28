@@ -1,5 +1,9 @@
 <script lang="ts">
-	export let show = false;
+	interface Props {
+		show?: boolean;
+	}
+
+	let { show = $bindable(false) }: Props = $props();
 </script>
 
 {#if show}

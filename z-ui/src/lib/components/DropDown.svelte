@@ -1,13 +1,20 @@
 <script lang="ts">
-	export let options: string[] = ['option 1', 'option 2', 'option 3', 'option 4'];
-	export let selected: string = options[0];
+	interface Props {
+		options?: string[];
+		selected?: string;
+		onchange?: (value: string) => void;
+	}
 
-	export let onChange: (value: string) => void = () => {};
+	let {
+		options = ['option 1', 'option 2', 'option 3', 'option 4'],
+		selected = $bindable(options[0]),
+		onchange
+	}: Props = $props();
 
 	function handleChange(event: Event) {
 		const target = event.target as HTMLSelectElement;
 		selected = target.value;
-		onChange(selected);
+		onchange?.(selected);
 	}
 </script>
 

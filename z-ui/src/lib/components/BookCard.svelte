@@ -3,9 +3,13 @@
 	import ShareIcon from "$lib/assets/icons/ShareIcon.svelte";
 	import type { ZBook } from "$lib/types/ZLibrary/ZBook";
 
-	export let book: ZBook;
-	export let downloadBook: (book: ZBook) => void;
-	export let shareBook: (book: ZBook) => void;
+	interface Props {
+		book: ZBook;
+		onDownload: (book: ZBook) => void;
+		onShare: (book: ZBook) => void;
+	}
+
+	const { book, onDownload, onShare }: Props = $props();
 </script>
 
 <div class="book-card">
@@ -17,18 +21,18 @@
 		</div>
 		<p class="info">
 			{book.language} | {book.year} | {book.filesizeString} |
-			{book.extension} | Interest Score: {book.interestScore} |
-			Quality Score: {book.qualityScore} | published by {book.publisher}
+			{book.extension} | Interest Score: {book.interestScore} | Quality Score:
+			{book.qualityScore} | published by {book.publisher}
 		</p>
 	</div>
 	<div class="icon-btn-wrapper">
-		<button class="icon-btn" on:click={() => downloadBook(book)}>
-			<ShareIcon />
+		<button class="icon-btn" onclick={() => onDownload(book)}>
+			<DownloadIcon />
 		</button>
 	</div>
 	<div class="icon-btn-wrapper">
-		<button class="icon-btn" on:click={() => shareBook(book)}>
-			<DownloadIcon />
+		<button class="icon-btn" onclick={() => onShare(book)}>
+			<ShareIcon />
 		</button>
 	</div>
 </div>
@@ -124,10 +128,10 @@
 		}
 
 		.details h3 {
-			white-space: normal; 
+			white-space: normal;
 			text-overflow: unset;
-					word-break: break-word;     
-		overflow-wrap: anywhere;
+			word-break: break-word;
+			overflow-wrap: anywhere;
 		}
 
 		.icon-btn-wrapper {

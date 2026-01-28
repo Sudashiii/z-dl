@@ -1,0 +1,36 @@
+meta {
+  name: Search Books
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{zlib_base_url}}/eapi/book/search
+  body: formUrlEncoded
+  auth: none
+}
+
+headers {
+  Content-Type: application/x-www-form-urlencoded
+  accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+  accept-language: en-US,en;q=0.9
+  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36
+  Cookie: siteLanguageV2=en; remix_userid={{zlib_userid}}; remix_userkey={{zlib_userkey}}
+}
+
+body:form-urlencoded {
+  message: {{search_query}}
+  limit: 10
+}
+
+vars:pre-request {
+  zlib_base_url: https://1lib.sk
+  zlib_userid: 45501539
+  zlib_userkey: fb86f9943048667830fb2d786646bfef
+  search_query: test
+}
+
+settings {
+  encodeUrl: true
+  timeout: 30000
+}

@@ -6,9 +6,10 @@ import type { ZDownloadBookRequest } from '$lib/types/ZLibrary/Requests/ZDownloa
 
 const zlib = new ZLibrary("https://1lib.sk");
 
-export const downloadBook = command(async (data: ZDownloadBookRequest, event) => {
+// @ts-ignore - signature mismatch with command wrapper
+export const downloadBook = command(async (data: ZDownloadBookRequest, event: any) => {
     // 1. Destructure data and Get Context
-    const { bookId, hash, upload, title, extension } = data;
+    const { bookId, hash, upload, title, extension, author, cover, filesize, language, year, downloadToDevice } = data;
     const { locals } = event;
 
     // 2. Auth Check (Throw errors instead of returning 400/401 JSON)
@@ -42,20 +43,30 @@ export const downloadBook = command(async (data: ZDownloadBookRequest, event) =>
             await BookRepository.create({
                 s3_storage_key: key,
                 title: title,
-                zLibId: bookId
+                zLibId: bookId,
+                author: author ?? null,
+                cover: cover ?? null,
+                extension: extension ?? null,
+                filesize: filesize ?? null,
+                language: language ?? null,
+                year: year ?? null,
+                isDownloaded: (downloadToDevice !== false) // Mark as downloaded if we are sending to device
             });
         }
 
-        // 6. Return Data (RPC cannot stream a 'Response' object directly)
-        // We return the binary data as a base64 string or Uint8Array
-        // SvelteKit's serialization handles Uint8Array natively in newer versions
-        // return {
-        //     success: true,
-        //     fileName: `${title}.${extension}`,
-        //     // Convert buffer to Uint8Array for transport
-        //     fileData: new Uint8Array(fileBuffer),
-        //     contentType: bookDownloadResponse.headers.get('content-type') || 'application/octet-stream'
-        // };
+        // 6. Return Data
+        if (downloadToDevice === false) {
+            // Share only: just return success, no file data
+            return { success: true };
+        }
+
+        // Download: return file data to client
+        return {
+            success: true,
+            fileName: `${title}.${extension}`,
+            fileData: new Uint8Array(fileBuffer),
+            contentType: bookDownloadResponse.headers.get('content-type') || 'application/octet-stream'
+        };
 
     } catch (err: any) {
         console.error("Remote function error:", err);

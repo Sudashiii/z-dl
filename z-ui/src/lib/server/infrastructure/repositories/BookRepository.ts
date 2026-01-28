@@ -1,10 +1,17 @@
-import type { Book } from '$lib/server/infrastructure/dbModels/models';
+import type { Book, CreateBookInput } from '$lib/server/infrastructure/dbModels/models';
 import { db } from '../db/db';
 
 export class BookRepository {
 	static async getAll(): Promise<Book[]> {
-		const result = await db.execute('SELECT * FROM Books');
-		return result.rows as unknown as Book[];
+		const result = await db.execute(`
+            SELECT b.*, EXISTS(SELECT 1 FROM DeviceDownloads WHERE bookId = b.id) as isDownloaded 
+            FROM Books b 
+            ORDER BY b.createdAt DESC
+        `);
+		return result.rows.map(row => ({
+			...row,
+			isDownloaded: Boolean(row.isDownloaded)
+		})) as unknown as Book[];
 	}
 
 	static async getById(id: number): Promise<Book | undefined> {
@@ -15,16 +22,35 @@ export class BookRepository {
 		return (result.rows[0] as unknown as Book) ?? undefined;
 	}
 
-	static async create(book: Omit<Book, 'id'>): Promise<Book> {
+	static async getByZLibId(zLibId: string): Promise<Book | undefined> {
 		const result = await db.execute({
-			sql: 'INSERT INTO Books (s3_storage_key, title) VALUES (?, ?)',
-			args: [book.s3_storage_key, book.title]
+			sql: 'SELECT * FROM Books WHERE zLibId = ?',
+			args: [zLibId]
+		});
+		return (result.rows[0] as unknown as Book) ?? undefined;
+	}
+
+	static async create(book: CreateBookInput): Promise<Book> {
+		const result = await db.execute({
+			sql: `INSERT INTO Books (zLibId, s3_storage_key, title, author, cover, extension, filesize, language, year)
+			      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			args: [
+				book.zLibId,
+				book.s3_storage_key,
+				book.title,
+				book.author,
+				book.cover,
+				book.extension,
+				book.filesize,
+				book.language,
+				book.year
+			]
 		});
 
-		// Turso returns `last_insert_rowid` in `result.lastInsertRowid`
 		return {
 			id: Number(result.lastInsertRowid),
-			...book
+			...book,
+			createdAt: new Date().toISOString()
 		};
 	}
 
@@ -35,6 +61,13 @@ export class BookRepository {
 		});
 	}
 
+	static async resetDownloadStatus(bookId: number): Promise<void> {
+		await db.execute({
+			sql: 'DELETE FROM DeviceDownloads WHERE bookId = ?',
+			args: [bookId]
+		});
+	}
+
 	static async getNotDownloadedByDevice(deviceId: string): Promise<Book[]> {
 		const result = await db.execute({
 			sql: `
@@ -42,9 +75,15 @@ export class BookRepository {
 				FROM Books b
 				LEFT JOIN DeviceDownloads d ON b.id = d.bookId AND d.deviceId = ?
 				WHERE d.bookId IS NULL
+				ORDER BY b.createdAt DESC
 			`,
 			args: [deviceId]
 		});
 		return result.rows as unknown as Book[];
+	}
+
+	static async count(): Promise<number> {
+		const result = await db.execute('SELECT COUNT(*) as count FROM Books');
+		return (result.rows[0] as any).count;
 	}
 }
