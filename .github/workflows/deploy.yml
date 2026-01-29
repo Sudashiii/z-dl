@@ -25,9 +25,9 @@ jobs:
           script: |
             cd /home/sudash/apps/z-dl
             
-            sudo git config --global --add safe.directory /home/sudash/apps/z-dl
+            git config --global --add safe.directory /home/sudash/apps/z-dl
             
-            sudo git pull origin master
+            git pull origin master
             
             echo "${{ secrets.Z_MG_ENV }}" | sudo tee ./z-mg/.env > /dev/null
             echo "${{ secrets.Z_UI_ENV }}" | sudo tee ./z-ui/.env > /dev/null
