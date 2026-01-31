@@ -143,34 +143,47 @@
 	{/if}
 
 	<div class="main-content">
-		<header class="top-bar">
-			<div class="spacer"></div>
-			<div class="zlib-login">
-				{#if zlibName}
-					<span>Welcome {zlibName}</span>
-					<span> | </span>
-					<span
-						role="button"
-						aria-label="logout"
-						tabindex="0"
-						onclick={handleLogout}
-						onkeydown={(e) => handleKeyDown(e, handleLogout)}
-					>
-						Logout
-					</span>
-				{:else}
-					<span
-						role="button"
-						tabindex="0"
-						onclick={openModal}
-						onkeydown={(e) => handleKeyDown(e, openModal)}
-						aria-label="login"
-					>
-						Log in with ZLib
-					</span>
-				{/if}
-			</div>
-		</header>
+		{#if !isLoginPage}
+			<header class="top-bar">
+				<div class="spacer"></div>
+				<div class="zlib-login">
+					{#if zlibName}
+						<div class="user-info">
+							<span class="user-badge">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+									<circle cx="12" cy="7" r="4"></circle>
+								</svg>
+								{zlibName}
+							</span>
+							<button
+								class="logout-btn"
+								onclick={handleLogout}
+								title="Logout from Z-Library"
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+									<polyline points="16 17 21 12 16 7"></polyline>
+									<line x1="21" y1="12" x2="9" y2="12"></line>
+								</svg>
+							</button>
+						</div>
+					{:else}
+						<button
+							class="zlib-connect-btn"
+							onclick={openModal}
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+								<polyline points="10 17 15 12 10 7"></polyline>
+								<line x1="15" y1="12" x2="3" y2="12"></line>
+							</svg>
+							Connect Z-Library
+						</button>
+					{/if}
+				</div>
+			</header>
+		{/if}
 
 		<main class="content">
 			{@render children()}
@@ -194,34 +207,68 @@
 			onclick={handleModalClick}
 			onkeydown={(e) => e.stopPropagation()}
 		>
-			<h2>Log in to Z-Library</h2>
+			<div class="modal-header">
+				<div class="modal-icon">
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+						<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+					</svg>
+				</div>
+				<h2>Connect Z-Library</h2>
+				<p class="modal-subtitle">Link your Z-Library account to search and download books</p>
+			</div>
 
 			{#if error}
 				<div class="error">
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="12" cy="12" r="10"></circle>
+						<line x1="12" y1="8" x2="12" y2="12"></line>
+						<line x1="12" y1="16" x2="12.01" y2="16"></line>
+					</svg>
 					<p>{error.message}</p>
 				</div>
 			{/if}
 
-			<label>
-				{loginWithToken ? "User ID" : "Email"}
-				<input type="text" bind:value={username} />
-			</label>
+			<div class="form-group">
+				<label for="zlib-username">
+					{loginWithToken ? "User ID" : "Email"}
+				</label>
+				<input 
+					id="zlib-username"
+					type="text" 
+					bind:value={username}
+					placeholder={loginWithToken ? "Enter your User ID" : "Enter your email"}
+				/>
+			</div>
 
-			<label>
-				{loginWithToken ? "User Key" : "Password"}
-				<input type="password" bind:value={password} />
-			</label>
+			<div class="form-group">
+				<label for="zlib-password">
+					{loginWithToken ? "User Key" : "Password"}
+				</label>
+				<input 
+					id="zlib-password"
+					type="password" 
+					bind:value={password}
+					placeholder={loginWithToken ? "Enter your User Key" : "Enter your password"}
+				/>
+			</div>
 
 			<label class="checkbox-label">
 				<input type="checkbox" bind:checked={loginWithToken} />
-				Token login
+				<span class="checkbox-custom"></span>
+				<span class="checkbox-text">Use token authentication</span>
 			</label>
 
 			<div class="actions">
-				<button onclick={handleLogin} disabled={isLoading}>
-					{isLoading ? "Logging in..." : "Login"}
+				<button class="btn-secondary" onclick={closeModal}>Cancel</button>
+				<button class="btn-primary" onclick={handleLogin} disabled={isLoading}>
+					{#if isLoading}
+						<span class="spinner"></span>
+						Connecting...
+					{:else}
+						Connect
+					{/if}
 				</button>
-				<button class="cancel" onclick={closeModal}>Cancel</button>
 			</div>
 		</div>
 	</div>
@@ -233,12 +280,21 @@
 		--font-reading: "Literata", serif;
 		--sidebar-width: 240px;
 		--sidebar-collapsed-width: 60px;
+		--color-bg-primary: rgb(15, 20, 25);
+		--color-bg-secondary: rgb(22, 30, 40);
+		--color-bg-elevated: rgb(28, 38, 50);
+		--color-border: rgba(255, 255, 255, 0.08);
+		--color-accent: #1e90ff;
+		--color-accent-hover: #3ba0ff;
+		--color-text-primary: #fff;
+		--color-text-secondary: rgba(255, 255, 255, 0.7);
+		--color-text-muted: rgba(255, 255, 255, 0.5);
 	}
 
 	:global(body) {
 		font-family: var(--font-ui);
-		background: rgb(19, 26, 33);
-		color: #fff;
+		background: var(--color-bg-primary);
+		color: var(--color-text-primary);
 		margin: 0;
 		padding: 0;
 	}
@@ -270,9 +326,10 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 0.5rem 1rem;
-		background: rgba(0, 0, 0, 0.2);
-		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+		padding: 0.75rem 1.5rem;
+		background: rgba(22, 30, 40, 0.8);
+		backdrop-filter: blur(12px);
+		border-bottom: 1px solid var(--color-border);
 		position: sticky;
 		top: 0;
 		z-index: 50;
@@ -283,13 +340,67 @@
 	}
 
 	.zlib-login {
-		color: rgba(255, 255, 255, 0.7);
-		cursor: pointer;
-		font-size: 0.8rem;
+		display: flex;
+		align-items: center;
 	}
 
-	.zlib-login span[role="button"]:hover {
+	.user-info {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.user-badge {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.875rem;
+		background: rgba(30, 144, 255, 0.1);
+		border: 1px solid rgba(30, 144, 255, 0.2);
+		border-radius: 2rem;
+		color: #1e90ff;
+		font-size: 0.85rem;
+		font-weight: 500;
+	}
+
+	.logout-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.5rem;
+		background: transparent;
+		border: 1px solid var(--color-border);
+		border-radius: 0.5rem;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.logout-btn:hover {
+		background: rgba(239, 68, 68, 0.1);
+		border-color: rgba(239, 68, 68, 0.3);
+		color: #f87171;
+	}
+
+	.zlib-connect-btn {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		background: linear-gradient(135deg, var(--color-accent), #0066cc);
+		border: none;
+		border-radius: 0.5rem;
 		color: #fff;
+		font-size: 0.85rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.zlib-connect-btn:hover {
+		background: linear-gradient(135deg, var(--color-accent-hover), #0077ee);
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px -4px rgba(30, 144, 255, 0.4);
 	}
 
 	.content {
@@ -307,89 +418,222 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		background: rgba(0, 0, 0, 0.6);
+		background: rgba(0, 0, 0, 0.7);
+		backdrop-filter: blur(4px);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		z-index: 2000;
+		animation: fadeIn 0.2s ease-out;
+	}
+
+	@keyframes fadeIn {
+		from { opacity: 0; }
+		to { opacity: 1; }
 	}
 
 	.modal {
-		background: #222c36;
-		border-radius: 12px;
+		background: var(--color-bg-elevated);
+		border: 1px solid var(--color-border);
+		border-radius: 1rem;
 		padding: 2rem;
-		box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
-		width: 300px;
+		box-shadow: 
+			0 25px 50px -12px rgba(0, 0, 0, 0.5),
+			0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+		width: 360px;
+		max-width: calc(100vw - 2rem);
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: 1.25rem;
+		animation: slideUp 0.3s ease-out;
 	}
 
-	label {
-		display: flex;
-		flex-direction: column;
-		font-size: 0.9rem;
-		gap: 0.3rem;
+	@keyframes slideUp {
+		from {
+			opacity: 0;
+			transform: translateY(20px) scale(0.95);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
 	}
 
-	.checkbox-label {
-		flex-direction: row;
+	.modal-header {
+		text-align: center;
+	}
+
+	.modal-icon {
+		display: inline-flex;
 		align-items: center;
+		justify-content: center;
+		width: 56px;
+		height: 56px;
+		background: linear-gradient(135deg, rgba(30, 144, 255, 0.2), rgba(99, 102, 241, 0.2));
+		border-radius: 1rem;
+		color: var(--color-accent);
+		margin-bottom: 1rem;
+	}
+
+	.modal h2 {
+		margin: 0 0 0.5rem 0;
+		font-size: 1.35rem;
+		font-weight: 600;
+	}
+
+	.modal-subtitle {
+		margin: 0;
+		font-size: 0.9rem;
+		color: var(--color-text-muted);
+	}
+
+	.form-group {
+		display: flex;
+		flex-direction: column;
 		gap: 0.5rem;
 	}
 
-	.checkbox-label input {
-		width: auto;
+	.form-group label {
+		font-size: 0.85rem;
+		font-weight: 500;
+		color: var(--color-text-secondary);
 	}
 
-	input {
-		padding: 0.4rem 0.6rem;
-		border-radius: 6px;
-		border: 1px solid #444;
-		background: #11181f;
+	.modal input[type="text"],
+	.modal input[type="password"] {
+		padding: 0.75rem 1rem;
+		border-radius: 0.5rem;
+		border: 1px solid var(--color-border);
+		background: rgba(15, 23, 32, 0.6);
 		color: #fff;
+		font-size: 0.95rem;
+		transition: all 0.2s ease;
+	}
+
+	.modal input[type="text"]:focus,
+	.modal input[type="password"]:focus {
+		outline: none;
+		border-color: var(--color-accent);
+		background: rgba(15, 23, 32, 0.8);
+		box-shadow: 0 0 0 3px rgba(30, 144, 255, 0.15);
+	}
+
+	.modal input::placeholder {
+		color: var(--color-text-muted);
+	}
+
+	.checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		cursor: pointer;
+		font-size: 0.9rem;
+		color: var(--color-text-secondary);
+	}
+
+	.checkbox-label input[type="checkbox"] {
+		display: none;
+	}
+
+	.checkbox-custom {
+		width: 18px;
+		height: 18px;
+		border: 2px solid var(--color-border);
+		border-radius: 4px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.2s ease;
+		flex-shrink: 0;
+	}
+
+	.checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+		background: var(--color-accent);
+		border-color: var(--color-accent);
+	}
+
+	.checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+		content: "✓";
+		color: white;
+		font-size: 12px;
+		font-weight: 600;
 	}
 
 	.actions {
 		display: flex;
-		justify-content: space-between;
+		gap: 0.75rem;
+		margin-top: 0.5rem;
 	}
 
-	button {
-		background: #1e90ff;
-		border: none;
-		border-radius: 6px;
-		color: #fff;
-		padding: 0.5rem 1rem;
+	.btn-primary,
+	.btn-secondary {
+		flex: 1;
+		padding: 0.75rem 1rem;
+		border-radius: 0.5rem;
+		font-size: 0.95rem;
+		font-weight: 500;
 		cursor: pointer;
-		transition: background 0.2s;
+		transition: all 0.2s ease;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
 	}
 
-	button:hover:not(:disabled) {
-		background: #0077ff;
+	.btn-primary {
+		background: linear-gradient(135deg, var(--color-accent), #0066cc);
+		border: none;
+		color: #fff;
 	}
 
-	button:disabled {
-		opacity: 0.6;
+	.btn-primary:hover:not(:disabled) {
+		background: linear-gradient(135deg, var(--color-accent-hover), #0077ee);
+		transform: translateY(-1px);
+	}
+
+	.btn-primary:disabled {
+		opacity: 0.7;
 		cursor: not-allowed;
 	}
 
-	.cancel {
+	.btn-secondary {
 		background: transparent;
-		border: 1px solid #555;
+		border: 1px solid var(--color-border);
+		color: var(--color-text-secondary);
 	}
 
-	.cancel:hover {
-		background: #333;
+	.btn-secondary:hover {
+		background: rgba(255, 255, 255, 0.05);
+		border-color: rgba(255, 255, 255, 0.15);
+	}
+
+	.spinner {
+		width: 16px;
+		height: 16px;
+		border: 2px solid rgba(255, 255, 255, 0.3);
+		border-top-color: #fff;
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
 	}
 
 	.error {
-		background: rgba(239, 68, 68, 0.2);
-		border: 1px solid rgba(239, 68, 68, 0.5);
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		background: rgba(239, 68, 68, 0.15);
+		border: 1px solid rgba(239, 68, 68, 0.3);
 		border-radius: 0.5rem;
-		padding: 0.75rem;
+		padding: 0.75rem 1rem;
 		color: #fca5a5;
 		font-size: 0.85rem;
+	}
+
+	.error svg {
+		flex-shrink: 0;
 	}
 
 	.error p {
