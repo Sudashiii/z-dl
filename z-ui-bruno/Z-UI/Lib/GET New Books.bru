@@ -14,6 +14,10 @@ params:query {
   deviceId: kindle_001
 }
 
+vars:pre-request {
+  base_url: https://undaubed-decapodous-prudence.ngrok-free.dev
+}
+
 script:post-response {
   const body = res.body
   
