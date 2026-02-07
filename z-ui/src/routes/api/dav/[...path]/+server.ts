@@ -22,10 +22,8 @@ export const fallback: RequestHandler = async ({ request, url }) => {
 		const rawPath = url.pathname.replace(/^\/api\/dav\/?/, '');
 		const path = rawPath === '' ? '' : normalizeKey(rawPath);
 
-		// Get all objects under this path
 		const objects = await s3.list(path);
 
-		// Build WebDAV XML
 		const xmlResponse = `
 			<D:multistatus xmlns:D="DAV:">
 				<D:response>

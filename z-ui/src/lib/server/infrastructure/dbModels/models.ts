@@ -9,6 +9,8 @@ export interface Book {
 	filesize: number | null;
 	language: string | null;
 	year: number | null;
+	progress_storage_key: string | null;
+	progress_updated_at: string | null;
 	createdAt: string | null;
 	isDownloaded?: boolean;
 }
@@ -22,4 +24,4 @@ export interface DeviceDownload {
 /**
  * Data required to create a new book in the library.
  */
-export type CreateBookInput = Omit<Book, 'id' | 'createdAt'>;
+export type CreateBookInput = Omit<Book, 'id' | 'createdAt' | 'progress_storage_key' | 'progress_updated_at'>;

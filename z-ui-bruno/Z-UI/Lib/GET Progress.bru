@@ -1,0 +1,21 @@
+meta {
+  name: GET Progress
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{base_url}}/api/library/progress?fileName={{book_title_file}}
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  base_url: http://localhost:5173
+  book_title_file: Harry Potter und der Stein der Weisen_2009186.epub
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

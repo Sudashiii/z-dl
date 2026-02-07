@@ -5,7 +5,7 @@ local socket = require("socket.url")
 local mime = require("mime")
 local logger = require("logger")
 
-local API = {}
+local BookApi = {}
 
 local ROUTE_NEW = "/new?deviceId="
 local ROUTE_DOWNLOAD = "/"
@@ -22,7 +22,7 @@ local function sanitizeFilename(name)
     return name
 end
 
-function API.fetchBookList(base_url, user, pass, device_id)
+function BookApi.fetchBookList(base_url, user, pass, device_id)
     local auth_header = createBasicAuthHeader(user, pass)
     local target_url = base_url .. ROUTE_NEW .. device_id
     
@@ -48,7 +48,7 @@ function API.fetchBookList(base_url, user, pass, device_id)
     return true, result
 end
 
-function API.downloadBook(base_url, user, pass, device_id, book, home_dir)
+function BookApi.downloadBook(base_url, user, pass, device_id, book, home_dir)
     local s3Key = book.s3_storage_key
     local bookId = book.id
     
@@ -75,12 +75,12 @@ function API.downloadBook(base_url, user, pass, device_id, book, home_dir)
         return false, "Download Failed: " .. tostring(statusCode)
     end
 
-    API.confirmDownload(base_url, user, pass, device_id, bookId)
+    BookApi.confirmDownload(base_url, user, pass, device_id, bookId)
 
     return true, "Saved to " .. sanitizedFilename
 end
 
-function API.confirmDownload(base_url, user, pass, device_id, book_id)
+function BookApi.confirmDownload(base_url, user, pass, device_id, book_id)
     local body = json.encode({ deviceId = device_id, bookId = book_id })
     local target_url = base_url .. ROUTE_CONFIRM
     local auth_header = createBasicAuthHeader(user, pass)
@@ -97,8 +97,8 @@ function API.confirmDownload(base_url, user, pass, device_id, book_id)
     }
 end
 
-function API.performSilentSync(base_url, user, pass, device_id, home_dir)
-    local success, result = API.fetchBookList(base_url, user, pass, device_id)
+function BookApi.performSilentSync(base_url, user, pass, device_id, home_dir)
+    local success, result = BookApi.fetchBookList(base_url, user, pass, device_id)
     
     if not success or #result == 0 then
         return 0
@@ -106,7 +106,7 @@ function API.performSilentSync(base_url, user, pass, device_id, home_dir)
 
     local count = 0
     for _, book in ipairs(result) do
-        local ok, _ = API.downloadBook(base_url, user, pass, device_id, book, home_dir)
+        local ok, _ = BookApi.downloadBook(base_url, user, pass, device_id, book, home_dir)
         if ok then
             count = count + 1
         end
@@ -115,4 +115,4 @@ function API.performSilentSync(base_url, user, pass, device_id, home_dir)
     return count
 end
 
-return API
+return BookApi

@@ -26,11 +26,18 @@ script:post-response {
   
   if (Array.isArray(body) && body.length > 0) {
     const firstBook = body[0];
+	const extension = firstBook.extension ? String(firstBook.extension).toLowerCase() : null;
+	const title = String(firstBook.title || '');
+	let bookTitleFile = title;
+	if (extension && !title.toLowerCase().endsWith(`.${extension}`)) {
+		bookTitleFile = `${title}.${extension}`;
+	}
   
     bru.setEnvVar('s3_storage_key', firstBook.s3_storage_key);
     bru.setEnvVar('book_id', firstBook.id);
+    bru.setEnvVar('book_title_file', bookTitleFile);
   
-    console.log(`✅ Stored s3_storage_key=${firstBook.s3_storage_key}, book_hash=${firstBook.hash}`);
+    console.log(`✅ Stored s3_storage_key=${firstBook.s3_storage_key}, book_title_file=${bookTitleFile}`);
   } else {
     console.warn('⚠️ No books found in response body');
   }

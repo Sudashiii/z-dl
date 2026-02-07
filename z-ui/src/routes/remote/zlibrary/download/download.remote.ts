@@ -8,13 +8,11 @@ const zlib = new ZLibrary("https://1lib.sk");
 
 // @ts-ignore - signature mismatch with command wrapper
 export const downloadBook = command(async (data: ZDownloadBookRequest, event: any) => {
-    // 1. Destructure data and Get Context
     const { bookId, hash, upload, title, extension, author, cover, filesize, language, year, downloadToDevice } = data;
     const { locals } = event;
 
-    // 2. Auth Check (Throw errors instead of returning 400/401 JSON)
     if (!locals.zuser) {
-        throw new Error('ZLib Login is not valid!'); // Client will catch this
+        throw new Error('ZLib Login is not valid!');
     }
 
     if (!bookId || !hash) {
@@ -22,23 +20,19 @@ export const downloadBook = command(async (data: ZDownloadBookRequest, event: an
     }
 
     try {
-        // 3. ZLib Login
         const loggedIn = await zlib.tokenLogin(locals.zuser.userId, locals.zuser.userKey);
         if (!loggedIn) {
             throw new Error('Z-Lib Login failed');
         }
 
-        // 4. Download Logic
         const bookDownloadResponse = await zlib.download(bookId, hash);
         const fileBuffer = await bookDownloadResponse.arrayBuffer();
         const bufferObj = Buffer.from(fileBuffer);
 
-        // 5. Optional S3 Upload
         if (upload) {
             const uploadService = DavUploadServiceFactory.createS3();
             const key = `${title}_${bookId}.${extension}`;
 
-            // Parallelize these operations if possible, or await sequentially
             await uploadService.upload(key, bufferObj);
             await BookRepository.create({
                 s3_storage_key: key,
@@ -50,17 +44,14 @@ export const downloadBook = command(async (data: ZDownloadBookRequest, event: an
                 filesize: filesize ?? null,
                 language: language ?? null,
                 year: year ?? null,
-                isDownloaded: (downloadToDevice !== false) // Mark as downloaded if we are sending to device
+                isDownloaded: false
             });
         }
 
-        // 6. Return Data
         if (downloadToDevice === false) {
-            // Share only: just return success, no file data
             return { success: true };
         }
 
-        // Download: return file data to client
         return {
             success: true,
             fileName: `${title}.${extension}`,
@@ -70,7 +61,6 @@ export const downloadBook = command(async (data: ZDownloadBookRequest, event: an
 
     } catch (err: any) {
         console.error("Remote function error:", err);
-        // Re-throw or return a specific error object your UI expects
         throw new Error(err.message || 'File not found');
     }
 });

@@ -1,0 +1,26 @@
+meta {
+  name: PUT Progress
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{base_url}}/api/library/progress
+  body: multipart-form
+  auth: inherit
+}
+
+body:multipart-form {
+  fileName: {{book_title_file}}
+  file: @file(/Users/sascha/Downloads/metadata.epub.lua) @contentType(text/x-lua; charset=utf-8)
+}
+
+vars:pre-request {
+  base_url: http://localhost:5173
+  book_title_file: Harry Potter und der Stein der Weisen_2009186.epub
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

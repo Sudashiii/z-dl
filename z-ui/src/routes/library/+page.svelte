@@ -11,7 +11,6 @@
 	let isLoading = $state(true);
 	let error = $state<ApiError | null>(null);
 
-	// Modal state
 	let showConfirmModal = $state(false);
 	let bookToReset = $state<Book | null>(null);
 
@@ -50,11 +49,9 @@
 		const book = bookToReset;
 		closeResetModal();
 
-		// Optimistic update
 		const originalStatus = book.isDownloaded;
 		const index = books.findIndex((b) => b.id === book.id);
 		if (index !== -1) {
-			// Create a new array reference to trigger reactivity if needed
 			const updatedBooks = [...books];
 			updatedBooks[index] = {
 				...updatedBooks[index],

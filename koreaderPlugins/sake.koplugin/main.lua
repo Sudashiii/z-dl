@@ -1,10 +1,12 @@
-local API = require("api") 
+local BookApi = require("bookApi") 
 local Dispatcher = require("dispatcher")
 local InfoMessage = require("ui/widget/infomessage")
 local InputDialog = require("ui/widget/inputdialog")
 local UIManager = require("ui/uimanager")
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local _ = require("gettext")
+local ProgressApi = require("progressApi")
+local logger = require("logger")
 
 local Sake = WidgetContainer:extend{
     name = "sake",
@@ -25,6 +27,7 @@ function Sake:init()
 
     local stored_name = G_reader_settings:readSetting("sake_device_name")
     if not stored_name then
+        logger.info("[Sake] No device name found. Generating new ID...")
         math.randomseed(os.time())
         local random_id = string.format("%x", math.random(100000, 999999))
         stored_name = "device_" .. random_id
@@ -34,6 +37,9 @@ function Sake:init()
     self.device_name = stored_name
     
     self.home_dir = G_reader_settings:readSetting("home_dir") or "."
+    self.books_downloaded_bg = 0 -- Initialize this to prevent nil errors
+
+    logger.info("[Sake] Initialized. Device: " .. self.device_name .. " | URL: " .. (self.api_url ~= "" and self.api_url or "Not Set"))
 
     self.onSuspend = function() self:handleSuspend() end
     self.onResume = function() self:handleResume() end
@@ -92,6 +98,9 @@ function Sake:showStringInput(setting_key, class_var, title)
                         local new_val = self.input_dialog:getInputText()
                         self[class_var] = new_val
                         G_reader_settings:saveSetting(setting_key, new_val)
+                        
+                        logger.info("[Sake] Updated setting: " .. setting_key .. " = " .. new_val)
+                        
                         UIManager:close(self.input_dialog)
                         UIManager:show(InfoMessage:new{ text = _("Saved!") })
                     end,
@@ -104,7 +113,10 @@ function Sake:showStringInput(setting_key, class_var, title)
 end
 
 function Sake:onSakeSync()
+    logger.info("[Sake] Manual sync started.")
+
     if self.api_user == "" then 
+        logger.warn("[Sake] Sync aborted: Missing credentials.")
         UIManager:show(InfoMessage:new{ text = _("Please configure settings first!") })
         return 
     end
@@ -113,21 +125,25 @@ function Sake:onSakeSync()
     UIManager:show(self.popup)
 
     UIManager:scheduleIn(0.05, function()
-        local success, result = API.fetchBookList(self.api_url, self.api_user, self.api_pass, self.device_name)
+        logger.info("[Sake] Fetching book list from API...")
+        local success, result = BookApi.fetchBookList(self.api_url, self.api_user, self.api_pass, self.device_name)
         
         if self.popup then UIManager:close(self.popup) end
 
         if not success then
+            logger.error("[Sake] Fetch failed: " .. tostring(result))
             UIManager:show(InfoMessage:new{ text = _("Error: " .. result) })
             return
         end
 
         local books = result
         if #books == 0 then
+            logger.info("[Sake] No new books found.")
             UIManager:show(InfoMessage:new{ text = _("No new books found.") })
             return
         end
 
+        logger.info("[Sake] Found " .. #books .. " new books. Starting download queue.")
         self:startDownloadQueue(books, 1)
     end)
 end
@@ -140,12 +156,16 @@ function Sake:startDownloadQueue(books, index)
     end
 
     if index > total then
+        logger.info("[Sake] All downloads completed successfully.")
         UIManager:show(InfoMessage:new{ text = _("Success! Downloaded " .. total .. " books.") })
         return
     end
 
     local book = books[index]
-    local size_mb = self:formatSize(book.filesize)
+    local ok, val = pcall(self.formatSize, self, book.filesize)
+    local size_mb = ok and val or "Unknown"
+
+    logger.info("[Sake] Downloading " .. index .. "/" .. total .. ": " .. book.title .. " (" .. size_mb .. ")")
 
     local msg = string.format("Downloading %d of %d\n\n%s\nSize: %s", index, total, book.title, size_mb)
     
@@ -156,14 +176,16 @@ function Sake:startDownloadQueue(books, index)
     UIManager:show(self.popup)
 
     UIManager:scheduleIn(0.1, function()
-        local success, err = API.downloadBook(self.api_url, self.api_user, self.api_pass, self.device_name, book, self.home_dir)
+        local success, err = BookApi.downloadBook(self.api_url, self.api_user, self.api_pass, self.device_name, book, self.home_dir)
         
         if not success then
+            logger.error("[Sake] Download failed for '" .. book.title .. "': " .. tostring(err))
             if self.popup then UIManager:close(self.popup) end
             UIManager:show(InfoMessage:new{ text = _("Failed on book " .. index .. ": " .. err) })
             return
         end
-
+        
+        logger.info("[Sake] Download success: " .. book.title)
         self:startDownloadQueue(books, index + 1)
     end)
 end
@@ -175,21 +197,78 @@ function Sake:formatSize(bytes)
 end
 
 function Sake:handleSuspend()
-        if self.api_user == "" or self.api_pass == "" then return end
+    if self.api_user == "" or self.api_pass == "" then return end
+
+    logger.info("[Sake] Suspend detected. Starting background tasks...")
+
+    UIManager:scheduleIn(1.0, function()
+            self:syncCurrentBookProgress()
+        end)
 
     UIManager:scheduleIn(1, function()
-        local count = API.performSilentSync(self.api_url, self.api_user, self.api_pass, self.device_name, self.home_dir)
+        logger.info("[Sake] Starting silent book sync...")
+        local count = BookApi.performSilentSync(self.api_url, self.api_user, self.api_pass, self.device_name, self.home_dir)
         self.books_downloaded_bg = count
+        if count > 0 then
+            logger.info("[Sake] Silent sync downloaded " .. count .. " books.")
+        else
+            logger.info("[Sake] Silent sync finished. No new books.")
+        end
     end)
 end
 
 function Sake:handleResume()
-    if self.books_downloaded_bg > 0 then
+    logger.info("[Sake] Resume detected.")
+    if self.books_downloaded_bg and self.books_downloaded_bg > 0 then
+        logger.info("[Sake] Alerting user of " .. self.books_downloaded_bg .. " background downloads.")
         UIManager:show(InfoMessage:new{ 
             text = _("Welcome back!\nDownloaded " .. self.books_downloaded_bg .. " books while away."),
             timeout = 5
         })
         self.books_downloaded_bg = 0
+    end
+end
+
+function Sake:syncCurrentBookProgress()
+    logger.info("[Sake] Checking for open document to sync progress...")
+    
+    if not self.ui.document then 
+        logger.info("[Sake] No document open. Skipping progress sync.")
+        return 
+    end
+    
+    local doc_path = self.ui.document.file
+    if not doc_path then
+        logger.warn("[Sake] Could not determine document path.")
+        return
+    end
+
+    local sdr_path = string.gsub(doc_path, "%.([^%.]+)$", ".sdr/metadata.%1.lua")
+    local filename = doc_path:match("^.+/(.+)$")
+
+    local f = io.open(sdr_path, "r")
+    if not f then 
+        logger.warn("[Sake] Metadata file not found at: " .. sdr_path)
+        return 
+    end
+    
+    local content = f:read("*all")
+    f:close()
+
+    logger.info("[Sake] Uploading progress for: " .. filename)
+
+    local success, msg = ProgressApi.uploadProgress(
+        self.api_url, 
+        self.api_user, 
+        self.api_pass, 
+        filename, 
+        content
+    )
+    
+    if not success then
+        logger.info("[Sake] Progress Upload Failed: " .. tostring(msg))
+    else
+        logger.info("[Sake] Progress Upload Success.")
     end
 end
 
