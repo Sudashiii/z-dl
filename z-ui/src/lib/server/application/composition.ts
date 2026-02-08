@@ -2,6 +2,7 @@ import { ZLibraryClient } from '$lib/server/infrastructure/clients/ZLibraryClien
 import { S3Storage } from '$lib/server/infrastructure/storage/S3Storage';
 import { BookRepository } from '$lib/server/infrastructure/repositories/BookRepository';
 import { DeviceDownloadRepository } from '$lib/server/infrastructure/repositories/DeviceDownloadRepository';
+import { DeviceProgressDownloadRepository } from '$lib/server/infrastructure/repositories/DeviceProgressDownloadRepository';
 import { DavUploadServiceFactory } from '$lib/server/infrastructure/factories/DavUploadServiceFactory';
 import { downloadQueue } from '$lib/server/infrastructure/queue/downloadQueue';
 import { DownloadBookUseCase } from '$lib/server/application/use-cases/DownloadBookUseCase';
@@ -16,6 +17,8 @@ import { ConfirmDownloadUseCase } from '$lib/server/application/use-cases/Confir
 import { ResetDownloadStatusUseCase } from '$lib/server/application/use-cases/ResetDownloadStatusUseCase';
 import { GetProgressUseCase } from '$lib/server/application/use-cases/GetProgressUseCase';
 import { PutProgressUseCase } from '$lib/server/application/use-cases/PutProgressUseCase';
+import { GetNewProgressForDeviceUseCase } from '$lib/server/application/use-cases/GetNewProgressForDeviceUseCase';
+import { ConfirmProgressDownloadUseCase } from '$lib/server/application/use-cases/ConfirmProgressDownloadUseCase';
 import { GetLibraryFileUseCase } from '$lib/server/application/use-cases/GetLibraryFileUseCase';
 import { PutLibraryFileUseCase } from '$lib/server/application/use-cases/PutLibraryFileUseCase';
 import { DeleteLibraryFileUseCase } from '$lib/server/application/use-cases/DeleteLibraryFileUseCase';
@@ -25,6 +28,7 @@ export const zlibraryClient = new ZLibraryClient('https://1lib.sk');
 export const storage = new S3Storage();
 export const bookRepository = new BookRepository();
 export const deviceDownloadRepository = new DeviceDownloadRepository();
+export const deviceProgressDownloadRepository = new DeviceProgressDownloadRepository();
 
 export const downloadBookUseCase = new DownloadBookUseCase(
 	zlibraryClient,
@@ -44,6 +48,11 @@ export const resetDownloadStatusUseCase = new ResetDownloadStatusUseCase(bookRep
 
 export const getProgressUseCase = new GetProgressUseCase(bookRepository, storage);
 export const putProgressUseCase = new PutProgressUseCase(bookRepository, storage);
+export const getNewProgressForDeviceUseCase = new GetNewProgressForDeviceUseCase(bookRepository);
+export const confirmProgressDownloadUseCase = new ConfirmProgressDownloadUseCase(
+	bookRepository,
+	deviceProgressDownloadRepository
+);
 
 export const getLibraryFileUseCase = new GetLibraryFileUseCase(storage);
 export const putLibraryFileUseCase = new PutLibraryFileUseCase(storage, bookRepository);

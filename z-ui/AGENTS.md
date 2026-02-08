@@ -10,6 +10,8 @@ This file defines project-specific engineering rules for automated agents and co
 - Do not introduce `any` or loose typing unless there is a strong reason and it is clearly justified.
 - The app should remain **free of TypeScript errors** (`npm run check` must pass).
 - Styling uses **SCSS modules** conventions in the app. Keep styling changes consistent with existing SCSS/module usage patterns.
+- Database schema and migrations are owned in this repo via **Drizzle** (`drizzle.config.ts`, `drizzle/`, `src/lib/server/infrastructure/db/schema.ts`).
+- Do not reintroduce migration ownership in external projects (old `z-mg` flow is decommissioned for migrations).
 
 ## Architecture rules
 
@@ -64,3 +66,12 @@ Before finishing a change:
 - `npm run check` passes with **0 TypeScript errors**.
 - No architectural regression (business logic drifting into routes/infrastructure glue).
 - Naming is consistent with current conventions (`*UseCase`, `*Client`, etc.).
+
+## Change memory and implementation plans
+
+- If a major project reality changes (DB stack, migration workflow, deployment workflow, architecture policy, or core technology), update `AGENTS.md` in the same change so future agents do not lose that context.
+- For any non-trivial implementation (new feature, refactor phase, workflow/infra change), create a temporary implementation plan in `docs/implementation-plans/` before implementation starts.
+- Treat implementation-plan creation as mandatory, not optional, for this project.
+- Keep implementation plan docs focused: scope, phases, risks, cutover/rollback, and done criteria.
+- Once implementation is fully complete, delete the corresponding plan file from `docs/implementation-plans/` so this folder does not become permanent stale documentation.
+- Keep Bruno requests in sync with API changes. When adding or changing endpoints, update the matching requests under `z-ui-bruno/Z-UI/`.

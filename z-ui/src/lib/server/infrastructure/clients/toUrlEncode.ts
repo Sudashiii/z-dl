@@ -2,7 +2,7 @@
  * Encodes an object into application/x-www-form-urlencoded format.
  * Arrays use bracket notation: key[]=value1&key[]=value2
  */
-export function toUrlEncoded(data: Record<string, any>): string {
+export function toUrlEncoded(data: object): string {
 	const params: string[] = [];
 
 	for (const [key, value] of Object.entries(data)) {

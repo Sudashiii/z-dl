@@ -1,40 +1,32 @@
 import type { DeviceDownloadRepositoryPort } from '$lib/server/application/ports/DeviceDownloadRepositoryPort';
-import { db } from '$lib/server/infrastructure/db/db';
+import { drizzleDb } from '$lib/server/infrastructure/db/client';
+import { deviceDownloads } from '$lib/server/infrastructure/db/schema';
 import type { DeviceDownload } from '$lib/server/domain/entities/DeviceDownload';
+import { eq } from 'drizzle-orm';
 
 export class DeviceDownloadRepository implements DeviceDownloadRepositoryPort {
 	private static readonly instance = new DeviceDownloadRepository();
 
 	async getAll(): Promise<DeviceDownload[]> {
-		const result = await db.execute('SELECT * FROM DeviceDownloads');
-		return result.rows as unknown as DeviceDownload[];
+		return drizzleDb.select().from(deviceDownloads);
 	}
 
 	async getByDevice(deviceId: string): Promise<DeviceDownload[]> {
-		const result = await db.execute({
-			sql: 'SELECT * FROM DeviceDownloads WHERE deviceId = ?',
-			args: [deviceId]
-		});
-		return result.rows as unknown as DeviceDownload[];
+		return drizzleDb.select().from(deviceDownloads).where(eq(deviceDownloads.deviceId, deviceId));
 	}
 
 	async create(download: Omit<DeviceDownload, 'id'>): Promise<DeviceDownload> {
-		const result = await db.execute({
-			sql: 'INSERT INTO DeviceDownloads (deviceId, bookId) VALUES (?, ?)',
-			args: [download.deviceId, download.bookId]
-		});
+		const [created] = await drizzleDb.insert(deviceDownloads).values(download).returning();
 
-		return {
-			id: Number(result.lastInsertRowid),
-			...download
-		};
+		if (!created) {
+			throw new Error('Failed to create device download');
+		}
+
+		return created;
 	}
 
 	async delete(id: number): Promise<void> {
-		await db.execute({
-			sql: 'DELETE FROM DeviceDownloads WHERE id = ?',
-			args: [id]
-		});
+		await drizzleDb.delete(deviceDownloads).where(eq(deviceDownloads.id, id));
 	}
 
 	static async getAll(): Promise<DeviceDownload[]> {

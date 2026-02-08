@@ -33,10 +33,11 @@ export const downloadBook = command(async (data: ZDownloadBookRequest, event: an
 	        if (!result.value.fileData) {
 	            throw new Error('File download failed');
 	        }
+	        const safeExtension = extension && extension.trim().length > 0 ? extension : 'epub';
 
 		        return {
 		            success: true,
-		            fileName: `${title}.${extension}`,
+		            fileName: `${title}.${safeExtension}`,
 		            fileData: new Uint8Array(result.value.fileData),
 		            contentType: result.value.responseHeaders?.get('content-type') || 'application/octet-stream'
 		        };
