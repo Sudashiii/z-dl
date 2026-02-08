@@ -22,7 +22,6 @@
 		"@sveltejs/adapter-node": "^5.4.0",
 		"@sveltejs/kit": "^2.47.1",
 		"@sveltejs/vite-plugin-svelte": "^6.2.1",
-		"@types/better-sqlite3": "^7.6.13",
 		"@types/cookie": "^0.6.0",
 		"@types/estree": "^1.0.8",
 		"@types/node": "^24.10.0",
@@ -37,7 +36,6 @@
 	"dependencies": {
 		"@aws-sdk/client-s3": "^3.922.0",
 		"@libsql/client": "^0.15.15",
-		"better-sqlite3": "^12.4.1",
 		"drizzle-orm": "^0.44.6"
 	}
 }
