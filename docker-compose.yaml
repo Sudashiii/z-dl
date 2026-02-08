@@ -1,15 +1,14 @@
-version: '3.8'
-
 services:
-  z-mg-runner:
+  z-ui-migrator:
     build:
-      context: ./z-mg
+      context: ./z-ui
       dockerfile: dockerfile
-    image: z-mg-runner
-    container_name: z-mg-runner
-    command: ["deno", "task", "migrate"]
+      target: migrator
+    image: z-ui-migrator
+    container_name: z-ui-migrator
+    command: ["npm", "run", "db:migrate"]
     env_file:
-      - ./z-mg/.env
+      - ./z-ui/.env
     networks:
       - caddy_net
     restart: "no"
@@ -18,6 +17,7 @@ services:
     build:
       context: ./z-ui
       dockerfile: dockerfile
+      target: runtime
     image: z-ui
     container_name: z-ui
     ports:
@@ -32,7 +32,7 @@ services:
     networks:
       - caddy_net
     depends_on:
-      z-mg-runner:
+      z-ui-migrator:
         condition: service_completed_successfully
 
 networks:

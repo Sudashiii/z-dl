@@ -1,0 +1,29 @@
+meta {
+  name: POST Confirm Progress Download
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{base_url}}/api/library/progress/confirm
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "deviceId": "{{device_id}}",
+    "bookId": {{book_id}}
+  }
+}
+
+vars:pre-request {
+  base_url: http://localhost:5173
+  device_id: kindle_001
+  book_id: 1
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

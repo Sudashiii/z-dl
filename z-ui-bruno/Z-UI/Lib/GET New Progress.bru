@@ -1,0 +1,37 @@
+meta {
+  name: GET New Progress
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{base_url}}/api/library/progress/new?deviceId={{device_id}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  deviceId: {{device_id}}
+}
+
+vars:pre-request {
+  base_url: http://localhost:5173
+  device_id: kindle_001
+}
+
+script:post-response {
+  const body = res.body
+
+  if (Array.isArray(body) && body.length > 0) {
+    const firstBook = body[0];
+    bru.setEnvVar('book_id', firstBook.id);
+    console.log(`Stored book_id=${firstBook.id} for progress confirm`);
+  } else {
+    console.log('No progress updates available');
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
