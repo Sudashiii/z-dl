@@ -1,5 +1,6 @@
-import { DavUploadServiceFactory } from '$lib/server/application/factories/DavUploadServiceFactory';
-import { ZLibrary } from '$lib/server/application/ZLibrary';
+import { DavUploadServiceFactory } from '$lib/server/infrastructure/factories/DavUploadServiceFactory';
+import { DownloadBookUseCase } from '$lib/server/application/use-cases/DownloadBookUseCase';
+import { ZLibraryClient } from '$lib/server/infrastructure/clients/ZLibraryClient';
 import { BookRepository } from '$lib/server/infrastructure/repositories/BookRepository';
 
 export interface QueuedDownload {
@@ -23,7 +24,11 @@ export interface QueuedDownload {
 class DownloadQueue {
 	private queue: QueuedDownload[] = [];
 	private isProcessing = false;
-	private zlib = new ZLibrary('https://1lib.sk');
+	private readonly downloadBookUseCase = new DownloadBookUseCase(
+		new ZLibraryClient('https://1lib.sk'),
+		new BookRepository(),
+		() => DavUploadServiceFactory.createS3()
+	);
 
 	/**
 	 * Add a download task to the queue
@@ -95,34 +100,28 @@ class DownloadQueue {
 	 * Process a single download task
 	 */
 	private async processTask(task: QueuedDownload): Promise<void> {
-		// Login to Z-Library
-		const loggedIn = await this.zlib.tokenLogin(task.userId, task.userKey);
-		if (!loggedIn) {
-			throw new Error('Z-Library login failed');
-		}
-
-		// Download the book
-		const bookDownloadResponse = await this.zlib.download(task.bookId, task.hash);
-		const fileBuffer = await bookDownloadResponse.arrayBuffer();
-
-		// Upload to S3
-		const uploadService = DavUploadServiceFactory.createS3();
-		const key = `${task.title}_${task.bookId}.${task.extension}`;
-		await uploadService.upload(key, Buffer.from(fileBuffer));
-
-		// Save to database
-		await BookRepository.create({
-			zLibId: task.bookId,
-			s3_storage_key: key,
-			title: task.title,
-			author: task.author,
-			cover: task.cover,
-			extension: task.extension,
-			filesize: task.filesize,
-			language: task.language,
-			year: task.year,
-			isDownloaded: false // Not downloaded to device, just in library
+		const useCaseResult = await this.downloadBookUseCase.execute({
+			request: {
+				bookId: task.bookId,
+				hash: task.hash,
+				title: task.title,
+				upload: true,
+				extension: task.extension,
+				author: task.author ?? undefined,
+				cover: task.cover ?? undefined,
+				filesize: task.filesize ?? undefined,
+				language: task.language ?? undefined,
+				year: task.year ?? undefined,
+				downloadToDevice: false
+			},
+			credentials: {
+				userId: task.userId,
+				userKey: task.userKey
+			}
 		});
+		if (!useCaseResult.ok) {
+			throw new Error(useCaseResult.error.message);
+		}
 	}
 }
 

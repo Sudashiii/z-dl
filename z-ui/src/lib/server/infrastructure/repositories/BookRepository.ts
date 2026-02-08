@@ -1,20 +1,23 @@
-import type { Book, CreateBookInput } from '$lib/server/infrastructure/dbModels/models';
+import type { BookRepositoryPort } from '$lib/server/application/ports/BookRepositoryPort';
+import type { Book, CreateBookInput } from '$lib/server/domain/entities/Book';
 import { db } from '../db/db';
 
-export class BookRepository {
-	static async getAll(): Promise<Book[]> {
+export class BookRepository implements BookRepositoryPort {
+	private static readonly instance = new BookRepository();
+
+	async getAll(): Promise<Book[]> {
 		const result = await db.execute(`
             SELECT b.*, EXISTS(SELECT 1 FROM DeviceDownloads WHERE bookId = b.id) as isDownloaded 
             FROM Books b 
             ORDER BY b.createdAt DESC
         `);
-		return result.rows.map(row => ({
+		return result.rows.map((row) => ({
 			...row,
 			isDownloaded: Boolean(row.isDownloaded)
 		})) as unknown as Book[];
 	}
 
-	static async getById(id: number): Promise<Book | undefined> {
+	async getById(id: number): Promise<Book | undefined> {
 		const result = await db.execute({
 			sql: 'SELECT * FROM Books WHERE id = ?',
 			args: [id]
@@ -22,7 +25,7 @@ export class BookRepository {
 		return (result.rows[0] as unknown as Book) ?? undefined;
 	}
 
-	static async getByZLibId(zLibId: string): Promise<Book | undefined> {
+	async getByZLibId(zLibId: string): Promise<Book | undefined> {
 		const result = await db.execute({
 			sql: 'SELECT * FROM Books WHERE zLibId = ?',
 			args: [zLibId]
@@ -30,7 +33,31 @@ export class BookRepository {
 		return (result.rows[0] as unknown as Book) ?? undefined;
 	}
 
-	static async create(book: CreateBookInput): Promise<Book> {
+	async getByStorageKey(storageKey: string): Promise<Book | undefined> {
+		const result = await db.execute({
+			sql: 'SELECT * FROM Books WHERE s3_storage_key = ?',
+			args: [storageKey]
+		});
+		return (result.rows[0] as unknown as Book) ?? undefined;
+	}
+
+	async getByTitleAndExtension(title: string, extension: string): Promise<Book | undefined> {
+		const result = await db.execute({
+			sql: 'SELECT * FROM Books WHERE title = ? AND extension = ?',
+			args: [title, extension]
+		});
+		return (result.rows[0] as unknown as Book) ?? undefined;
+	}
+
+	async getByTitle(title: string): Promise<Book | undefined> {
+		const result = await db.execute({
+			sql: 'SELECT * FROM Books WHERE title = ?',
+			args: [title]
+		});
+		return (result.rows[0] as unknown as Book) ?? undefined;
+	}
+
+	async create(book: CreateBookInput): Promise<Book> {
 		const result = await db.execute({
 			sql: `INSERT INTO Books (zLibId, s3_storage_key, title, author, cover, extension, filesize, language, year)
 			      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -50,25 +77,34 @@ export class BookRepository {
 		return {
 			id: Number(result.lastInsertRowid),
 			...book,
+			progress_storage_key: null,
+			progress_updated_at: null,
 			createdAt: new Date().toISOString()
 		};
 	}
 
-	static async delete(id: number): Promise<void> {
+	async delete(id: number): Promise<void> {
 		await db.execute({
 			sql: 'DELETE FROM Books WHERE id = ?',
 			args: [id]
 		});
 	}
 
-	static async resetDownloadStatus(bookId: number): Promise<void> {
+	async resetDownloadStatus(bookId: number): Promise<void> {
 		await db.execute({
 			sql: 'DELETE FROM DeviceDownloads WHERE bookId = ?',
 			args: [bookId]
 		});
 	}
 
-	static async getNotDownloadedByDevice(deviceId: string): Promise<Book[]> {
+	async updateProgress(bookId: number, progressKey: string): Promise<void> {
+		await db.execute({
+			sql: 'UPDATE Books SET progress_storage_key = ?, progress_updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+			args: [progressKey, bookId]
+		});
+	}
+
+	async getNotDownloadedByDevice(deviceId: string): Promise<Book[]> {
 		const result = await db.execute({
 			sql: `
 				SELECT b.*
@@ -82,8 +118,56 @@ export class BookRepository {
 		return result.rows as unknown as Book[];
 	}
 
-	static async count(): Promise<number> {
+	async count(): Promise<number> {
 		const result = await db.execute('SELECT COUNT(*) as count FROM Books');
-		return (result.rows[0] as any).count;
+		return (result.rows[0] as unknown as { count: number }).count;
+	}
+
+	static async getAll(): Promise<Book[]> {
+		return BookRepository.instance.getAll();
+	}
+
+	static async getById(id: number): Promise<Book | undefined> {
+		return BookRepository.instance.getById(id);
+	}
+
+	static async getByZLibId(zLibId: string): Promise<Book | undefined> {
+		return BookRepository.instance.getByZLibId(zLibId);
+	}
+
+	static async getByStorageKey(storageKey: string): Promise<Book | undefined> {
+		return BookRepository.instance.getByStorageKey(storageKey);
+	}
+
+	static async getByTitleAndExtension(title: string, extension: string): Promise<Book | undefined> {
+		return BookRepository.instance.getByTitleAndExtension(title, extension);
+	}
+
+	static async getByTitle(title: string): Promise<Book | undefined> {
+		return BookRepository.instance.getByTitle(title);
+	}
+
+	static async create(book: CreateBookInput): Promise<Book> {
+		return BookRepository.instance.create(book);
+	}
+
+	static async delete(id: number): Promise<void> {
+		return BookRepository.instance.delete(id);
+	}
+
+	static async resetDownloadStatus(bookId: number): Promise<void> {
+		return BookRepository.instance.resetDownloadStatus(bookId);
+	}
+
+	static async updateProgress(bookId: number, progressKey: string): Promise<void> {
+		return BookRepository.instance.updateProgress(bookId, progressKey);
+	}
+
+	static async getNotDownloadedByDevice(deviceId: string): Promise<Book[]> {
+		return BookRepository.instance.getNotDownloadedByDevice(deviceId);
+	}
+
+	static async count(): Promise<number> {
+		return BookRepository.instance.count();
 	}
 }

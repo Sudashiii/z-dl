@@ -1,13 +1,17 @@
-import { BookRepository } from '$lib/server/infrastructure/repositories/BookRepository';
+import { listLibraryUseCase } from '$lib/server/application/composition';
+import { errorResponse } from '$lib/server/http/api';
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 
 export const GET: RequestHandler = async () => {
 	try {
-		const books = await BookRepository.getAll();
-		return json({ success: true, books });
+		const result = await listLibraryUseCase.execute();
+		if (!result.ok) {
+			return errorResponse(result.error.message, result.error.status);
+		}
+		return json(result.value);
 	} catch (err: unknown) {
 		console.error('Failed to fetch library books:', err);
-		return json({ success: false, error: 'Failed to fetch library books' }, { status: 500 });
+		return errorResponse('Failed to fetch library books', 500);
 	}
 };

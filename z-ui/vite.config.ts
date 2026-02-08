@@ -5,6 +5,7 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	server: {
 		allowedHosts: [
+			'undaubed-decapodous-prudence.ngrok-free.dev',
 			'localhost',
 			'suda.sh',
 			'z-dl.codingsascha.devs'

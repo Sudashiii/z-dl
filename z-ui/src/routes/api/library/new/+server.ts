@@ -1,17 +1,24 @@
-import { BookRepository } from '$lib/server/infrastructure/repositories/BookRepository';
+import { getNewBooksForDeviceUseCase } from '$lib/server/application/composition';
+import { errorResponse } from '$lib/server/http/api';
 import type { RequestHandler } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 
 
 export const GET: RequestHandler = async ({ url }) => {
 	const deviceId = url.searchParams.get('deviceId');
 
 	if (!deviceId) {
-		return new Response(JSON.stringify({ error: 'Missing deviceId parameter' }), { status: 400 });
+		return errorResponse('Missing deviceId parameter', 400);
 	}
 
-	const books = await BookRepository.getNotDownloadedByDevice(deviceId);
-	return new Response(JSON.stringify(books), {
-		status: 200,
-		headers: { 'Content-Type': 'application/json' }
-	});
+	try {
+		const result = await getNewBooksForDeviceUseCase.execute(deviceId);
+		if (!result.ok) {
+			return errorResponse(result.error.message, result.error.status);
+		}
+		return json(result.value);
+	} catch (err: unknown) {
+		console.error('Failed to fetch new books for device:', err);
+		return errorResponse('Failed to fetch new books', 500);
+	}
 };

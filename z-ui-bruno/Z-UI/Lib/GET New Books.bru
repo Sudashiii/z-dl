@@ -5,13 +5,17 @@ meta {
 }
 
 get {
-  url: {{base_url}}/api/library/new?deviceId=kindle_001
+  url: {{base_url}}/api/library/new?deviceId=device_002
   body: none
   auth: inherit
 }
 
 params:query {
-  deviceId: kindle_001
+  deviceId: device_002
+}
+
+vars:pre-request {
+  base_url: https://undaubed-decapodous-prudence.ngrok-free.dev
 }
 
 script:post-response {

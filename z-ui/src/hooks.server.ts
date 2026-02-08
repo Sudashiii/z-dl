@@ -2,6 +2,7 @@ import type { Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { requireBasicAuth } from '$lib/server/auth/basicAuth';
 import { initializeDatabase } from '$lib/server/infrastructure/db/db';
+import { errorResponse } from '$lib/server/http/api';
 
 const basicAuthHandle: Handle = async ({ event, resolve }) => {
 	const { request, url } = event;
@@ -10,13 +11,13 @@ const basicAuthHandle: Handle = async ({ event, resolve }) => {
 		try {
 			requireBasicAuth(request);
 		} catch (err) {
-			if (err instanceof Response) {
-				return err;
+				if (err instanceof Response) {
+					return err;
+				}
+				console.error('Auth error:', err);
+				return errorResponse('Authentication error', 500);
 			}
-			console.error('Auth error:', err);
-			return new Response('Authentication error', { status: 500 });
 		}
-	}
 
 	return resolve(event);
 };

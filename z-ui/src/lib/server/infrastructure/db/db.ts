@@ -11,7 +11,17 @@ export async function initializeDatabase() {
 		CREATE TABLE IF NOT EXISTS Books (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			s3_storage_key TEXT NOT NULL,
-			title TEXT NOT NULL
+			title TEXT NOT NULL,
+			zLibId TEXT,
+			author TEXT,
+			cover TEXT,
+			extension TEXT,
+			filesize INTEGER,
+			language TEXT,
+			year INTEGER,
+			progress_storage_key TEXT,
+			progress_updated_at TEXT,
+			createdAt TEXT
 		)
 	`);
 

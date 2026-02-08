@@ -10,10 +10,11 @@ const validPasswords = env.PASSWORDS ? env.PASSWORDS.split(',') : [];
 export function requireBasicAuth(request: Request): void {
 	const authHeader = request.headers.get('authorization');
 	if (!authHeader || !authHeader.startsWith('Basic ')) {
-		throw new Response('Authentication required', {
+		throw new Response(JSON.stringify({ error: 'Authentication required' }), {
 			status: 401,
 			headers: {
-				'WWW-Authenticate': 'Basic realm="Secure Area"'
+				'WWW-Authenticate': 'Basic realm="Secure Area"',
+				'Content-Type': 'application/json'
 			}
 		});
 	}
@@ -32,10 +33,11 @@ export function requireBasicAuth(request: Request): void {
 }
 
 function throwUnauthorized(): never {
-	throw new Response('Authentication required', {
+	throw new Response(JSON.stringify({ error: 'Authentication required' }), {
 		status: 401,
 		headers: {
-			'WWW-Authenticate': 'Basic realm="Secure Area"'
+			'WWW-Authenticate': 'Basic realm="Secure Area"',
+			'Content-Type': 'application/json'
 		}
 	});
 }

@@ -1,37 +1,33 @@
-import { ZLibrary } from '$lib/server/application/ZLibrary';
-import { mimeTypes } from '$lib/server/constants/mimeTypes';
+import { zlibrarySearchUseCase } from '$lib/server/application/composition';
+import { errorResponse } from '$lib/server/http/api';
 import type { ZSearchBookRequest } from '$lib/types/ZLibrary/Requests/ZSearchBookRequest';
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 
-const zlib = new ZLibrary("https://1lib.sk");
-
 // -------------------------------
-// GET /api/zlibrary/search
+// POST /api/zlibrary/search
 // -------------------------------
 export const POST: RequestHandler = async ({ request, locals }) => {
-
 	const body = (await request.json()) as ZSearchBookRequest;
 	if (!locals.zuser) {
-		return json({ error: 'ZLib Login is not valid!' }, { status: 409 });
+		return errorResponse('Z-Library login is not valid', 409);
 	}
 
-    try {
+	try {
+		const searchResult = await zlibrarySearchUseCase.execute({
+			request: body,
+			credentials: {
+				userId: locals.zuser.userId,
+				userKey: locals.zuser.userKey
+			}
+		});
+		if (!searchResult.ok) {
+			return errorResponse(searchResult.error.message, searchResult.error.status);
+		}
 
-        var loggedIn = await zlib.tokenLogin(locals.zuser.userId, locals.zuser.userKey);
-
-        if(!loggedIn) {
-            return json({ error: 'Z-Lib Login failed' }, { status: 401 });
-        }
-
-        var response = await zlib.search(body);
-
-        return json(response);
-
-    } catch (err: any) {
-        console.error(err);
-        return json({ error: 'File not found' }, { status: 404 });
-    }
+		return json(searchResult.value);
+	} catch (err: unknown) {
+		console.error(err);
+		return errorResponse('Search failed', 500);
+	}
 };
-
-
