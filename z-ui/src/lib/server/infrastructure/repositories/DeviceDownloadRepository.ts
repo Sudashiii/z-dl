@@ -15,6 +15,10 @@ export class DeviceDownloadRepository implements DeviceDownloadRepositoryPort {
 		return drizzleDb.select().from(deviceDownloads).where(eq(deviceDownloads.deviceId, deviceId));
 	}
 
+	async getByBookId(bookId: number): Promise<DeviceDownload[]> {
+		return drizzleDb.select().from(deviceDownloads).where(eq(deviceDownloads.bookId, bookId));
+	}
+
 	async create(download: Omit<DeviceDownload, 'id'>): Promise<DeviceDownload> {
 		const [created] = await drizzleDb.insert(deviceDownloads).values(download).returning();
 
@@ -35,6 +39,10 @@ export class DeviceDownloadRepository implements DeviceDownloadRepositoryPort {
 
 	static async getByDevice(deviceId: string): Promise<DeviceDownload[]> {
 		return DeviceDownloadRepository.instance.getByDevice(deviceId);
+	}
+
+	static async getByBookId(bookId: number): Promise<DeviceDownload[]> {
+		return DeviceDownloadRepository.instance.getByBookId(bookId);
 	}
 
 	static async create(download: Omit<DeviceDownload, 'id'>): Promise<DeviceDownload> {

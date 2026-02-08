@@ -10,6 +10,20 @@ export function extractSummaryModified(content: string): string | null {
 	return match?.[1] ?? null;
 }
 
+export function extractPercentFinished(content: string): number | null {
+	const match = content.match(/\["percent_finished"\]\s*=\s*([0-9]*\.?[0-9]+)/);
+	if (!match?.[1]) {
+		return null;
+	}
+
+	const parsed = Number(match[1]);
+	if (!Number.isFinite(parsed)) {
+		return null;
+	}
+
+	return parsed;
+}
+
 export function buildProgressFileDescriptor(title: string): ProgressFileDescriptor {
 	const lastDot = title.lastIndexOf('.');
 	if (lastDot <= 0 || lastDot === title.length - 1) {

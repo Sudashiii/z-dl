@@ -1,0 +1,21 @@
+meta {
+  name: POST Refetch Library Metadata
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{base_url}}/api/library/{{book_id}}/refetch-metadata
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  base_url: http://localhost:5173
+  book_id: 1
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

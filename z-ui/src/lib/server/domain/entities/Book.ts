@@ -16,3 +16,14 @@ export interface Book {
 }
 
 export type CreateBookInput = Omit<Book, 'id' | 'createdAt' | 'progress_storage_key' | 'progress_updated_at'>;
+
+export interface UpdateBookMetadataInput {
+	zLibId: string | null;
+	title: string;
+	author: string | null;
+	cover: string | null;
+	extension: string | null;
+	filesize: number | null;
+	language: string | null;
+	year: number | null;
+}

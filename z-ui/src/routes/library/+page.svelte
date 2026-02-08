@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import type { LibraryBook } from "$lib/types/Library/Book";
+	import type { LibraryBookDetail } from "$lib/types/Library/BookDetail";
 	import type { ApiError } from "$lib/types/ApiError";
 	import Loading from "$lib/components/Loading.svelte";
 	import { ZUI } from "$lib/client/zui";
@@ -13,6 +14,12 @@
 
 	let showConfirmModal = $state(false);
 	let bookToReset = $state<LibraryBook | null>(null);
+	let showDetailModal = $state(false);
+	let selectedBook = $state<LibraryBook | null>(null);
+	let selectedBookDetail = $state<LibraryBookDetail | null>(null);
+	let isDetailLoading = $state(false);
+	let isRefetchingMetadata = $state(false);
+	let detailError = $state<string | null>(null);
 
 	onMount(async () => {
 		await loadLibrary();
@@ -41,6 +48,94 @@
 	function closeResetModal() {
 		showConfirmModal = false;
 		bookToReset = null;
+	}
+
+	async function openDetailModal(book: LibraryBook) {
+		selectedBook = book;
+		selectedBookDetail = null;
+		detailError = null;
+		showDetailModal = true;
+		isDetailLoading = true;
+
+		const result = await ZUI.getLibraryBookDetail(book.id);
+		if (result.ok) {
+			selectedBookDetail = result.value;
+		} else {
+			detailError = result.error.message;
+		}
+
+		isDetailLoading = false;
+	}
+
+	function closeDetailModal() {
+		showDetailModal = false;
+		selectedBook = null;
+		selectedBookDetail = null;
+		detailError = null;
+		isDetailLoading = false;
+		isRefetchingMetadata = false;
+	}
+
+	function openResetFromDetail(): void {
+		if (!selectedBook) {
+			return;
+		}
+
+		const targetBook = selectedBook;
+		closeDetailModal();
+		openResetModal(targetBook);
+	}
+
+	function applyBookMetadataUpdate(updated: {
+		id: number;
+		zLibId: string | null;
+		title: string;
+		author: string | null;
+		cover: string | null;
+		extension: string | null;
+		filesize: number | null;
+		language: string | null;
+		year: number | null;
+	}): void {
+		const index = books.findIndex((book) => book.id === updated.id);
+		if (index === -1) {
+			return;
+		}
+
+		const updatedBook: LibraryBook = {
+			...books[index],
+			zLibId: updated.zLibId,
+			title: updated.title,
+			author: updated.author,
+			cover: updated.cover,
+			extension: updated.extension,
+			filesize: updated.filesize,
+			language: updated.language,
+			year: updated.year
+		};
+
+		books = [...books.slice(0, index), updatedBook, ...books.slice(index + 1)];
+		selectedBook = updatedBook;
+	}
+
+	async function handleRefetchMetadata(): Promise<void> {
+		if (!selectedBook || isRefetchingMetadata) {
+			return;
+		}
+
+		isRefetchingMetadata = true;
+		const result = await ZUI.refetchLibraryBookMetadata(selectedBook.id);
+		isRefetchingMetadata = false;
+
+		if (!result.ok) {
+			detailError = result.error.message;
+			toastStore.add(`Failed to refetch metadata: ${result.error.message}`, "error");
+			return;
+		}
+
+		applyBookMetadataUpdate(result.value.book);
+		detailError = null;
+		toastStore.add("Book metadata refreshed", "success");
 	}
 
 	async function confirmResetStatus() {
@@ -106,6 +201,18 @@
 			day: "numeric",
 		});
 	}
+
+	function handleCardKeyDown(event: KeyboardEvent, book: LibraryBook) {
+		if (event.key === "Enter" || event.key === " ") {
+			event.preventDefault();
+			openDetailModal(book);
+		}
+	}
+
+	function formatProgress(percent: number | null): string {
+		if (percent === null) return "No progress yet";
+		return `${percent.toFixed(1)}%`;
+	}
 </script>
 
 <div class="library-page">
@@ -142,7 +249,14 @@
 	<div class="book-grid">
 		{#if books.length > 0}
 			{#each books as book (book.id)}
-				<article class="book-card">
+				<div
+					class="book-card clickable"
+					role="button"
+					tabindex="0"
+					aria-label={`Show details for ${book.title}`}
+					onclick={() => openDetailModal(book)}
+					onkeydown={(event) => handleCardKeyDown(event, book)}
+				>
 					<div class="book-cover">
 						{#if book.cover}
 							<img src={book.cover} alt={book.title} loading="lazy" />
@@ -190,7 +304,10 @@
 								{#if book.isDownloaded}
 									<button
 										class="reset-btn"
-										onclick={() => openResetModal(book)}
+										onclick={(event) => {
+											event.stopPropagation();
+											openResetModal(book);
+										}}
 										title="Reset download status"
 									>
 										<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -203,7 +320,7 @@
 							</div>
 						</div>
 					</div>
-				</article>
+				</div>
 			{/each}
 		{:else if !isLoading}
 			<div class="empty-state">
@@ -226,6 +343,88 @@
 		{/if}
 	</div>
 </div>
+
+{#if showDetailModal && selectedBook}
+	<div
+		class="detail-modal-overlay"
+		role="button"
+		tabindex="0"
+		aria-label="Close book detail modal"
+		onclick={closeDetailModal}
+		onkeydown={(event) => event.key === "Escape" && closeDetailModal()}
+	>
+		<div
+			class="detail-modal-content"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="book-detail-title"
+			tabindex="-1"
+			onclick={(event) => event.stopPropagation()}
+			onkeydown={(event) => event.stopPropagation()}
+		>
+			<div class="detail-header">
+				<h3 id="book-detail-title">{selectedBook.title}</h3>
+				<button class="detail-close-btn" onclick={closeDetailModal} aria-label="Close details">
+					✕
+				</button>
+			</div>
+
+			{#if selectedBook.author}
+				<p class="detail-author">by {selectedBook.author}</p>
+			{/if}
+
+			{#if isDetailLoading}
+				<p class="detail-loading">Loading details...</p>
+			{:else if detailError}
+				<div class="detail-error">{detailError}</div>
+			{:else if selectedBookDetail}
+				<section class="detail-section">
+					<h4>Reading Progress</h4>
+					<div class="progress-row">
+						<div class="progress-track">
+							<div
+								class="progress-fill"
+								style={`width: ${selectedBookDetail.progressPercent ?? 0}%`}
+							></div>
+						</div>
+						<span class="progress-value">{formatProgress(selectedBookDetail.progressPercent)}</span>
+					</div>
+				</section>
+
+				<section class="detail-section">
+					<h4>Downloaded On Devices</h4>
+					{#if selectedBookDetail.downloadedDevices.length > 0}
+						<ul class="device-list">
+							{#each selectedBookDetail.downloadedDevices as device}
+								<li>{device}</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="detail-muted">Not downloaded on any device yet.</p>
+					{/if}
+				</section>
+
+				<section class="detail-section detail-actions">
+					<button
+						class="detail-refetch-btn"
+						onclick={handleRefetchMetadata}
+						disabled={isRefetchingMetadata}
+					>
+						{isRefetchingMetadata ? "Refetching..." : "Refetch Metadata"}
+					</button>
+					{#if selectedBook.isDownloaded}
+						<button
+							class="detail-reset-btn"
+							onclick={openResetFromDetail}
+						>
+							Reset Download Status
+						</button>
+					{/if}
+				</section>
+			{/if}
+		</div>
+	</div>
+{/if}
 
 <!-- Confirmation Modal -->
 {#if showConfirmModal && bookToReset}
@@ -322,6 +521,15 @@
 		background: linear-gradient(160deg, rgba(20, 43, 68, 0.9), rgba(14, 31, 50, 0.87));
 		transform: translateY(-2px);
 		box-shadow: 0 18px 26px -22px rgba(60, 145, 221, 0.65);
+	}
+
+	.book-card.clickable {
+		cursor: pointer;
+	}
+
+	.book-card.clickable:focus-visible {
+		outline: 2px solid rgba(132, 201, 255, 0.9);
+		outline-offset: 2px;
 	}
 
 	.book-cover {
@@ -548,6 +756,156 @@
 	.reset-btn:hover {
 		background: rgba(132, 40, 51, 0.46);
 		color: #ffb5be;
+	}
+
+	.detail-modal-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(1, 6, 14, 0.72);
+		backdrop-filter: blur(8px);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1100;
+	}
+
+	.detail-modal-content {
+		width: min(560px, 94vw);
+		background: linear-gradient(160deg, rgba(17, 37, 58, 0.95), rgba(11, 25, 40, 0.95));
+		border: 1px solid rgba(160, 194, 226, 0.24);
+		border-radius: 1rem;
+		padding: 1.25rem;
+		box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
+	}
+
+	.detail-header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.detail-header h3 {
+		margin: 0;
+		font-size: 1.3rem;
+		color: rgba(236, 245, 255, 0.95);
+	}
+
+	.detail-close-btn {
+		background: rgba(12, 28, 44, 0.8);
+		border: 1px solid rgba(167, 203, 237, 0.28);
+		color: rgba(228, 240, 255, 0.85);
+		border-radius: 0.45rem;
+		width: 30px;
+		height: 30px;
+		cursor: pointer;
+	}
+
+	.detail-author {
+		margin: 0.5rem 0 1rem;
+		color: rgba(214, 232, 252, 0.72);
+	}
+
+	.detail-loading,
+	.detail-muted {
+		margin: 0;
+		color: rgba(214, 232, 252, 0.72);
+	}
+
+	.detail-error {
+		background: rgba(121, 38, 48, 0.44);
+		border: 1px solid rgba(239, 116, 126, 0.38);
+		border-radius: 0.7rem;
+		color: #ffb5be;
+		padding: 0.75rem 0.9rem;
+	}
+
+	.detail-section {
+		margin-top: 1rem;
+	}
+
+	.detail-section h4 {
+		margin: 0 0 0.5rem;
+		font-size: 0.95rem;
+		color: rgba(228, 240, 255, 0.85);
+	}
+
+	.progress-row {
+		display: flex;
+		align-items: center;
+		gap: 0.8rem;
+	}
+
+	.progress-track {
+		flex: 1;
+		height: 10px;
+		background: rgba(12, 28, 44, 0.8);
+		border: 1px solid rgba(167, 203, 237, 0.2);
+		border-radius: 999px;
+		overflow: hidden;
+	}
+
+	.progress-fill {
+		height: 100%;
+		background: linear-gradient(135deg, #2f8be9, #4ea7ff);
+	}
+
+	.progress-value {
+		font-size: 0.85rem;
+		color: rgba(228, 240, 255, 0.88);
+		min-width: 5rem;
+		text-align: right;
+	}
+
+	.device-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.45rem;
+	}
+
+	.device-list li {
+		padding: 0.3rem 0.55rem;
+		background: rgba(189, 220, 250, 0.1);
+		border: 1px solid rgba(173, 208, 241, 0.2);
+		border-radius: 0.45rem;
+		font-size: 0.8rem;
+		color: rgba(214, 232, 252, 0.82);
+	}
+
+	.detail-actions {
+		display: flex;
+		gap: 0.6rem;
+		justify-content: flex-end;
+	}
+
+	.detail-refetch-btn {
+		padding: 0.55rem 0.9rem;
+		background: rgba(12, 28, 44, 0.8);
+		border: 1px solid rgba(167, 203, 237, 0.28);
+		border-radius: 0.55rem;
+		color: rgba(228, 240, 255, 0.9);
+		cursor: pointer;
+		font-size: 0.83rem;
+		font-weight: 600;
+	}
+
+	.detail-refetch-btn:disabled {
+		opacity: 0.65;
+		cursor: wait;
+	}
+
+	.detail-reset-btn {
+		padding: 0.55rem 0.9rem;
+		background: rgba(132, 40, 51, 0.46);
+		border: 1px solid rgba(239, 116, 126, 0.38);
+		border-radius: 0.55rem;
+		color: #ffb5be;
+		cursor: pointer;
+		font-size: 0.83rem;
+		font-weight: 600;
 	}
 
 	/* Confirmation Modal */
