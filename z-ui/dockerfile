@@ -9,7 +9,7 @@ RUN if command -v apk >/dev/null 2>&1; then \
 	fi
 COPY package.json bun.lock ./
 COPY .npmrc ./
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --omit peer
 
 FROM deps AS builder
 COPY . .
