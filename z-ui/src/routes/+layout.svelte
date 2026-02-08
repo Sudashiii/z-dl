@@ -25,6 +25,7 @@
 	let isLoading = $state(false);
 	let error = $state<ApiError | null>(null);
 	let sidebarCollapsed = $state(false);
+	let sidebarMobileOpen = $state(false);
 
 	// Check if we're on the login page (don't show sidebar there)
 	let isLoginPage = $derived($page.url.pathname === "/");
@@ -86,6 +87,10 @@
 		}
 	}
 
+	function toggleMobileSidebar() {
+		sidebarMobileOpen = !sidebarMobileOpen;
+	}
+
 	function handleKeyDown(event: KeyboardEvent, action: () => void) {
 		if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
@@ -138,6 +143,7 @@
 	{#if !isLoginPage}
 		<Sidebar
 			bind:collapsed={sidebarCollapsed}
+			bind:mobileOpen={sidebarMobileOpen}
 			onToggle={handleSidebarToggle}
 		/>
 	{/if}
@@ -145,7 +151,19 @@
 	<div class="main-content">
 		{#if !isLoginPage}
 			<header class="top-bar">
-				<div class="spacer"></div>
+				<div class="top-left">
+					<button
+						class="mobile-menu-btn"
+						onclick={toggleMobileSidebar}
+						aria-label="Toggle navigation"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="3" y1="6" x2="21" y2="6"></line>
+							<line x1="3" y1="12" x2="21" y2="12"></line>
+							<line x1="3" y1="18" x2="21" y2="18"></line>
+						</svg>
+					</button>
+				</div>
 				<div class="zlib-login">
 					{#if zlibName}
 						<div class="user-info">
@@ -190,6 +208,17 @@
 		</main>
 	</div>
 </div>
+
+{#if sidebarMobileOpen && !isLoginPage}
+	<div
+		class="mobile-sidebar-backdrop"
+		role="button"
+		tabindex="0"
+		aria-label="Close navigation menu"
+		onclick={() => (sidebarMobileOpen = false)}
+		onkeydown={(e) => (e.key === "Enter" || e.key === " ") && (sidebarMobileOpen = false)}
+	></div>
+{/if}
 
 {#if showModal}
 	<div
@@ -299,6 +328,11 @@
 		padding: 0;
 	}
 
+	:global(html),
+	:global(body) {
+		overflow-x: hidden;
+	}
+
 	:global(h1, h2, h3) {
 		font-family: var(--font-reading);
 	}
@@ -335,8 +369,28 @@
 		z-index: 50;
 	}
 
-	.spacer {
-		flex: 1;
+	.top-left {
+		display: flex;
+		align-items: center;
+	}
+
+	.mobile-menu-btn {
+		display: none;
+		align-items: center;
+		justify-content: center;
+		width: 38px;
+		height: 38px;
+		background: rgba(255, 255, 255, 0.06);
+		border: 1px solid var(--color-border);
+		border-radius: 0.6rem;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.mobile-menu-btn:hover {
+		background: rgba(255, 255, 255, 0.1);
+		color: #fff;
 	}
 
 	.zlib-login {
@@ -425,6 +479,14 @@
 		justify-content: center;
 		z-index: 2000;
 		animation: fadeIn 0.2s ease-out;
+	}
+
+	.mobile-sidebar-backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.45);
+		backdrop-filter: blur(2px);
+		z-index: 150;
 	}
 
 	@keyframes fadeIn {
@@ -638,5 +700,61 @@
 
 	.error p {
 		margin: 0;
+	}
+
+	@media (max-width: 900px) {
+		.app-layout.with-sidebar .main-content,
+		.app-layout.with-sidebar.sidebar-collapsed .main-content {
+			margin-left: 0;
+		}
+
+		.mobile-menu-btn {
+			display: inline-flex;
+		}
+
+		.top-bar {
+			padding: 0.65rem 0.9rem;
+		}
+
+		.content {
+			padding: 0 1rem;
+		}
+
+		.user-badge {
+			max-width: 190px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+	}
+
+	@media (max-width: 600px) {
+		.top-bar {
+			gap: 0.75rem;
+		}
+
+		.zlib-connect-btn {
+			padding: 0.45rem 0.75rem;
+			font-size: 0.8rem;
+		}
+
+		.user-info {
+			gap: 0.4rem;
+		}
+
+		.user-badge {
+			padding: 0.4rem 0.65rem;
+			font-size: 0.78rem;
+			max-width: 155px;
+		}
+
+		.modal {
+			padding: 1.2rem;
+			width: min(96vw, 360px);
+		}
+
+		.actions {
+			flex-direction: column;
+		}
 	}
 </style>

@@ -400,4 +400,44 @@
 		margin: 0;
 		color: rgba(255, 255, 255, 0.5);
 	}
+
+	@media (max-width: 640px) {
+		.login {
+			padding: 1rem;
+			align-items: flex-start;
+			padding-top: 10vh;
+		}
+
+		.orb-1 {
+			width: 280px;
+			height: 280px;
+			top: -90px;
+			right: -130px;
+		}
+
+		.orb-2 {
+			width: 220px;
+			height: 220px;
+			bottom: -70px;
+			left: -90px;
+		}
+
+		.card {
+			padding: 1.4rem;
+			border-radius: 1rem;
+			gap: 1.1rem;
+		}
+
+		.logo-text {
+			font-size: 1.5rem;
+		}
+
+		.logo-icon {
+			font-size: 1.7rem;
+		}
+
+		.login-btn {
+			padding: 0.85rem;
+		}
+	}
 </style>

@@ -4,10 +4,15 @@
 
 	interface Props {
 		collapsed?: boolean;
+		mobileOpen?: boolean;
 		onToggle?: () => void;
 	}
 
-	let { collapsed = $bindable(false), onToggle }: Props = $props();
+	let {
+		collapsed = $bindable(false),
+		mobileOpen = $bindable(false),
+		onToggle
+	}: Props = $props();
 
 	function isActive(item: MenuItem): boolean {
 		return $page.url.pathname === item.href || $page.url.pathname.startsWith(item.href + '/');
@@ -19,7 +24,7 @@
 	}
 </script>
 
-<aside class="sidebar" class:collapsed>
+<aside class="sidebar" class:collapsed class:mobile-open={mobileOpen}>
 	<div class="sidebar-header">
 		{#if !collapsed}
 			<div class="logo">
@@ -44,7 +49,12 @@
 		<ul>
 			{#each menuItems as item (item.id)}
 				<li>
-					<a href={item.href} class:active={isActive(item)} title={collapsed ? item.label : undefined}>
+					<a
+						href={item.href}
+						class:active={isActive(item)}
+						title={collapsed ? item.label : undefined}
+						onclick={() => (mobileOpen = false)}
+					>
 						<span class="icon">
 							{#if item.icon === 'search'}
 								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -257,5 +267,38 @@
 
 	.sidebar.collapsed .sidebar-footer {
 		padding: 0.75rem 0.5rem;
+	}
+
+	@media (max-width: 900px) {
+		.sidebar {
+			width: min(84vw, 300px);
+			transform: translateX(-105%);
+			transition:
+				transform 0.25s ease,
+				width 0.25s ease;
+			z-index: 160;
+		}
+
+		.sidebar.mobile-open {
+			transform: translateX(0);
+		}
+
+		.sidebar.collapsed {
+			width: min(84vw, 300px);
+		}
+
+		.sidebar.collapsed .logo {
+			display: flex;
+		}
+
+		.sidebar.collapsed .label {
+			display: inline;
+		}
+
+		.sidebar.collapsed .sidebar-nav a {
+			justify-content: flex-start;
+			padding: 0.75rem 1rem;
+			margin: 0 0.5rem;
+		}
 	}
 </style>
