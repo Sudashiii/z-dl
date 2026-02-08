@@ -28,7 +28,7 @@
 	<div class="sidebar-header">
 		{#if !collapsed}
 			<div class="logo">
-				<span class="logo-icon">📚</span>
+				<span class="logo-icon">ZD</span>
 				<span class="logo-text">Z-DL</span>
 			</div>
 		{/if}
@@ -108,19 +108,22 @@
 	.sidebar {
 		display: flex;
 		flex-direction: column;
-		width: var(--sidebar-width, 240px);
+		width: var(--sidebar-width, 248px);
 		height: 100vh;
-		background: linear-gradient(180deg, rgb(18, 24, 32) 0%, rgb(15, 20, 26) 100%);
-		border-right: 1px solid rgba(255, 255, 255, 0.06);
-		transition: width 0.25s ease;
+		background:
+			linear-gradient(180deg, rgba(7, 17, 30, 0.98) 0%, rgba(5, 13, 24, 0.98) 100%),
+			radial-gradient(circle at 12% 0%, rgba(61, 162, 255, 0.24), transparent 45%);
+		border-right: 1px solid rgba(160, 194, 226, 0.18);
+		transition: width 0.2s ease;
 		position: fixed;
 		left: 0;
 		top: 0;
 		z-index: 100;
+		box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
 	}
 
 	.sidebar.collapsed {
-		width: var(--sidebar-collapsed-width, 60px);
+		width: var(--sidebar-collapsed-width, 72px);
 	}
 
 	.sidebar-header {
@@ -128,7 +131,7 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 1.25rem 1rem;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+		border-bottom: 1px solid rgba(160, 194, 226, 0.16);
 		min-height: 64px;
 	}
 
@@ -139,13 +142,24 @@
 	}
 
 	.logo-icon {
-		font-size: 1.5rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.95rem;
+		height: 1.95rem;
+		border-radius: 0.58rem;
+		background: linear-gradient(145deg, rgba(61, 162, 255, 0.4), rgba(29, 109, 184, 0.33));
+		border: 1px solid rgba(119, 189, 255, 0.45);
+		font-size: 0.74rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		color: #def0ff;
 	}
 
 	.logo-text {
-		font-size: 1.25rem;
+		font-size: 1.1rem;
 		font-weight: 700;
-		background: linear-gradient(135deg, #fff, #94a3b8);
+		background: linear-gradient(135deg, #f7fbff, #b7d7f6);
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
 		background-clip: text;
@@ -158,19 +172,19 @@
 		justify-content: center;
 		width: 32px;
 		height: 32px;
-		background: rgba(255, 255, 255, 0.05);
-		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(17, 37, 58, 0.75);
+		border: 1px solid rgba(160, 194, 226, 0.2);
 		border-radius: 8px;
-		color: rgba(255, 255, 255, 0.6);
+		color: rgba(228, 239, 255, 0.62);
 		cursor: pointer;
 		transition: all 0.2s ease;
 		flex-shrink: 0;
 	}
 
 	.toggle-btn:hover {
-		background: rgba(255, 255, 255, 0.1);
+		background: rgba(25, 53, 81, 0.9);
 		color: #fff;
-		border-color: rgba(255, 255, 255, 0.15);
+		border-color: rgba(169, 205, 237, 0.35);
 	}
 
 	.sidebar.collapsed .sidebar-header {
@@ -191,7 +205,7 @@
 	}
 
 	.sidebar-nav li {
-		margin: 0.25rem 0;
+		margin: 0.3rem 0;
 	}
 
 	.sidebar-nav a {
@@ -199,22 +213,25 @@
 		align-items: center;
 		gap: 0.875rem;
 		padding: 0.75rem 1rem;
-		color: rgba(255, 255, 255, 0.6);
+		color: rgba(228, 239, 255, 0.66);
 		text-decoration: none;
-		border-radius: 10px;
+		border-radius: 12px;
 		margin: 0 0.5rem;
 		transition: all 0.2s ease;
 		position: relative;
+		border: 1px solid transparent;
 	}
 
 	.sidebar-nav a:hover {
-		background: rgba(255, 255, 255, 0.06);
+		background: rgba(24, 49, 74, 0.84);
 		color: #fff;
+		border-color: rgba(155, 197, 234, 0.22);
 	}
 
 	.sidebar-nav a.active {
-		background: rgba(30, 144, 255, 0.15);
-		color: #1e90ff;
+		background: linear-gradient(145deg, rgba(61, 162, 255, 0.22), rgba(33, 93, 151, 0.2));
+		color: #9bd4ff;
+		border-color: rgba(121, 192, 255, 0.3);
 	}
 
 	.sidebar-nav a.active::before {
@@ -224,8 +241,8 @@
 		top: 50%;
 		transform: translateY(-50%);
 		width: 3px;
-		height: 60%;
-		background: #1e90ff;
+		height: 62%;
+		background: linear-gradient(180deg, #78c4ff 0%, #3798f4 100%);
 		border-radius: 0 2px 2px 0;
 	}
 
@@ -250,19 +267,19 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		font-size: 0.9rem;
-		font-weight: 500;
+		font-size: 0.88rem;
+		font-weight: 600;
 	}
 
 	.sidebar-footer {
 		padding: 1rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		border-top: 1px solid rgba(160, 194, 226, 0.16);
 		text-align: center;
 	}
 
 	.version {
-		font-size: 0.75rem;
-		color: rgba(255, 255, 255, 0.3);
+		font-size: 0.73rem;
+		color: rgba(207, 224, 247, 0.46);
 	}
 
 	.sidebar.collapsed .sidebar-footer {

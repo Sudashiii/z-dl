@@ -66,7 +66,7 @@
 		<div class="card">
 			<div class="card-header">
 				<div class="logo">
-					<span class="logo-icon">📚</span>
+					<span class="logo-icon">ZD</span>
 					<span class="logo-text">Z-DL</span>
 				</div>
 				<p class="subtitle">Your personal digital library</p>
@@ -151,7 +151,10 @@
 		justify-content: center;
 		min-height: 100vh;
 		padding: 1.5rem;
-		background: linear-gradient(135deg, rgb(15, 20, 25) 0%, rgb(22, 30, 40) 50%, rgb(18, 25, 32) 100%);
+		background:
+			radial-gradient(circle at 15% -8%, rgba(61, 162, 255, 0.22), transparent 40%),
+			radial-gradient(circle at 85% 2%, rgba(56, 127, 198, 0.2), transparent 35%),
+			linear-gradient(135deg, #070f1b 0%, #0d1a2b 50%, #091423 100%);
 		color: #fff;
 		font-family: var(--font-ui);
 		position: relative;
@@ -175,7 +178,7 @@
 	.orb-1 {
 		width: 400px;
 		height: 400px;
-		background: linear-gradient(135deg, #1e90ff, #6366f1);
+		background: linear-gradient(135deg, #2f8be9, #4ea7ff);
 		top: -100px;
 		right: -100px;
 		animation: float 8s ease-in-out infinite;
@@ -184,7 +187,7 @@
 	.orb-2 {
 		width: 300px;
 		height: 300px;
-		background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+		background: linear-gradient(135deg, #1f6fb9, #5dc2ff);
 		bottom: -50px;
 		left: -50px;
 		animation: float 10s ease-in-out infinite reverse;
@@ -196,13 +199,13 @@
 	}
 
 	.card {
-		background: rgba(28, 38, 50, 0.85);
+		background: linear-gradient(160deg, rgba(17, 37, 58, 0.92), rgba(11, 25, 40, 0.9));
 		backdrop-filter: blur(20px);
-		border: 1px solid rgba(255, 255, 255, 0.08);
+		border: 1px solid rgba(160, 194, 226, 0.22);
 		border-radius: 1.25rem;
 		box-shadow: 
-			0 25px 50px -12px rgba(0, 0, 0, 0.5),
-			0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+			0 25px 50px -12px rgba(0, 0, 0, 0.55),
+			0 0 0 1px rgba(210, 230, 252, 0.06) inset;
 		padding: 2.5rem;
 		width: 100%;
 		max-width: 400px;
@@ -239,13 +242,24 @@
 	}
 
 	.logo-icon {
-		font-size: 2rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.2rem;
+		height: 2.2rem;
+		border-radius: 0.65rem;
+		background: linear-gradient(145deg, rgba(61, 162, 255, 0.4), rgba(29, 109, 184, 0.33));
+		border: 1px solid rgba(119, 189, 255, 0.45);
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		color: #def0ff;
 	}
 
 	.logo-text {
 		font-size: 1.75rem;
 		font-weight: 700;
-		background: linear-gradient(135deg, #fff, #94a3b8);
+		background: linear-gradient(135deg, #f7fbff, #b7d7f6);
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
 		background-clip: text;
@@ -253,7 +267,7 @@
 
 	.subtitle {
 		margin: 0;
-		color: rgba(255, 255, 255, 0.5);
+		color: rgba(207, 224, 247, 0.58);
 		font-size: 0.9rem;
 	}
 
@@ -266,7 +280,7 @@
 	label {
 		font-size: 0.85rem;
 		font-weight: 500;
-		color: rgba(255, 255, 255, 0.7);
+		color: rgba(228, 239, 255, 0.74);
 	}
 
 	.input-wrapper {
@@ -278,36 +292,36 @@
 		left: 1rem;
 		top: 50%;
 		transform: translateY(-50%);
-		color: rgba(255, 255, 255, 0.4);
+		color: rgba(207, 224, 247, 0.58);
 		pointer-events: none;
 		transition: color 0.2s;
 	}
 
 	.input-wrapper:focus-within .input-icon {
-		color: #1e90ff;
+		color: var(--color-accent);
 	}
 
 	input {
 		width: 100%;
 		padding: 0.875rem 1rem 0.875rem 2.75rem;
-		border-radius: 0.75rem;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(15, 23, 32, 0.6);
-		color: #fff;
+		border-radius: 0.72rem;
+		border: 1px solid rgba(160, 194, 226, 0.22);
+		background: rgba(9, 22, 37, 0.78);
+		color: var(--color-text-primary);
 		font-size: 0.95rem;
 		transition: all 0.2s ease;
 		box-sizing: border-box;
 	}
 
 	input::placeholder {
-		color: rgba(255, 255, 255, 0.35);
+		color: var(--color-text-muted);
 	}
 
 	input:focus {
 		outline: none;
-		border-color: #1e90ff;
-		background: rgba(15, 23, 32, 0.8);
-		box-shadow: 0 0 0 3px rgba(30, 144, 255, 0.15);
+		border-color: rgba(120, 196, 255, 0.72);
+		background: rgba(11, 26, 42, 0.9);
+		box-shadow: 0 0 0 3px rgba(61, 162, 255, 0.22);
 	}
 
 	.login-btn {
@@ -316,7 +330,8 @@
 		justify-content: center;
 		gap: 0.5rem;
 		padding: 1rem;
-		background: linear-gradient(135deg, #1e90ff, #0066cc);
+		background: linear-gradient(135deg, #2f8be9, #4ea7ff);
+		border: 1px solid rgba(124, 193, 255, 0.4);
 		border: none;
 		border-radius: 0.75rem;
 		color: #fff;
@@ -328,7 +343,7 @@
 	}
 
 	.login-btn:hover:not(:disabled) {
-		background: linear-gradient(135deg, #3ba0ff, #0077ee);
+		background: linear-gradient(135deg, #3c96f2, #66b8ff);
 		transform: translateY(-1px);
 		box-shadow: 0 10px 20px -10px rgba(30, 144, 255, 0.5);
 	}
@@ -359,11 +374,11 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		background: rgba(239, 68, 68, 0.15);
-		border: 1px solid rgba(239, 68, 68, 0.3);
+		background: rgba(121, 38, 48, 0.44);
+		border: 1px solid rgba(239, 116, 126, 0.38);
 		border-radius: 0.75rem;
 		padding: 0.875rem 1rem;
-		color: #fca5a5;
+		color: #ffb5be;
 		font-size: 0.9rem;
 		animation: shake 0.4s ease-in-out;
 	}

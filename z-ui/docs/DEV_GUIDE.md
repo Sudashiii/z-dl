@@ -80,7 +80,7 @@ Use this checklist for any new backend feature.
 
 7. Run checks
 ```bash
-npm run check
+bun run check
 ```
 
 ## Practical conventions
@@ -97,11 +97,11 @@ npm run check
 - Migration files live in `drizzle/`.
 - Generate migration after schema changes:
 ```bash
-npm run db:generate
+bun run db:generate
 ```
 - Apply migrations:
 ```bash
-npm run db:migrate
+bun run db:migrate
 ```
 - Existing environments that predate Drizzle needed a one-time baseline mark:
 ```bash

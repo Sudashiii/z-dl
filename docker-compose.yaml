@@ -6,7 +6,7 @@ services:
       target: migrator
     image: z-ui-migrator
     container_name: z-ui-migrator
-    command: ["npm", "run", "db:migrate"]
+    command: ["bun", "run", "db:migrate"]
     env_file:
       - ./z-ui/.env
     networks:

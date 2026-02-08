@@ -126,15 +126,17 @@
 
 		<div class="search-filters">
 			<div class="filter-group">
-				<label>Language</label>
+				<label for="search-language">Language</label>
 				<DropDown
+					id="search-language"
 					bind:selected={lang}
 					options={["english", "german", "french", "spanish"]}
 				/>
 			</div>
 			<div class="filter-group">
-				<label>Format</label>
+				<label for="search-format">Format</label>
 				<DropDown
+					id="search-format"
 					bind:selected={format}
 					options={["epub", "mobi", "pdf"]}
 				/>
@@ -193,7 +195,7 @@
 <style>
 	.search-page {
 		padding: 2rem 0;
-		color: #fff;
+		color: var(--color-text-primary);
 	}
 
 	.page-header {
@@ -202,47 +204,48 @@
 
 	.page-header h1 {
 		margin: 0 0 0.5rem 0;
-		font-size: 1.75rem;
+		font-size: 1.9rem;
 		font-weight: 600;
 	}
 
 	.page-header p {
 		margin: 0;
-		color: rgba(255, 255, 255, 0.5);
-		font-size: 0.95rem;
+		color: var(--color-text-muted);
+		font-size: 0.98rem;
 	}
 
 	.search-container {
-		background: rgba(28, 38, 50, 0.6);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 1rem;
-		padding: 1.5rem;
+		background: linear-gradient(160deg, rgba(17, 37, 58, 0.82), rgba(11, 25, 40, 0.78));
+		border: 1px solid rgba(160, 194, 226, 0.2);
+		border-radius: 1.15rem;
+		padding: 1.4rem;
 		margin-bottom: 2rem;
+		box-shadow: inset 0 1px 0 rgba(210, 230, 252, 0.04);
 	}
 
 	.search-bar {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		background: rgba(15, 23, 32, 0.6);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: 0.75rem;
+		background: rgba(9, 22, 37, 0.78);
+		border: 1px solid rgba(160, 194, 226, 0.22);
+		border-radius: 0.86rem;
 		padding: 0.5rem 0.75rem 0.5rem 1rem;
 		transition: all 0.2s ease;
 	}
 
 	.search-bar:focus-within {
-		border-color: #1e90ff;
-		box-shadow: 0 0 0 3px rgba(30, 144, 255, 0.15);
+		border-color: rgba(120, 196, 255, 0.72);
+		box-shadow: 0 0 0 3px rgba(61, 162, 255, 0.22);
 	}
 
 	.search-icon {
-		color: rgba(255, 255, 255, 0.4);
+		color: var(--color-text-muted);
 		flex-shrink: 0;
 	}
 
 	.search-bar:focus-within .search-icon {
-		color: #1e90ff;
+		color: var(--color-accent);
 	}
 
 	.search-bar input {
@@ -250,12 +253,12 @@
 		padding: 0.75rem 0;
 		border: none;
 		background: transparent;
-		color: #fff;
+		color: var(--color-text-primary);
 		font-size: 1rem;
 	}
 
 	.search-bar input::placeholder {
-		color: rgba(255, 255, 255, 0.35);
+		color: var(--color-text-muted);
 	}
 
 	.search-bar input:focus {
@@ -264,10 +267,10 @@
 
 	.search-btn {
 		padding: 0.75rem 1.5rem;
-		background: linear-gradient(135deg, #1e90ff, #0066cc);
-		border: none;
-		border-radius: 0.5rem;
-		color: #fff;
+		background: linear-gradient(135deg, #2f8be9, #4ea7ff);
+		border: 1px solid rgba(124, 193, 255, 0.4);
+		border-radius: 0.65rem;
+		color: #f6fbff;
 		font-weight: 600;
 		font-size: 0.95rem;
 		cursor: pointer;
@@ -276,7 +279,7 @@
 	}
 
 	.search-btn:hover:not(:disabled) {
-		background: linear-gradient(135deg, #3ba0ff, #0077ee);
+		background: linear-gradient(135deg, #3c96f2, #66b8ff);
 		transform: translateY(-1px);
 	}
 
@@ -290,7 +293,7 @@
 		gap: 1.5rem;
 		margin-top: 1rem;
 		padding-top: 1rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		border-top: 1px solid rgba(160, 194, 226, 0.16);
 	}
 
 	.filter-group {
@@ -301,7 +304,7 @@
 
 	.filter-group label {
 		font-size: 0.85rem;
-		color: rgba(255, 255, 255, 0.5);
+		color: var(--color-text-secondary);
 		font-weight: 500;
 	}
 
@@ -311,7 +314,7 @@
 
 	.results-count {
 		font-size: 0.9rem;
-		color: rgba(255, 255, 255, 0.6);
+		color: var(--color-text-secondary);
 	}
 
 	.book-list {
@@ -326,19 +329,19 @@
 		align-items: center;
 		justify-content: center;
 		padding: 4rem 2rem;
-		background: rgba(28, 38, 50, 0.4);
-		border: 1px dashed rgba(255, 255, 255, 0.1);
+		background: rgba(11, 25, 40, 0.55);
+		border: 1px dashed rgba(160, 194, 226, 0.2);
 		border-radius: 1rem;
 		text-align: center;
-		color: rgba(255, 255, 255, 0.4);
+		color: var(--color-text-muted);
 	}
 
 	.empty-state.initial {
-		color: rgba(255, 255, 255, 0.5);
+		color: var(--color-text-secondary);
 	}
 
 	.empty-state.initial svg {
-		color: #1e90ff;
+		color: var(--color-accent);
 		opacity: 0.6;
 	}
 
@@ -350,7 +353,7 @@
 	.empty-state h3 {
 		margin: 0 0 0.5rem 0;
 		font-size: 1.1rem;
-		color: rgba(255, 255, 255, 0.7);
+		color: rgba(232, 243, 255, 0.9);
 	}
 
 	.empty-state p {
@@ -362,12 +365,12 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		background: rgba(239, 68, 68, 0.15);
-		border: 1px solid rgba(239, 68, 68, 0.3);
+		background: rgba(121, 38, 48, 0.44);
+		border: 1px solid rgba(239, 116, 126, 0.38);
 		border-radius: 0.75rem;
 		padding: 1rem 1.25rem;
 		margin-bottom: 1.5rem;
-		color: #fca5a5;
+		color: #ffb5be;
 	}
 
 	.error svg {
@@ -459,7 +462,7 @@
 	.download-overlay {
 		position: fixed;
 		inset: 0;
-		background: rgba(15, 20, 25, 0.9);
+		background: rgba(2, 9, 18, 0.88);
 		backdrop-filter: blur(12px);
 		display: flex;
 		align-items: center;
@@ -479,10 +482,10 @@
 		align-items: center;
 		gap: 2rem;
 		padding: 3rem;
-		background: rgba(28, 38, 50, 0.8);
-		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: linear-gradient(160deg, rgba(16, 34, 53, 0.92), rgba(11, 25, 40, 0.92));
+		border: 1px solid rgba(160, 194, 226, 0.24);
 		border-radius: 1.5rem;
-		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+		box-shadow: 0 25px 50px -20px rgba(0, 0, 0, 0.75);
 		max-width: 400px;
 		text-align: center;
 		animation: slideUp 0.4s ease-out;
@@ -502,8 +505,8 @@
 	.download-spinner {
 		width: 64px;
 		height: 64px;
-		border: 4px solid rgba(30, 144, 255, 0.2);
-		border-top-color: #1e90ff;
+		border: 4px solid rgba(61, 162, 255, 0.24);
+		border-top-color: var(--color-accent);
 		border-radius: 50%;
 		animation: spin 1s linear infinite;
 	}
@@ -528,7 +531,7 @@
 	.download-title {
 		margin: 0;
 		font-size: 0.95rem;
-		color: #1e90ff;
+		color: #8dcfff;
 		font-weight: 500;
 		max-width: 300px;
 		overflow: hidden;

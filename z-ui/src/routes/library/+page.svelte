@@ -263,7 +263,7 @@
 <style>
 	.library-page {
 		padding: 2rem 0;
-		color: #fff;
+		color: var(--color-text-primary);
 	}
 
 	.page-header {
@@ -277,14 +277,14 @@
 
 	.header-content h1 {
 		margin: 0 0 0.5rem 0;
-		font-size: 1.75rem;
+		font-size: 1.9rem;
 		font-weight: 600;
 	}
 
 	.header-content p {
 		margin: 0;
-		color: rgba(255, 255, 255, 0.5);
-		font-size: 0.95rem;
+		color: var(--color-text-muted);
+		font-size: 0.98rem;
 	}
 
 	.stat-badge {
@@ -292,12 +292,12 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.5rem 1rem;
-		background: rgba(30, 144, 255, 0.15);
-		border: 1px solid rgba(30, 144, 255, 0.25);
+		background: rgba(61, 162, 255, 0.16);
+		border: 1px solid rgba(117, 191, 255, 0.32);
 		border-radius: 2rem;
-		color: #1e90ff;
+		color: #9dd6ff;
 		font-size: 0.9rem;
-		font-weight: 500;
+		font-weight: 600;
 	}
 
 	.book-grid {
@@ -309,27 +309,28 @@
 	.book-card {
 		display: flex;
 		gap: 1rem;
-		background: rgba(28, 38, 50, 0.6);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 1rem;
+		background: linear-gradient(160deg, rgba(17, 37, 58, 0.82), rgba(12, 27, 44, 0.78));
+		border: 1px solid rgba(160, 194, 226, 0.2);
+		border-radius: 1.1rem;
 		padding: 1.25rem;
 		transition: all 0.2s ease;
+		box-shadow: inset 0 1px 0 rgba(210, 230, 252, 0.04);
 	}
 
 	.book-card:hover {
-		border-color: rgba(255, 255, 255, 0.12);
-		background: rgba(28, 38, 50, 0.8);
+		border-color: rgba(160, 209, 252, 0.34);
+		background: linear-gradient(160deg, rgba(20, 43, 68, 0.9), rgba(14, 31, 50, 0.87));
 		transform: translateY(-2px);
-		box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.3);
+		box-shadow: 0 18px 26px -22px rgba(60, 145, 221, 0.65);
 	}
 
 	.book-cover {
 		flex-shrink: 0;
 		width: 80px;
 		height: 120px;
-		border-radius: 0.5rem;
+		border-radius: 0.7rem;
 		overflow: hidden;
-		box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.4);
+		box-shadow: 0 16px 22px -20px rgba(0, 0, 0, 0.9);
 	}
 
 	.book-cover img {
@@ -341,7 +342,7 @@
 	.no-cover {
 		width: 100%;
 		height: 100%;
-		background: linear-gradient(135deg, #2d3a4a 0%, #1a242f 100%);
+		background: linear-gradient(145deg, rgba(37, 67, 98, 0.7) 0%, rgba(16, 29, 43, 0.9) 100%);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -349,8 +350,8 @@
 
 	.no-cover .extension {
 		font-size: 0.9rem;
-		font-weight: 600;
-		color: rgba(255, 255, 255, 0.4);
+		font-weight: 700;
+		color: rgba(216, 233, 250, 0.55);
 	}
 
 	.book-info {
@@ -373,7 +374,7 @@
 	.author {
 		margin: 0 0 0.5rem 0;
 		font-size: 0.85rem;
-		color: rgba(255, 255, 255, 0.6);
+		color: rgba(214, 232, 252, 0.68);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -388,19 +389,21 @@
 
 	.tag {
 		display: inline-block;
-		background: rgba(255, 255, 255, 0.08);
+		background: rgba(189, 220, 250, 0.1);
+		border: 1px solid rgba(173, 208, 241, 0.2);
 		padding: 0.2rem 0.5rem;
-		border-radius: 0.375rem;
+		border-radius: 0.45rem;
 		font-size: 0.7rem;
-		font-weight: 500;
-		color: rgba(255, 255, 255, 0.6);
+		font-weight: 600;
+		color: rgba(214, 232, 252, 0.75);
 		text-transform: uppercase;
 		letter-spacing: 0.025em;
 	}
 
 	.tag.format {
-		background: rgba(30, 144, 255, 0.15);
-		color: #1e90ff;
+		background: rgba(61, 162, 255, 0.2);
+		border-color: rgba(125, 195, 255, 0.32);
+		color: #9bd4ff;
 	}
 
 	.details {
@@ -408,10 +411,10 @@
 		justify-content: space-between;
 		align-items: center;
 		font-size: 0.75rem;
-		color: rgba(255, 255, 255, 0.4);
+		color: rgba(203, 222, 245, 0.56);
 		margin-top: 0.75rem;
 		padding-top: 0.75rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		border-top: 1px solid rgba(160, 194, 226, 0.15);
 	}
 
 	.empty-state {
@@ -421,8 +424,8 @@
 		align-items: center;
 		text-align: center;
 		padding: 4rem 2rem;
-		background: rgba(28, 38, 50, 0.4);
-		border: 1px dashed rgba(255, 255, 255, 0.1);
+		background: rgba(11, 25, 40, 0.55);
+		border: 1px dashed rgba(160, 194, 226, 0.2);
 		border-radius: 1rem;
 	}
 
@@ -432,9 +435,9 @@
 		justify-content: center;
 		width: 100px;
 		height: 100px;
-		background: linear-gradient(135deg, rgba(30, 144, 255, 0.1), rgba(99, 102, 241, 0.1));
+		background: linear-gradient(145deg, rgba(61, 162, 255, 0.2), rgba(35, 92, 145, 0.18));
 		border-radius: 50%;
-		color: #1e90ff;
+		color: #97d3ff;
 		margin-bottom: 1.5rem;
 	}
 
@@ -455,8 +458,9 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
-		background: linear-gradient(135deg, #1e90ff, #0066cc);
-		color: #fff;
+		background: linear-gradient(135deg, #2f8be9, #4ea7ff);
+		border: 1px solid rgba(124, 193, 255, 0.4);
+		color: #f6fbff;
 		padding: 0.75rem 1.5rem;
 		border-radius: 0.5rem;
 		text-decoration: none;
@@ -465,21 +469,21 @@
 	}
 
 	.link-btn:hover {
-		background: linear-gradient(135deg, #3ba0ff, #0077ee);
+		background: linear-gradient(135deg, #3c96f2, #66b8ff);
 		transform: translateY(-1px);
-		box-shadow: 0 4px 12px -4px rgba(30, 144, 255, 0.4);
+		box-shadow: 0 12px 20px -14px rgba(73, 170, 255, 0.9);
 	}
 
 	.error {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		background: rgba(239, 68, 68, 0.15);
-		border: 1px solid rgba(239, 68, 68, 0.3);
+		background: rgba(121, 38, 48, 0.44);
+		border: 1px solid rgba(239, 116, 126, 0.38);
 		border-radius: 0.75rem;
 		padding: 1rem 1.25rem;
 		margin-bottom: 1.5rem;
-		color: #fca5a5;
+		color: #ffb5be;
 	}
 
 	.error svg {
@@ -492,9 +496,9 @@
 	}
 
 	.error button {
-		background: rgba(239, 68, 68, 0.2);
+		background: rgba(132, 40, 51, 0.46);
 		border: none;
-		color: #fca5a5;
+		color: #ffb5be;
 		padding: 0.5rem 1rem;
 		border-radius: 0.375rem;
 		cursor: pointer;
@@ -503,7 +507,7 @@
 	}
 
 	.error button:hover {
-		background: rgba(239, 68, 68, 0.3);
+		background: rgba(152, 50, 61, 0.54);
 	}
 
 	.status-badge {
@@ -517,9 +521,9 @@
 	}
 
 	.status-badge.downloaded {
-		background: rgba(34, 197, 94, 0.15);
-		color: #4ade80;
-		border: 1px solid rgba(34, 197, 94, 0.25);
+		background: rgba(42, 159, 94, 0.2);
+		color: #91f3b8;
+		border: 1px solid rgba(95, 211, 145, 0.3);
 	}
 
 	.right-details {
@@ -531,7 +535,7 @@
 	.reset-btn {
 		background: transparent;
 		border: none;
-		color: rgba(255, 255, 255, 0.4);
+		color: rgba(205, 222, 244, 0.54);
 		cursor: pointer;
 		padding: 4px;
 		border-radius: 4px;
@@ -542,15 +546,15 @@
 	}
 
 	.reset-btn:hover {
-		background: rgba(239, 68, 68, 0.2);
-		color: #fca5a5;
+		background: rgba(132, 40, 51, 0.46);
+		color: #ffb5be;
 	}
 
 	/* Confirmation Modal */
 	.modal-overlay {
 		position: fixed;
 		inset: 0;
-		background: rgba(0, 0, 0, 0.7);
+		background: rgba(1, 6, 14, 0.72);
 		backdrop-filter: blur(8px);
 		display: flex;
 		align-items: center;
@@ -565,8 +569,8 @@
 	}
 
 	.modal-content {
-		background: linear-gradient(145deg, rgba(28, 38, 50, 0.98), rgba(20, 28, 38, 0.98));
-		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: linear-gradient(160deg, rgba(17, 37, 58, 0.95), rgba(11, 25, 40, 0.95));
+		border: 1px solid rgba(160, 194, 226, 0.2);
 		border-radius: 1rem;
 		padding: 2rem;
 		max-width: 420px;
@@ -593,7 +597,7 @@
 		justify-content: center;
 		width: 64px;
 		height: 64px;
-		background: rgba(251, 191, 36, 0.15);
+		background: rgba(251, 191, 36, 0.2);
 		border-radius: 50%;
 		color: #fbbf24;
 		margin-bottom: 1.25rem;
@@ -608,13 +612,13 @@
 
 	.modal-description {
 		margin: 0 0 1.5rem 0;
-		color: rgba(255, 255, 255, 0.6);
+		color: rgba(214, 232, 252, 0.72);
 		font-size: 0.95rem;
 		line-height: 1.6;
 	}
 
 	.modal-description strong {
-		color: rgba(255, 255, 255, 0.9);
+		color: rgba(236, 245, 255, 0.95);
 		font-weight: 500;
 	}
 
@@ -635,13 +639,13 @@
 	}
 
 	.modal-btn.cancel {
-		background: rgba(255, 255, 255, 0.08);
-		color: rgba(255, 255, 255, 0.7);
-		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: rgba(12, 28, 44, 0.76);
+		color: rgba(228, 240, 255, 0.85);
+		border: 1px solid rgba(167, 203, 237, 0.26);
 	}
 
 	.modal-btn.cancel:hover {
-		background: rgba(255, 255, 255, 0.12);
+		background: rgba(19, 40, 63, 0.9);
 		color: #fff;
 	}
 
