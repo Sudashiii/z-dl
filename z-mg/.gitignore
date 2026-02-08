@@ -1,9 +1,0 @@
-# Deno
-.deno_cache/
-deno.lock
-
-# Credentials
-.env
-
-# IDE
-.vscode/
