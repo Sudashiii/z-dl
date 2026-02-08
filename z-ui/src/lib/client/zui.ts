@@ -12,8 +12,10 @@ import { passwordLogin } from './routes/passwordLogin';
 import { searchBook } from './routes/searchBook';
 import { tokenLogin } from './routes/tokenLogin';
 import { getLibrary, type LibraryResponse } from './routes/getLibrary';
+import { getLibraryBookDetail } from './routes/getLibraryBookDetail';
 import { resetDownloadStatus } from './routes/resetDownloadStatus';
 import { queueToLibrary, type QueueResponse } from './routes/queueToLibrary';
+import type { LibraryBookDetail } from '$lib/types/Library/BookDetail';
 
 /**
  * Facade for all Z-Library UI client operations.
@@ -38,6 +40,9 @@ export const ZUI = {
 		queueToLibrary(book),
 
 	getLibrary: (): Promise<Result<LibraryResponse, ApiError>> => getLibrary(),
+
+	getLibraryBookDetail: (bookId: number): Promise<Result<LibraryBookDetail, ApiError>> =>
+		getLibraryBookDetail(bookId),
 
 	resetDownloadStatus: (bookId: number): Promise<Result<void, ApiError>> =>
 		resetDownloadStatus(bookId)

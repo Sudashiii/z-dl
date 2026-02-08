@@ -12,6 +12,9 @@ import { ZLibraryTokenLoginUseCase } from '$lib/server/application/use-cases/ZLi
 import { ZLibraryPasswordLoginUseCase } from '$lib/server/application/use-cases/ZLibraryPasswordLoginUseCase';
 import { ZLibraryLogoutUseCase } from '$lib/server/application/use-cases/ZLibraryLogoutUseCase';
 import { ListLibraryUseCase } from '$lib/server/application/use-cases/ListLibraryUseCase';
+import {
+	GetLibraryBookDetailUseCase
+} from '$lib/server/application/use-cases/GetLibraryBookDetailUseCase';
 import { GetNewBooksForDeviceUseCase } from '$lib/server/application/use-cases/GetNewBooksForDeviceUseCase';
 import { ConfirmDownloadUseCase } from '$lib/server/application/use-cases/ConfirmDownloadUseCase';
 import { ResetDownloadStatusUseCase } from '$lib/server/application/use-cases/ResetDownloadStatusUseCase';
@@ -42,6 +45,11 @@ export const zlibraryPasswordLoginUseCase = new ZLibraryPasswordLoginUseCase(zli
 export const zlibraryLogoutUseCase = new ZLibraryLogoutUseCase();
 
 export const listLibraryUseCase = new ListLibraryUseCase(bookRepository);
+export const getLibraryBookDetailUseCase = new GetLibraryBookDetailUseCase(
+	bookRepository,
+	storage,
+	deviceDownloadRepository
+);
 export const getNewBooksForDeviceUseCase = new GetNewBooksForDeviceUseCase(bookRepository);
 export const confirmDownloadUseCase = new ConfirmDownloadUseCase(deviceDownloadRepository);
 export const resetDownloadStatusUseCase = new ResetDownloadStatusUseCase(bookRepository);
