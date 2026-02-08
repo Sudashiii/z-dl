@@ -18,6 +18,7 @@
 	let selectedBook = $state<LibraryBook | null>(null);
 	let selectedBookDetail = $state<LibraryBookDetail | null>(null);
 	let isDetailLoading = $state(false);
+	let isRefetchingMetadata = $state(false);
 	let detailError = $state<string | null>(null);
 
 	onMount(async () => {
@@ -72,6 +73,7 @@
 		selectedBookDetail = null;
 		detailError = null;
 		isDetailLoading = false;
+		isRefetchingMetadata = false;
 	}
 
 	function openResetFromDetail(): void {
@@ -82,6 +84,58 @@
 		const targetBook = selectedBook;
 		closeDetailModal();
 		openResetModal(targetBook);
+	}
+
+	function applyBookMetadataUpdate(updated: {
+		id: number;
+		zLibId: string | null;
+		title: string;
+		author: string | null;
+		cover: string | null;
+		extension: string | null;
+		filesize: number | null;
+		language: string | null;
+		year: number | null;
+	}): void {
+		const index = books.findIndex((book) => book.id === updated.id);
+		if (index === -1) {
+			return;
+		}
+
+		const updatedBook: LibraryBook = {
+			...books[index],
+			zLibId: updated.zLibId,
+			title: updated.title,
+			author: updated.author,
+			cover: updated.cover,
+			extension: updated.extension,
+			filesize: updated.filesize,
+			language: updated.language,
+			year: updated.year
+		};
+
+		books = [...books.slice(0, index), updatedBook, ...books.slice(index + 1)];
+		selectedBook = updatedBook;
+	}
+
+	async function handleRefetchMetadata(): Promise<void> {
+		if (!selectedBook || isRefetchingMetadata) {
+			return;
+		}
+
+		isRefetchingMetadata = true;
+		const result = await ZUI.refetchLibraryBookMetadata(selectedBook.id);
+		isRefetchingMetadata = false;
+
+		if (!result.ok) {
+			detailError = result.error.message;
+			toastStore.add(`Failed to refetch metadata: ${result.error.message}`, "error");
+			return;
+		}
+
+		applyBookMetadataUpdate(result.value.book);
+		detailError = null;
+		toastStore.add("Book metadata refreshed", "success");
 	}
 
 	async function confirmResetStatus() {
@@ -351,6 +405,13 @@
 				</section>
 
 				<section class="detail-section detail-actions">
+					<button
+						class="detail-refetch-btn"
+						onclick={handleRefetchMetadata}
+						disabled={isRefetchingMetadata}
+					>
+						{isRefetchingMetadata ? "Refetching..." : "Refetch Metadata"}
+					</button>
 					{#if selectedBook.isDownloaded}
 						<button
 							class="detail-reset-btn"
@@ -816,7 +877,24 @@
 
 	.detail-actions {
 		display: flex;
+		gap: 0.6rem;
 		justify-content: flex-end;
+	}
+
+	.detail-refetch-btn {
+		padding: 0.55rem 0.9rem;
+		background: rgba(12, 28, 44, 0.8);
+		border: 1px solid rgba(167, 203, 237, 0.28);
+		border-radius: 0.55rem;
+		color: rgba(228, 240, 255, 0.9);
+		cursor: pointer;
+		font-size: 0.83rem;
+		font-weight: 600;
+	}
+
+	.detail-refetch-btn:disabled {
+		opacity: 0.65;
+		cursor: wait;
 	}
 
 	.detail-reset-btn {

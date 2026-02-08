@@ -15,6 +15,9 @@ import { ListLibraryUseCase } from '$lib/server/application/use-cases/ListLibrar
 import {
 	GetLibraryBookDetailUseCase
 } from '$lib/server/application/use-cases/GetLibraryBookDetailUseCase';
+import {
+	RefetchLibraryBookMetadataUseCase
+} from '$lib/server/application/use-cases/RefetchLibraryBookMetadataUseCase';
 import { GetNewBooksForDeviceUseCase } from '$lib/server/application/use-cases/GetNewBooksForDeviceUseCase';
 import { ConfirmDownloadUseCase } from '$lib/server/application/use-cases/ConfirmDownloadUseCase';
 import { ResetDownloadStatusUseCase } from '$lib/server/application/use-cases/ResetDownloadStatusUseCase';
@@ -49,6 +52,10 @@ export const getLibraryBookDetailUseCase = new GetLibraryBookDetailUseCase(
 	bookRepository,
 	storage,
 	deviceDownloadRepository
+);
+export const refetchLibraryBookMetadataUseCase = new RefetchLibraryBookMetadataUseCase(
+	bookRepository,
+	zlibraryClient
 );
 export const getNewBooksForDeviceUseCase = new GetNewBooksForDeviceUseCase(bookRepository);
 export const confirmDownloadUseCase = new ConfirmDownloadUseCase(deviceDownloadRepository);

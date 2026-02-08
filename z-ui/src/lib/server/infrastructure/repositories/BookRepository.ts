@@ -1,5 +1,9 @@
 import type { BookRepositoryPort } from '$lib/server/application/ports/BookRepositoryPort';
-import type { Book, CreateBookInput } from '$lib/server/domain/entities/Book';
+import type {
+	Book,
+	CreateBookInput,
+	UpdateBookMetadataInput
+} from '$lib/server/domain/entities/Book';
 import { drizzleDb } from '$lib/server/infrastructure/db/client';
 import { books, deviceDownloads, deviceProgressDownloads } from '$lib/server/infrastructure/db/schema';
 import { and, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
@@ -137,6 +141,29 @@ export class BookRepository implements BookRepositoryPort {
 		return mapBookRow(created);
 	}
 
+	async updateMetadata(id: number, metadata: UpdateBookMetadataInput): Promise<Book> {
+		const [updated] = await drizzleDb
+			.update(books)
+			.set({
+				zLibId: metadata.zLibId,
+				title: metadata.title,
+				author: metadata.author,
+				cover: metadata.cover,
+				extension: metadata.extension,
+				filesize: metadata.filesize,
+				language: metadata.language,
+				year: metadata.year
+			})
+			.where(eq(books.id, id))
+			.returning(bookSelection);
+
+		if (!updated) {
+			throw new Error('Failed to update book metadata');
+		}
+
+		return mapBookRow(updated);
+	}
+
 	async delete(id: number): Promise<void> {
 		await drizzleDb.delete(books).where(eq(books.id, id));
 	}
@@ -226,6 +253,10 @@ export class BookRepository implements BookRepositoryPort {
 
 	static async create(book: CreateBookInput): Promise<Book> {
 		return BookRepository.instance.create(book);
+	}
+
+	static async updateMetadata(id: number, metadata: UpdateBookMetadataInput): Promise<Book> {
+		return BookRepository.instance.updateMetadata(id, metadata);
 	}
 
 	static async delete(id: number): Promise<void> {

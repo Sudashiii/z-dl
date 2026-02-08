@@ -13,6 +13,10 @@ import { searchBook } from './routes/searchBook';
 import { tokenLogin } from './routes/tokenLogin';
 import { getLibrary, type LibraryResponse } from './routes/getLibrary';
 import { getLibraryBookDetail } from './routes/getLibraryBookDetail';
+import {
+	refetchLibraryBookMetadata,
+	type RefetchLibraryBookMetadataResponse
+} from './routes/refetchLibraryBookMetadata';
 import { resetDownloadStatus } from './routes/resetDownloadStatus';
 import { queueToLibrary, type QueueResponse } from './routes/queueToLibrary';
 import type { LibraryBookDetail } from '$lib/types/Library/BookDetail';
@@ -43,6 +47,11 @@ export const ZUI = {
 
 	getLibraryBookDetail: (bookId: number): Promise<Result<LibraryBookDetail, ApiError>> =>
 		getLibraryBookDetail(bookId),
+
+	refetchLibraryBookMetadata: (
+		bookId: number
+	): Promise<Result<RefetchLibraryBookMetadataResponse, ApiError>> =>
+		refetchLibraryBookMetadata(bookId),
 
 	resetDownloadStatus: (bookId: number): Promise<Result<void, ApiError>> =>
 		resetDownloadStatus(bookId)
