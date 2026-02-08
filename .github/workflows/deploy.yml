@@ -19,10 +19,12 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
           fingerprint: ""
           port: 22 
 
           script: |
+            set -euo pipefail
             cd /home/sudash/apps/z-dl
             
             git config --global --add safe.directory /home/sudash/apps/z-dl
@@ -32,5 +34,8 @@ jobs:
             echo "${{ secrets.Z_UI_ENV }}" | sudo tee ./z-ui/.env > /dev/null
             
             sudo docker compose build --no-cache
-            sudo docker compose up -d --remove-orphans
+            sudo docker compose up --abort-on-container-exit --exit-code-from z-ui-migrator z-ui-migrator
+            sudo docker compose up -d --remove-orphans z-ui
+            sudo docker compose ps z-ui
+            sudo docker inspect -f '{{.State.Running}}' z-ui | grep -q true
             sudo docker image prune -f
