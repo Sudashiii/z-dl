@@ -19,8 +19,14 @@ export class S3Storage implements StoragePort {
 	private readonly bucket: string;
 
 	constructor() {
-		if (!CLOUDFLARE_BUCKET_NAME) {
-			throw new Error('CLOUDFLARE_BUCKET_NAME is not defined');
+		const missing: string[] = [];
+		if (!CLOUDFLARE_BUCKET_NAME) missing.push('CLOUDFLARE_BUCKET_NAME');
+		if (!CLOUDFLARE_ACCOUNT_ID) missing.push('CLOUDFLARE_ACCOUNT_ID');
+		if (!CLOUDFLARE_R2_ACCESS_KEY_ID) missing.push('CLOUDFLARE_R2_ACCESS_KEY_ID');
+		if (!CLOUDFLARE_R2_SECRET_ACCESS_KEY) missing.push('CLOUDFLARE_R2_SECRET_ACCESS_KEY');
+
+		if (missing.length > 0) {
+			throw new Error(`Missing required Cloudflare R2 env vars: ${missing.join(', ')}`);
 		}
 
 		this.bucket = CLOUDFLARE_BUCKET_NAME;

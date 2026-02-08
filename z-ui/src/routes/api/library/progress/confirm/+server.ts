@@ -4,19 +4,26 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 
 export const POST: RequestHandler = async ({ request }) => {
-	const body = await request.json();
-	const { deviceId, bookId } = body;
-
-	if (!deviceId || typeof bookId !== 'number') {
-		return errorResponse('deviceId and bookId are required', 400);
-	}
-
 	try {
+		let body: unknown;
+		try {
+			body = await request.json();
+		} catch {
+			return errorResponse('Invalid JSON body', 400);
+		}
+
+		const payload = body as { deviceId?: string; bookId?: unknown };
+		const { deviceId, bookId } = payload;
+
+		if (!deviceId || typeof bookId !== 'number') {
+			return errorResponse('deviceId and bookId are required', 400);
+		}
+
 		const result = await confirmProgressDownloadUseCase.execute({ deviceId, bookId });
 		if (!result.ok) {
 			return errorResponse(result.error.message, result.error.status);
 		}
-		return json(result.value, { status: 201 });
+		return json(result.value, { status: 200 });
 	} catch (err: unknown) {
 		console.error('Failed to confirm progress download:', err);
 		return errorResponse('Failed to confirm progress download', 500);

@@ -136,7 +136,7 @@ export class ZLibraryClient implements ZLibraryPort {
 
 	private async post<T>(
 		path: string,
-		data: Record<string, any>,
+		data: object,
 		credentials?: ZLibraryCredentials
 	): Promise<ApiResult<T>> {
 		try {
