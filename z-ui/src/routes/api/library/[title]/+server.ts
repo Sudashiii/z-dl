@@ -1,92 +1,69 @@
-import { DavUploadServiceFactory } from '$lib/server/application/factories/DavUploadServiceFactory';
-import { S3Storage } from '$lib/server/application/S3Storage';
-import { mimeTypes } from '$lib/server/constants/mimeTypes';
-import { BookRepository } from '$lib/server/infrastructure/repositories/BookRepository';
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
+import {
+	getLibraryFileUseCase,
+	putLibraryFileUseCase,
+	deleteLibraryFileUseCase
+} from '$lib/server/application/composition';
+import { errorResponse } from '$lib/server/http/api';
 
-const s3 = new S3Storage();
-
-// -------------------------------
-// GET /api/library/:title
-// -------------------------------
 export const GET: RequestHandler = async ({ params }) => {
-	const { title } = params;
-	console.log("Fetching title:", title);
-	const key = `library/${title}`;
-    const extension = key.split(".").pop()?.toLowerCase() || "default";
-	//@ts-ignore
-    const contentType: string = mimeTypes[extension] || mimeTypes.default;
+	const title = params.title;
+	if (!title) {
+		return errorResponse('Missing title parameter', 400);
+	}
 
 	try {
-		const data: Buffer<ArrayBufferLike> = await s3.get(key);
-		console.log("Fetching data of length: ", data.length.toString());
+		const result = await getLibraryFileUseCase.execute(title);
+		if (!result.ok) {
+			return errorResponse(result.error.message, result.error.status);
+		}
 
-		const arrayBuffer = data.buffer as ArrayBuffer;
-		return new Response(arrayBuffer, {
+		return new Response(result.value.data, {
 			headers: {
-				'Content-Type': contentType,
-				'Content-Length': data.length.toString()
+				'Content-Type': result.value.contentType,
+				'Content-Length': result.value.contentLength
 			}
 		});
-	} catch (err: any) {
-		console.error(err);
-		return json({ error: 'File not found' }, { status: 404 });
+	} catch (err: unknown) {
+		console.error('Fetch library file failed:', err);
+		return errorResponse('File not found', 404);
 	}
 };
 
-
-// -------------------------------
-// PUT /api/library/:title
-// -------------------------------
 export const PUT: RequestHandler = async ({ params, request }) => {
-	const { title } = params;
-
-	if(!title) {
-		return json({ error: 'Missing title parameter' }, { status: 400 });
+	const title = params.title;
+	if (!title) {
+		return errorResponse('Missing title parameter', 400);
 	}
 
 	try {
-		// Read the binary body from the request
 		const body = await request.arrayBuffer();
-
-		const uploadService = DavUploadServiceFactory.createS3();
-		await uploadService.upload(title, Buffer.from(body));
-		await BookRepository.create({
-			s3_storage_key: title,
-			title: title,
-			zLibId: "000000",
-			author: null,
-			cover: null,
-			extension: null,
-			filesize: null,
-			language: null,
-			year: null
-		});
-		
-		return json({ success: true });
-	} catch (err: any) {
+		const result = await putLibraryFileUseCase.execute(title, body);
+		if (!result.ok) {
+			return errorResponse(result.error.message, result.error.status);
+		}
+		return json(result.value);
+	} catch (err: unknown) {
 		console.error('Upload failed:', err);
-		return json({ error: 'Upload failed' }, { status: 500 });
+		return errorResponse('Upload failed', 500);
 	}
 };
 
-// -------------------------------
-// DELETE /api/library/:title
-// -------------------------------
 export const DELETE: RequestHandler = async ({ params }) => {
-	const { title } = params;
-	const key = `library/${title}`;
+	const title = params.title;
+	if (!title) {
+		return errorResponse('Missing title parameter', 400);
+	}
 
 	try {
-		await s3.delete(key);
-
-		return json({
-			success: true,
-			deleted: key
-		});
-	} catch (err: any) {
+		const result = await deleteLibraryFileUseCase.execute(title);
+		if (!result.ok) {
+			return errorResponse(result.error.message, result.error.status);
+		}
+		return json(result.value);
+	} catch (err: unknown) {
 		console.error('Delete failed:', err);
-		return json({ error: 'Delete failed' }, { status: 500 });
+		return errorResponse('Delete failed', 500);
 	}
 };

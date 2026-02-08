@@ -1,0 +1,66 @@
+# AGENTS.md
+
+This file defines project-specific engineering rules for automated agents and contributors.
+
+## Stack and core constraints
+
+- The app uses **SvelteKit + Svelte 5**.
+- Prefer **modern Svelte 5 patterns/features** where applicable instead of legacy Svelte 3/4 style.
+- The codebase is **TypeScript-first** and should be treated as **strict**.
+- Do not introduce `any` or loose typing unless there is a strong reason and it is clearly justified.
+- The app should remain **free of TypeScript errors** (`npm run check` must pass).
+- Styling uses **SCSS modules** conventions in the app. Keep styling changes consistent with existing SCSS/module usage patterns.
+
+## Architecture rules
+
+### Layering
+
+- `src/lib/server/domain`: pure business logic, value objects, entities, rules.
+- `src/lib/server/application`: use-cases, ports, and dependency composition.
+- `src/lib/server/infrastructure`: concrete adapters (DB, storage, external clients, queue).
+- `src/routes/api`: thin controllers only.
+
+### Dependency direction
+
+- Routes depend on application use-cases.
+- Use-cases depend on ports/interfaces, not concrete infrastructure classes.
+- Infrastructure implements ports.
+- Domain does not depend on infrastructure or HTTP concerns.
+
+## API/controller conventions
+
+Routes should do only:
+1. Parse input
+2. Validate required fields
+3. Call one use-case (prefer via `src/lib/server/application/composition.ts`)
+4. Map result to HTTP response
+
+Error payload format must remain:
+
+```json
+{"error":"message"}
+```
+
+## Result pattern
+
+- Use-case methods should return the project Result pattern (`ApiResult<T>`).
+- Avoid throwing for expected business errors.
+- Map result errors to HTTP status at the controller boundary.
+
+## Feature workflow
+
+When adding a feature:
+1. Define request/response/error contract.
+2. Add or update domain rules/entities if needed.
+3. Implement a focused use-case in `application/use-cases`.
+4. Wire dependencies in `application/composition.ts`.
+5. Keep API route/controller thin.
+6. Update client-facing DTOs under `src/lib/types` when frontend consumes the API.
+7. Run `npm run check` and ensure zero type errors.
+
+## Quality gates
+
+Before finishing a change:
+- `npm run check` passes with **0 TypeScript errors**.
+- No architectural regression (business logic drifting into routes/infrastructure glue).
+- Naming is consistent with current conventions (`*UseCase`, `*Client`, etc.).

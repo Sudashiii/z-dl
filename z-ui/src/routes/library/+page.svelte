@@ -1,18 +1,18 @@
-<script lang="ts">
-	import { onMount } from "svelte";
-	import type { Book } from "$lib/server/infrastructure/dbModels/models";
+	<script lang="ts">
+		import { onMount } from "svelte";
+		import type { LibraryBook } from "$lib/types/Library/Book";
 	import type { ApiError } from "$lib/types/ApiError";
 	import Loading from "$lib/components/Loading.svelte";
 	import { ZUI } from "$lib/client/zui";
 
 	import { toastStore } from "$lib/client/stores/toastStore.svelte";
 
-	let books = $state<Book[]>([]);
+		let books = $state<LibraryBook[]>([]);
 	let isLoading = $state(true);
 	let error = $state<ApiError | null>(null);
 
 	let showConfirmModal = $state(false);
-	let bookToReset = $state<Book | null>(null);
+		let bookToReset = $state<LibraryBook | null>(null);
 
 	onMount(async () => {
 		await loadLibrary();
@@ -33,7 +33,7 @@
 		isLoading = false;
 	}
 
-	function openResetModal(book: Book) {
+		function openResetModal(book: LibraryBook) {
 		bookToReset = book;
 		showConfirmModal = true;
 	}

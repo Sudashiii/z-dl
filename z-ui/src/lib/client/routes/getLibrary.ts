@@ -1,12 +1,12 @@
 import { type Result, ok, err } from '$lib/types/Result';
 import { ApiErrors, type ApiError } from '$lib/types/ApiError';
-import type { Book } from '$lib/server/infrastructure/dbModels/models';
+import type { LibraryBook } from '$lib/types/Library/Book';
 import { get } from '../base/get';
 import { ZUIRoutes } from '../base/routes';
 
 export interface LibraryResponse {
 	success: boolean;
-	books: Book[];
+	books: LibraryBook[];
 }
 
 export async function getLibrary(): Promise<Result<LibraryResponse, ApiError>> {
