@@ -90,6 +90,25 @@ npm run check
 - Avoid static repository calls in new code paths (use composed instances)
 - If you must add temporary debug/test endpoints, put a TODO with owner and remove date
 
+## DB and migration workflow
+
+- `z-ui` is the source of truth for DB schema and migrations.
+- Schema lives in `src/lib/server/infrastructure/db/schema.ts`.
+- Migration files live in `drizzle/`.
+- Generate migration after schema changes:
+```bash
+npm run db:generate
+```
+- Apply migrations:
+```bash
+npm run db:migrate
+```
+- Existing environments that predate Drizzle needed a one-time baseline mark:
+```bash
+node --env-file=.env ./scripts/db/mark-drizzle-baseline.mjs
+```
+- In Docker Compose, `z-ui-migrator` runs migrations before `z-ui` starts.
+
 ## Common pitfall to avoid
 
 If route files start growing with:

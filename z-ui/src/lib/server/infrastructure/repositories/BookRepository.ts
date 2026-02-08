@@ -1,126 +1,177 @@
 import type { BookRepositoryPort } from '$lib/server/application/ports/BookRepositoryPort';
 import type { Book, CreateBookInput } from '$lib/server/domain/entities/Book';
-import { db } from '../db/db';
+import { drizzleDb } from '$lib/server/infrastructure/db/client';
+import { books, deviceDownloads } from '$lib/server/infrastructure/db/schema';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+
+type DbBookRow = {
+	id: number;
+	s3StorageKey: string;
+	title: string;
+	zLibId: string | null;
+	author: string | null;
+	cover: string | null;
+	extension: string | null;
+	filesize: number | null;
+	language: string | null;
+	year: number | null;
+	progressStorageKey: string | null;
+	progressUpdatedAt: string | null;
+	createdAt: string | null;
+};
+
+type DbBookWithDownloadRow = DbBookRow & {
+	isDownloaded: number | boolean;
+};
+
+const bookSelection = {
+	id: books.id,
+	s3StorageKey: books.s3StorageKey,
+	title: books.title,
+	zLibId: books.zLibId,
+	author: books.author,
+	cover: books.cover,
+	extension: books.extension,
+	filesize: books.filesize,
+	language: books.language,
+	year: books.year,
+	progressStorageKey: books.progressStorageKey,
+	progressUpdatedAt: books.progressUpdatedAt,
+	createdAt: books.createdAt
+};
+
+function mapBookRow(row: DbBookRow): Book {
+	return {
+		id: row.id,
+		zLibId: row.zLibId,
+		s3_storage_key: row.s3StorageKey,
+		title: row.title,
+		author: row.author,
+		cover: row.cover,
+		extension: row.extension,
+		filesize: row.filesize,
+		language: row.language,
+		year: row.year,
+		progress_storage_key: row.progressStorageKey,
+		progress_updated_at: row.progressUpdatedAt,
+		createdAt: row.createdAt
+	};
+}
+
+function mapBookWithDownloadRow(row: DbBookWithDownloadRow): Book {
+	return {
+		...mapBookRow(row),
+		isDownloaded: Boolean(row.isDownloaded)
+	};
+}
 
 export class BookRepository implements BookRepositoryPort {
 	private static readonly instance = new BookRepository();
 
 	async getAll(): Promise<Book[]> {
-		const result = await db.execute(`
-            SELECT b.*, EXISTS(SELECT 1 FROM DeviceDownloads WHERE bookId = b.id) as isDownloaded 
-            FROM Books b 
-            ORDER BY b.createdAt DESC
-        `);
-		return result.rows.map((row) => ({
-			...row,
-			isDownloaded: Boolean(row.isDownloaded)
-		})) as unknown as Book[];
+		const rows = await drizzleDb
+			.select({
+				...bookSelection,
+				isDownloaded:
+					sql<number>`exists (select 1 from ${deviceDownloads} where ${deviceDownloads.bookId} = ${books.id})`
+			})
+			.from(books)
+			.orderBy(desc(books.createdAt));
+
+		return rows.map((row) => mapBookWithDownloadRow(row));
 	}
 
 	async getById(id: number): Promise<Book | undefined> {
-		const result = await db.execute({
-			sql: 'SELECT * FROM Books WHERE id = ?',
-			args: [id]
-		});
-		return (result.rows[0] as unknown as Book) ?? undefined;
+		const [row] = await drizzleDb.select(bookSelection).from(books).where(eq(books.id, id)).limit(1);
+		return row ? mapBookRow(row) : undefined;
 	}
 
 	async getByZLibId(zLibId: string): Promise<Book | undefined> {
-		const result = await db.execute({
-			sql: 'SELECT * FROM Books WHERE zLibId = ?',
-			args: [zLibId]
-		});
-		return (result.rows[0] as unknown as Book) ?? undefined;
+		const [row] = await drizzleDb.select(bookSelection).from(books).where(eq(books.zLibId, zLibId)).limit(1);
+		return row ? mapBookRow(row) : undefined;
 	}
 
 	async getByStorageKey(storageKey: string): Promise<Book | undefined> {
-		const result = await db.execute({
-			sql: 'SELECT * FROM Books WHERE s3_storage_key = ?',
-			args: [storageKey]
-		});
-		return (result.rows[0] as unknown as Book) ?? undefined;
+		const [row] = await drizzleDb
+			.select(bookSelection)
+			.from(books)
+			.where(eq(books.s3StorageKey, storageKey))
+			.limit(1);
+		return row ? mapBookRow(row) : undefined;
 	}
 
 	async getByTitleAndExtension(title: string, extension: string): Promise<Book | undefined> {
-		const result = await db.execute({
-			sql: 'SELECT * FROM Books WHERE title = ? AND extension = ?',
-			args: [title, extension]
-		});
-		return (result.rows[0] as unknown as Book) ?? undefined;
+		const [row] = await drizzleDb
+			.select(bookSelection)
+			.from(books)
+			.where(and(eq(books.title, title), eq(books.extension, extension)))
+			.limit(1);
+		return row ? mapBookRow(row) : undefined;
 	}
 
 	async getByTitle(title: string): Promise<Book | undefined> {
-		const result = await db.execute({
-			sql: 'SELECT * FROM Books WHERE title = ?',
-			args: [title]
-		});
-		return (result.rows[0] as unknown as Book) ?? undefined;
+		const [row] = await drizzleDb.select(bookSelection).from(books).where(eq(books.title, title)).limit(1);
+		return row ? mapBookRow(row) : undefined;
 	}
 
 	async create(book: CreateBookInput): Promise<Book> {
-		const result = await db.execute({
-			sql: `INSERT INTO Books (zLibId, s3_storage_key, title, author, cover, extension, filesize, language, year)
-			      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			args: [
-				book.zLibId,
-				book.s3_storage_key,
-				book.title,
-				book.author,
-				book.cover,
-				book.extension,
-				book.filesize,
-				book.language,
-				book.year
-			]
-		});
+		const [created] = await drizzleDb
+			.insert(books)
+			.values({
+				zLibId: book.zLibId,
+				s3StorageKey: book.s3_storage_key,
+				title: book.title,
+				author: book.author,
+				cover: book.cover,
+				extension: book.extension,
+				filesize: book.filesize,
+				language: book.language,
+				year: book.year
+			})
+			.returning(bookSelection);
 
-		return {
-			id: Number(result.lastInsertRowid),
-			...book,
-			progress_storage_key: null,
-			progress_updated_at: null,
-			createdAt: new Date().toISOString()
-		};
+		if (!created) {
+			throw new Error('Failed to create book');
+		}
+
+		return mapBookRow(created);
 	}
 
 	async delete(id: number): Promise<void> {
-		await db.execute({
-			sql: 'DELETE FROM Books WHERE id = ?',
-			args: [id]
-		});
+		await drizzleDb.delete(books).where(eq(books.id, id));
 	}
 
 	async resetDownloadStatus(bookId: number): Promise<void> {
-		await db.execute({
-			sql: 'DELETE FROM DeviceDownloads WHERE bookId = ?',
-			args: [bookId]
-		});
+		await drizzleDb.delete(deviceDownloads).where(eq(deviceDownloads.bookId, bookId));
 	}
 
 	async updateProgress(bookId: number, progressKey: string): Promise<void> {
-		await db.execute({
-			sql: 'UPDATE Books SET progress_storage_key = ?, progress_updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-			args: [progressKey, bookId]
-		});
+		await drizzleDb
+			.update(books)
+			.set({
+				progressStorageKey: progressKey,
+				progressUpdatedAt: sql`CURRENT_TIMESTAMP`
+			})
+			.where(eq(books.id, bookId));
 	}
 
 	async getNotDownloadedByDevice(deviceId: string): Promise<Book[]> {
-		const result = await db.execute({
-			sql: `
-				SELECT b.*
-				FROM Books b
-				LEFT JOIN DeviceDownloads d ON b.id = d.bookId AND d.deviceId = ?
-				WHERE d.bookId IS NULL
-				ORDER BY b.createdAt DESC
-			`,
-			args: [deviceId]
-		});
-		return result.rows as unknown as Book[];
+		const rows = await drizzleDb
+			.select(bookSelection)
+			.from(books)
+			.leftJoin(
+				deviceDownloads,
+				and(eq(books.id, deviceDownloads.bookId), eq(deviceDownloads.deviceId, deviceId))
+			)
+			.where(isNull(deviceDownloads.bookId))
+			.orderBy(desc(books.createdAt));
+
+		return rows.map((row) => mapBookRow(row));
 	}
 
 	async count(): Promise<number> {
-		const result = await db.execute('SELECT COUNT(*) as count FROM Books');
-		return (result.rows[0] as unknown as { count: number }).count;
+		const [result] = await drizzleDb.select({ count: sql<number>`count(*)` }).from(books);
+		return Number(result?.count ?? 0);
 	}
 
 	static async getAll(): Promise<Book[]> {

@@ -29,6 +29,14 @@ npm run dev
 npm run build
 npm run preview
 npm run check
+npm run db:generate
+npm run db:migrate
+```
+
+One-time baseline for already-migrated databases:
+
+```bash
+node --env-file=.env ./scripts/db/mark-drizzle-baseline.mjs
 ```
 
 ## Project layout
@@ -43,6 +51,9 @@ npm run check
 
 The codebase recently moved to a cleaner separation of concerns.
 Controllers are thinner than before, and most orchestration now lives in use-cases.
+
+Database migrations are now owned by `z-ui` via Drizzle (`drizzle/` + `drizzle.config.ts`).
+In Docker Compose, migrations run in the `z-ui-migrator` one-shot service before the app starts.
 
 If you need implementation details for extending the app, read:
 - `docs/DEV_GUIDE.md`
