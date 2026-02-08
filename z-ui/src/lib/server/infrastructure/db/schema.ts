@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const books = sqliteTable('Books', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -23,3 +23,18 @@ export const deviceDownloads = sqliteTable('DeviceDownloads', {
 		.notNull()
 		.references(() => books.id, { onDelete: 'cascade' })
 });
+
+export const deviceProgressDownloads = sqliteTable(
+	'DeviceProgressDownloads',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		deviceId: text('deviceId').notNull(),
+		bookId: integer('bookId')
+			.notNull()
+			.references(() => books.id, { onDelete: 'cascade' }),
+		progressUpdatedAt: text('progress_updated_at').notNull()
+	},
+	(table) => [
+		uniqueIndex('device_progress_downloads_device_book_unique').on(table.deviceId, table.bookId)
+	]
+);

@@ -1,8 +1,8 @@
 import type { BookRepositoryPort } from '$lib/server/application/ports/BookRepositoryPort';
 import type { Book, CreateBookInput } from '$lib/server/domain/entities/Book';
 import { drizzleDb } from '$lib/server/infrastructure/db/client';
-import { books, deviceDownloads } from '$lib/server/infrastructure/db/schema';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { books, deviceDownloads, deviceProgressDownloads } from '$lib/server/infrastructure/db/schema';
+import { and, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
 
 type DbBookRow = {
 	id: number;
@@ -169,6 +169,32 @@ export class BookRepository implements BookRepositoryPort {
 		return rows.map((row) => mapBookRow(row));
 	}
 
+	async getBooksWithNewProgressForDevice(deviceId: string): Promise<Book[]> {
+		const rows = await drizzleDb
+			.select(bookSelection)
+			.from(books)
+			.leftJoin(
+				deviceProgressDownloads,
+				and(
+					eq(books.id, deviceProgressDownloads.bookId),
+					eq(deviceProgressDownloads.deviceId, deviceId)
+				)
+			)
+			.where(
+				and(
+					isNotNull(books.progressStorageKey),
+					isNotNull(books.progressUpdatedAt),
+					or(
+						isNull(deviceProgressDownloads.id),
+						sql`${deviceProgressDownloads.progressUpdatedAt} < ${books.progressUpdatedAt}`
+					)
+				)
+			)
+			.orderBy(desc(books.progressUpdatedAt), desc(books.createdAt));
+
+		return rows.map((row) => mapBookRow(row));
+	}
+
 	async count(): Promise<number> {
 		const [result] = await drizzleDb.select({ count: sql<number>`count(*)` }).from(books);
 		return Number(result?.count ?? 0);
@@ -216,6 +242,10 @@ export class BookRepository implements BookRepositoryPort {
 
 	static async getNotDownloadedByDevice(deviceId: string): Promise<Book[]> {
 		return BookRepository.instance.getNotDownloadedByDevice(deviceId);
+	}
+
+	static async getBooksWithNewProgressForDevice(deviceId: string): Promise<Book[]> {
+		return BookRepository.instance.getBooksWithNewProgressForDevice(deviceId);
 	}
 
 	static async count(): Promise<number> {

@@ -12,5 +12,6 @@ export interface BookRepositoryPort {
 	resetDownloadStatus(bookId: number): Promise<void>;
 	updateProgress(bookId: number, progressKey: string): Promise<void>;
 	getNotDownloadedByDevice(deviceId: string): Promise<Book[]>;
+	getBooksWithNewProgressForDevice(deviceId: string): Promise<Book[]>;
 	count(): Promise<number>;
 }

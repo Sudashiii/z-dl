@@ -33,4 +33,15 @@ export async function initializeDatabase() {
 			FOREIGN KEY (bookId) REFERENCES Books(id) ON DELETE CASCADE
 		)
 	`);
+
+	await db.execute(`
+		CREATE TABLE IF NOT EXISTS DeviceProgressDownloads (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			deviceId TEXT NOT NULL,
+			bookId INTEGER NOT NULL,
+			progress_updated_at TEXT NOT NULL,
+			FOREIGN KEY (bookId) REFERENCES Books(id) ON DELETE CASCADE,
+			UNIQUE (deviceId, bookId)
+		)
+	`);
 }
