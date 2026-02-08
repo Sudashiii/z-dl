@@ -655,4 +655,78 @@
 		transform: translateY(-1px);
 		box-shadow: 0 4px 12px -4px rgba(251, 191, 36, 0.4);
 	}
+
+	@media (max-width: 900px) {
+		.library-page {
+			padding: 1.25rem 0 1.5rem;
+		}
+
+		.book-grid {
+			grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+		}
+	}
+
+	@media (max-width: 640px) {
+		.page-header {
+			margin-bottom: 1.25rem;
+			gap: 0.8rem;
+		}
+
+		.header-content h1 {
+			font-size: 1.45rem;
+		}
+
+		.book-grid {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 0.9rem;
+		}
+
+		.book-card {
+			padding: 0.9rem;
+			gap: 0.8rem;
+		}
+
+		.book-cover {
+			width: 64px;
+			height: 96px;
+		}
+
+		.book-info h3,
+		.author {
+			white-space: normal;
+			overflow: visible;
+		}
+
+		.details {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.55rem;
+		}
+
+		.right-details {
+			width: 100%;
+			justify-content: space-between;
+		}
+
+		.error {
+			flex-wrap: wrap;
+		}
+
+		.error button {
+			width: 100%;
+		}
+
+		.modal-content {
+			width: min(94vw, 420px);
+			padding: 1.25rem;
+		}
+
+		.modal-actions {
+			flex-direction: column;
+		}
+
+		.modal-btn {
+			width: 100%;
+		}
+	}
 </style>

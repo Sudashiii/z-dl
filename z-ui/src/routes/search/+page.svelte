@@ -378,23 +378,80 @@
 		margin: 0;
 	}
 
+	@media (max-width: 900px) {
+		.search-page {
+			padding: 1.25rem 0 1.5rem;
+		}
+
+		.search-container {
+			padding: 1rem;
+		}
+	}
+
 	@media (max-width: 600px) {
+		.page-header h1 {
+			font-size: 1.45rem;
+		}
+
+		.page-header p {
+			font-size: 0.9rem;
+		}
+
 		.search-bar {
 			flex-wrap: wrap;
+			padding: 0.5rem 0.65rem;
 		}
 
 		.search-bar input {
 			width: 100%;
+			font-size: 0.95rem;
 		}
 
 		.search-btn {
 			width: 100%;
 			margin-top: 0.5rem;
+			padding: 0.7rem 1rem;
 		}
 
 		.search-filters {
 			flex-direction: column;
 			gap: 1rem;
+		}
+
+		.filter-group {
+			justify-content: space-between;
+			width: 100%;
+		}
+
+		.empty-state {
+			padding: 2.5rem 1rem;
+		}
+
+		.download-modal {
+			margin: 0 1rem;
+			padding: 1.4rem;
+			gap: 1.2rem;
+			max-width: 100%;
+		}
+
+		.download-title {
+			max-width: 100%;
+		}
+	}
+
+	@media (max-width: 420px) {
+		.search-container {
+			padding: 0.85rem;
+			border-radius: 0.8rem;
+		}
+
+		.search-bar input::placeholder {
+			font-size: 0.9rem;
+		}
+
+		.error {
+			padding: 0.85rem 0.9rem;
+			font-size: 0.85rem;
 		}
 	}
 

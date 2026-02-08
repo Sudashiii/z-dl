@@ -1,7 +1,6 @@
 import type { Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { requireBasicAuth } from '$lib/server/auth/basicAuth';
-import { initializeDatabase } from '$lib/server/infrastructure/db/db';
 import { errorResponse } from '$lib/server/http/api';
 
 const basicAuthHandle: Handle = async ({ event, resolve }) => {
@@ -32,6 +31,4 @@ const cookieHandle: Handle = async ({ event, resolve }) => {
 
 	return resolve(event);
 };
-
-await initializeDatabase();
 export const handle = sequence(cookieHandle, basicAuthHandle);
