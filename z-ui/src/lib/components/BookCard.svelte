@@ -74,28 +74,29 @@
 	.book-card {
 		display: flex;
 		align-items: stretch;
-		background: rgba(28, 38, 50, 0.6);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 1rem;
+		background: linear-gradient(160deg, rgba(17, 37, 58, 0.82), rgba(12, 27, 44, 0.78));
+		border: 1px solid rgba(160, 194, 226, 0.2);
+		border-radius: 1.1rem;
 		padding: 1.25rem;
 		gap: 1.25rem;
 		transition: all 0.2s ease;
+		box-shadow: inset 0 1px 0 rgba(210, 230, 252, 0.04);
 	}
 
 	.book-card:hover {
-		border-color: rgba(255, 255, 255, 0.12);
-		background: rgba(28, 38, 50, 0.8);
+		border-color: rgba(160, 209, 252, 0.34);
+		background: linear-gradient(160deg, rgba(20, 43, 68, 0.9), rgba(14, 31, 50, 0.87));
 		transform: translateY(-2px);
-		box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.3);
+		box-shadow: 0 18px 26px -22px rgba(60, 145, 221, 0.65);
 	}
 
 	.book-cover {
 		flex-shrink: 0;
 		width: 100px;
 		height: 150px;
-		border-radius: 0.5rem;
+		border-radius: 0.7rem;
 		overflow: hidden;
-		box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.4);
+		box-shadow: 0 16px 22px -20px rgba(0, 0, 0, 0.9);
 	}
 
 	.book-cover img {
@@ -107,7 +108,7 @@
 	.no-cover {
 		width: 100%;
 		height: 100%;
-		background: linear-gradient(135deg, #2d3a4a 0%, #1a242f 100%);
+		background: linear-gradient(145deg, rgba(37, 67, 98, 0.7) 0%, rgba(16, 29, 43, 0.9) 100%);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -115,8 +116,8 @@
 
 	.no-cover .extension {
 		font-size: 1rem;
-		font-weight: 600;
-		color: rgba(255, 255, 255, 0.4);
+		font-weight: 700;
+		color: rgba(216, 233, 250, 0.55);
 	}
 
 	.book-content {
@@ -133,9 +134,9 @@
 
 	.book-title {
 		margin: 0 0 0.25rem 0;
-		font-size: 1.1rem;
+		font-size: 1.08rem;
 		font-weight: 600;
-		color: #fff;
+		color: #f2f7ff;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -145,7 +146,7 @@
 	.book-author {
 		margin: 0;
 		font-size: 0.9rem;
-		color: rgba(255, 255, 255, 0.6);
+		color: rgba(214, 232, 252, 0.68);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -161,24 +162,26 @@
 	.meta-tag {
 		display: inline-block;
 		padding: 0.25rem 0.6rem;
-		background: rgba(255, 255, 255, 0.08);
-		border-radius: 0.375rem;
+		background: rgba(189, 220, 250, 0.1);
+		border: 1px solid rgba(173, 208, 241, 0.2);
+		border-radius: 0.45rem;
 		font-size: 0.75rem;
-		font-weight: 500;
-		color: rgba(255, 255, 255, 0.6);
+		font-weight: 600;
+		color: rgba(214, 232, 252, 0.75);
 		text-transform: uppercase;
 		letter-spacing: 0.025em;
 	}
 
 	.meta-tag.format {
-		background: rgba(30, 144, 255, 0.15);
-		color: #1e90ff;
+		background: rgba(61, 162, 255, 0.2);
+		border-color: rgba(125, 195, 255, 0.32);
+		color: #9bd4ff;
 	}
 
 	.book-publisher {
 		margin: 0;
 		font-size: 0.8rem;
-		color: rgba(255, 255, 255, 0.4);
+		color: rgba(203, 222, 245, 0.52);
 		margin-top: auto;
 	}
 
@@ -193,7 +196,7 @@
 		align-items: center;
 		gap: 0.35rem;
 		font-size: 0.8rem;
-		color: #fbbf24;
+		color: #f9c14d;
 	}
 
 	.score.quality {
@@ -214,35 +217,35 @@
 		justify-content: center;
 		gap: 0.5rem;
 		padding: 0.6rem 1rem;
-		border-radius: 0.5rem;
+		border-radius: 0.65rem;
 		font-size: 0.85rem;
-		font-weight: 500;
+		font-weight: 600;
 		cursor: pointer;
 		transition: all 0.2s ease;
 		min-width: 110px;
 	}
 
 	.action-btn.primary {
-		background: linear-gradient(135deg, #1e90ff, #0066cc);
-		border: none;
-		color: #fff;
+		background: linear-gradient(135deg, #2f8be9, #4ea7ff);
+		border: 1px solid rgba(124, 193, 255, 0.38);
+		color: #f6fbff;
 	}
 
 	.action-btn.primary:hover {
-		background: linear-gradient(135deg, #3ba0ff, #0077ee);
+		background: linear-gradient(135deg, #3c96f2, #66b8ff);
 		transform: translateY(-1px);
-		box-shadow: 0 4px 12px -4px rgba(30, 144, 255, 0.4);
+		box-shadow: 0 12px 20px -14px rgba(73, 170, 255, 0.9);
 	}
 
 	.action-btn.secondary {
-		background: transparent;
-		border: 1px solid rgba(255, 255, 255, 0.15);
-		color: rgba(255, 255, 255, 0.8);
+		background: rgba(12, 28, 44, 0.76);
+		border: 1px solid rgba(167, 203, 237, 0.26);
+		color: rgba(228, 240, 255, 0.85);
 	}
 
 	.action-btn.secondary:hover {
-		background: rgba(255, 255, 255, 0.08);
-		border-color: rgba(255, 255, 255, 0.25);
+		background: rgba(19, 40, 63, 0.9);
+		border-color: rgba(179, 213, 243, 0.4);
 		color: #fff;
 	}
 

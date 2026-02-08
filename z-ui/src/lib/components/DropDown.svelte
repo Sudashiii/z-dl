@@ -2,12 +2,14 @@
 	interface Props {
 		options?: string[];
 		selected?: string;
+		id?: string;
 		onchange?: (value: string) => void;
 	}
 
 	let {
 		options = ['option 1', 'option 2', 'option 3', 'option 4'],
 		selected = $bindable(options[0]),
+		id,
 		onchange
 	}: Props = $props();
 
@@ -19,7 +21,7 @@
 </script>
 
 <div class="dropdown-wrapper">
-	<select bind:value={selected} onchange={handleChange} class="dropdown">
+	<select id={id} bind:value={selected} onchange={handleChange} class="dropdown">
 		{#each options as option}
 			<option value={option.toLowerCase()}>
 				{option.charAt(0).toUpperCase() + option.slice(1).toLowerCase()}
@@ -42,10 +44,10 @@
 
 	.dropdown {
 		padding: 0.6rem 2.5rem 0.6rem 1rem;
-		border-radius: 0.5rem;
-		background: rgba(15, 23, 32, 0.6);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		color: #fff;
+		border-radius: 0.65rem;
+		background: rgba(9, 22, 37, 0.78);
+		border: 1px solid rgba(160, 194, 226, 0.22);
+		color: var(--color-text-primary);
 		cursor: pointer;
 		font-size: 0.9rem;
 		appearance: none;
@@ -55,19 +57,19 @@
 	}
 
 	.dropdown:hover {
-		border-color: rgba(255, 255, 255, 0.2);
-		background: rgba(15, 23, 32, 0.8);
+		border-color: rgba(178, 213, 245, 0.35);
+		background: rgba(11, 26, 42, 0.9);
 	}
 
 	.dropdown:focus {
 		outline: none;
-		border-color: #1e90ff;
-		box-shadow: 0 0 0 3px rgba(30, 144, 255, 0.15);
+		border-color: rgba(120, 196, 255, 0.72);
+		box-shadow: 0 0 0 3px rgba(61, 162, 255, 0.2);
 	}
 
 	.dropdown option {
-		background: rgb(22, 30, 40);
-		color: #fff;
+		background: rgb(14, 32, 50);
+		color: #f5faff;
 	}
 
 	.arrow {
@@ -76,7 +78,7 @@
 		top: 50%;
 		transform: translateY(-50%);
 		pointer-events: none;
-		color: rgba(255, 255, 255, 0.4);
+		color: var(--color-text-muted);
 		display: flex;
 		align-items: center;
 		transition: color 0.2s ease;
@@ -84,6 +86,6 @@
 
 	.dropdown:hover + .arrow,
 	.dropdown:focus + .arrow {
-		color: rgba(255, 255, 255, 0.8);
+		color: rgba(228, 239, 255, 0.84);
 	}
 </style>

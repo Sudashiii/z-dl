@@ -7,8 +7,8 @@ It runs as a single SvelteKit service (Svelte 5 + adapter-node), with API routes
 ## Quick start
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 Open `http://localhost:5173`.
@@ -25,12 +25,12 @@ Main groups:
 ## Useful scripts
 
 ```bash
-npm run dev
-npm run build
-npm run preview
-npm run check
-npm run db:generate
-npm run db:migrate
+bun run dev
+bun run build
+bun run preview
+bun run check
+bun run db:generate
+bun run db:migrate
 ```
 
 One-time baseline for already-migrated databases:

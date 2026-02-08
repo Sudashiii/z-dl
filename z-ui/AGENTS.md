@@ -5,10 +5,11 @@ This file defines project-specific engineering rules for automated agents and co
 ## Stack and core constraints
 
 - The app uses **SvelteKit + Svelte 5**.
+- Package/runtime tooling is **Bun-first**. Use `bun`/`bun run` instead of `npm` for project workflows.
 - Prefer **modern Svelte 5 patterns/features** where applicable instead of legacy Svelte 3/4 style.
 - The codebase is **TypeScript-first** and should be treated as **strict**.
 - Do not introduce `any` or loose typing unless there is a strong reason and it is clearly justified.
-- The app should remain **free of TypeScript errors** (`npm run check` must pass).
+- The app should remain **free of TypeScript errors** (`bun run check` must pass).
 - Styling uses **SCSS modules** conventions in the app. Keep styling changes consistent with existing SCSS/module usage patterns.
 - Database schema and migrations are owned in this repo via **Drizzle** (`drizzle.config.ts`, `drizzle/`, `src/lib/server/infrastructure/db/schema.ts`).
 - Do not reintroduce migration ownership in external projects (old `z-mg` flow is decommissioned for migrations).
@@ -58,12 +59,12 @@ When adding a feature:
 4. Wire dependencies in `application/composition.ts`.
 5. Keep API route/controller thin.
 6. Update client-facing DTOs under `src/lib/types` when frontend consumes the API.
-7. Run `npm run check` and ensure zero type errors.
+7. Run `bun run check` and ensure zero type errors.
 
 ## Quality gates
 
 Before finishing a change:
-- `npm run check` passes with **0 TypeScript errors**.
+- `bun run check` passes with **0 TypeScript errors**.
 - No architectural regression (business logic drifting into routes/infrastructure glue).
 - Naming is consistent with current conventions (`*UseCase`, `*Client`, etc.).
 
