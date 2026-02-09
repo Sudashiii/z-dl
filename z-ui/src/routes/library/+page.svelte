@@ -19,6 +19,7 @@
 	let selectedBookDetail = $state<LibraryBookDetail | null>(null);
 	let isDetailLoading = $state(false);
 	let isRefetchingMetadata = $state(false);
+	let removingDeviceId = $state<string | null>(null);
 	let detailError = $state<string | null>(null);
 
 	onMount(async () => {
@@ -74,6 +75,7 @@
 		detailError = null;
 		isDetailLoading = false;
 		isRefetchingMetadata = false;
+		removingDeviceId = null;
 	}
 
 	function openResetFromDetail(): void {
@@ -136,6 +138,44 @@
 		applyBookMetadataUpdate(result.value.book);
 		detailError = null;
 		toastStore.add("Book metadata refreshed", "success");
+	}
+
+	function setBookDownloadedState(bookId: number, isDownloaded: boolean): void {
+		const index = books.findIndex((book) => book.id === bookId);
+		if (index === -1) {
+			return;
+		}
+
+		const updatedBook: LibraryBook = {
+			...books[index],
+			isDownloaded
+		};
+
+		books = [...books.slice(0, index), updatedBook, ...books.slice(index + 1)];
+		selectedBook = updatedBook;
+	}
+
+	async function handleRemoveDeviceDownload(deviceId: string): Promise<void> {
+		if (!selectedBook || !selectedBookDetail || removingDeviceId) {
+			return;
+		}
+
+		removingDeviceId = deviceId;
+		const result = await ZUI.removeLibraryBookDeviceDownload(selectedBook.id, deviceId);
+		removingDeviceId = null;
+
+		if (!result.ok) {
+			toastStore.add(`Failed to remove device download: ${result.error.message}`, "error");
+			return;
+		}
+
+		const remaining = selectedBookDetail.downloadedDevices.filter((item) => item !== deviceId);
+		selectedBookDetail = {
+			...selectedBookDetail,
+			downloadedDevices: remaining
+		};
+		setBookDownloadedState(selectedBook.id, remaining.length > 0);
+		toastStore.add(`Removed download for device "${deviceId}"`, "success");
 	}
 
 	async function confirmResetStatus() {
@@ -301,21 +341,6 @@
 						<div class="details">
 							<span class="filesize">{formatFileSize(book.filesize)}</span>
 							<div class="right-details">
-								{#if book.isDownloaded}
-									<button
-										class="reset-btn"
-										onclick={(event) => {
-											event.stopPropagation();
-											openResetModal(book);
-										}}
-										title="Reset download status"
-									>
-										<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-											<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-											<path d="M3 3v5h5"></path>
-										</svg>
-									</button>
-								{/if}
 								<span class="date">Added {formatDate(book.createdAt)}</span>
 							</div>
 						</div>
@@ -396,7 +421,16 @@
 					{#if selectedBookDetail.downloadedDevices.length > 0}
 						<ul class="device-list">
 							{#each selectedBookDetail.downloadedDevices as device}
-								<li>{device}</li>
+								<li>
+									<span>{device}</span>
+									<button
+										class="device-remove-btn"
+										onclick={() => handleRemoveDeviceDownload(device)}
+										disabled={removingDeviceId !== null}
+									>
+										{removingDeviceId === device ? "Removing..." : "Remove"}
+									</button>
+								</li>
 							{/each}
 						</ul>
 					{:else}
@@ -740,24 +774,6 @@
 		gap: 0.75rem;
 	}
 
-	.reset-btn {
-		background: transparent;
-		border: none;
-		color: rgba(205, 222, 244, 0.54);
-		cursor: pointer;
-		padding: 4px;
-		border-radius: 4px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.2s ease;
-	}
-
-	.reset-btn:hover {
-		background: rgba(132, 40, 51, 0.46);
-		color: #ffb5be;
-	}
-
 	.detail-modal-overlay {
 		position: fixed;
 		inset: 0;
@@ -867,12 +883,30 @@
 	}
 
 	.device-list li {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45rem;
 		padding: 0.3rem 0.55rem;
 		background: rgba(189, 220, 250, 0.1);
 		border: 1px solid rgba(173, 208, 241, 0.2);
 		border-radius: 0.45rem;
 		font-size: 0.8rem;
 		color: rgba(214, 232, 252, 0.82);
+	}
+
+	.device-remove-btn {
+		background: rgba(132, 40, 51, 0.46);
+		border: 1px solid rgba(239, 116, 126, 0.34);
+		color: #ffb5be;
+		border-radius: 0.4rem;
+		font-size: 0.72rem;
+		padding: 0.18rem 0.42rem;
+		cursor: pointer;
+	}
+
+	.device-remove-btn:disabled {
+		opacity: 0.65;
+		cursor: wait;
 	}
 
 	.detail-actions {

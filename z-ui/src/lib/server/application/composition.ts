@@ -20,6 +20,7 @@ import {
 } from '$lib/server/application/use-cases/RefetchLibraryBookMetadataUseCase';
 import { GetNewBooksForDeviceUseCase } from '$lib/server/application/use-cases/GetNewBooksForDeviceUseCase';
 import { ConfirmDownloadUseCase } from '$lib/server/application/use-cases/ConfirmDownloadUseCase';
+import { RemoveDeviceDownloadUseCase } from '$lib/server/application/use-cases/RemoveDeviceDownloadUseCase';
 import { ResetDownloadStatusUseCase } from '$lib/server/application/use-cases/ResetDownloadStatusUseCase';
 import { GetProgressUseCase } from '$lib/server/application/use-cases/GetProgressUseCase';
 import { PutProgressUseCase } from '$lib/server/application/use-cases/PutProgressUseCase';
@@ -59,10 +60,15 @@ export const refetchLibraryBookMetadataUseCase = new RefetchLibraryBookMetadataU
 );
 export const getNewBooksForDeviceUseCase = new GetNewBooksForDeviceUseCase(bookRepository);
 export const confirmDownloadUseCase = new ConfirmDownloadUseCase(deviceDownloadRepository);
+export const removeDeviceDownloadUseCase = new RemoveDeviceDownloadUseCase(deviceDownloadRepository);
 export const resetDownloadStatusUseCase = new ResetDownloadStatusUseCase(bookRepository);
 
 export const getProgressUseCase = new GetProgressUseCase(bookRepository, storage);
-export const putProgressUseCase = new PutProgressUseCase(bookRepository, storage);
+export const putProgressUseCase = new PutProgressUseCase(
+	bookRepository,
+	storage,
+	deviceProgressDownloadRepository
+);
 export const getNewProgressForDeviceUseCase = new GetNewProgressForDeviceUseCase(bookRepository);
 export const confirmProgressDownloadUseCase = new ConfirmProgressDownloadUseCase(
 	bookRepository,

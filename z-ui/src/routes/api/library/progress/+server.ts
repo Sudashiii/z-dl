@@ -32,6 +32,7 @@ export const PUT: RequestHandler = async ({ request }) => {
 		const formData = await request.formData();
 		const fileName = formData.get('fileName');
 		const file = formData.get('file');
+		const deviceId = formData.get('deviceId');
 
 		if (typeof fileName !== 'string' || fileName.length === 0) {
 			return errorResponse('Missing fileName in form data', 400);
@@ -43,7 +44,8 @@ export const PUT: RequestHandler = async ({ request }) => {
 		const body = await (file as File).arrayBuffer();
 		const result = await putProgressUseCase.execute({
 			fileName,
-			fileData: body
+			fileData: body,
+			deviceId: typeof deviceId === 'string' && deviceId.trim() !== '' ? deviceId : undefined
 		});
 
 		if (!result.ok) {

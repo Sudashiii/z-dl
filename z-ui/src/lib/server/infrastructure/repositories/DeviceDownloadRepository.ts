@@ -2,7 +2,7 @@ import type { DeviceDownloadRepositoryPort } from '$lib/server/application/ports
 import { drizzleDb } from '$lib/server/infrastructure/db/client';
 import { deviceDownloads } from '$lib/server/infrastructure/db/schema';
 import type { DeviceDownload } from '$lib/server/domain/entities/DeviceDownload';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 export class DeviceDownloadRepository implements DeviceDownloadRepositoryPort {
 	private static readonly instance = new DeviceDownloadRepository();
@@ -29,6 +29,12 @@ export class DeviceDownloadRepository implements DeviceDownloadRepositoryPort {
 		return created;
 	}
 
+	async deleteByBookIdAndDeviceId(bookId: number, deviceId: string): Promise<void> {
+		await drizzleDb
+			.delete(deviceDownloads)
+			.where(and(eq(deviceDownloads.bookId, bookId), eq(deviceDownloads.deviceId, deviceId)));
+	}
+
 	async delete(id: number): Promise<void> {
 		await drizzleDb.delete(deviceDownloads).where(eq(deviceDownloads.id, id));
 	}
@@ -47,6 +53,10 @@ export class DeviceDownloadRepository implements DeviceDownloadRepositoryPort {
 
 	static async create(download: Omit<DeviceDownload, 'id'>): Promise<DeviceDownload> {
 		return DeviceDownloadRepository.instance.create(download);
+	}
+
+	static async deleteByBookIdAndDeviceId(bookId: number, deviceId: string): Promise<void> {
+		return DeviceDownloadRepository.instance.deleteByBookIdAndDeviceId(bookId, deviceId);
 	}
 
 	static async delete(id: number): Promise<void> {

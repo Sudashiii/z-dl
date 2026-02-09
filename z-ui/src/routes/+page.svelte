@@ -149,7 +149,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		min-height: 100vh;
+		min-height: 100dvh;
 		padding: 1.5rem;
 		background:
 			radial-gradient(circle at 15% -8%, rgba(61, 162, 255, 0.22), transparent 40%),
@@ -159,6 +159,7 @@
 		font-family: var(--font-ui);
 		position: relative;
 		overflow: hidden;
+		overflow-y: auto;
 	}
 
 	.login-background {
@@ -215,6 +216,7 @@
 		position: relative;
 		z-index: 1;
 		animation: slideUp 0.4s ease-out;
+		margin: auto 0;
 	}
 
 	@keyframes slideUp {
@@ -419,8 +421,9 @@
 	@media (max-width: 640px) {
 		.login {
 			padding: 1rem;
-			align-items: flex-start;
-			padding-top: 10vh;
+			align-items: stretch;
+			padding-top: max(1rem, env(safe-area-inset-top));
+			padding-bottom: max(1rem, env(safe-area-inset-bottom));
 		}
 
 		.orb-1 {
@@ -441,6 +444,8 @@
 			padding: 1.4rem;
 			border-radius: 1rem;
 			gap: 1.1rem;
+			max-width: min(100%, 420px);
+			margin: 0 auto;
 		}
 
 		.logo-text {
@@ -453,6 +458,33 @@
 
 		.login-btn {
 			padding: 0.85rem;
+		}
+	}
+
+	@media (max-height: 760px) {
+		.login {
+			align-items: flex-start;
+			padding-top: 1rem;
+			padding-bottom: 1rem;
+		}
+
+		.card {
+			padding: 1.2rem;
+			gap: 0.9rem;
+		}
+	}
+
+	@media (max-height: 620px) {
+		.logo {
+			margin-bottom: 0.45rem;
+		}
+
+		.subtitle {
+			font-size: 0.82rem;
+		}
+
+		.form-group {
+			gap: 0.35rem;
 		}
 	}
 </style>
