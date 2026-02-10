@@ -5,9 +5,10 @@ import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
 	try {
+		const routes = await getApiRouteCatalog();
 		return json({
 			success: true,
-			routes: getApiRouteCatalog()
+			routes
 		});
 	} catch (err: unknown) {
 		console.error('Failed to generate API route catalog:', err);

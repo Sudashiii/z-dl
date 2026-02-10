@@ -2,8 +2,8 @@ import { getApiRouteCatalog } from '$lib/server/http/routeCatalog';
 import { errorResponse } from '$lib/server/http/api';
 import type { RequestHandler } from './$types';
 
-function renderHtml(): string {
-	const rows = getApiRouteCatalog()
+async function renderHtml(): Promise<string> {
+	const rows = (await getApiRouteCatalog())
 		.map((route) => {
 			const methods = route.methods
 				.map((method) => `<span class="method">${method}</span>`)
@@ -48,7 +48,7 @@ a { color: #7fc2ff; }
 
 export const GET: RequestHandler = async () => {
 	try {
-		return new Response(renderHtml(), {
+		return new Response(await renderHtml(), {
 			headers: {
 				'content-type': 'text/html; charset=utf-8'
 			}
