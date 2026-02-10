@@ -1,0 +1,20 @@
+meta {
+  name: GET API Routes
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{base_url}}/api/_routes
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  base_url: http://localhost:5173
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

@@ -16,12 +16,12 @@ params:query {
 
 vars:pre-request {
   base_url: http://localhost:5173
-  device_id: kindle_001
+  device_id: device_0000e1
 }
 
 script:post-response {
   const body = res.body
-
+  
   if (Array.isArray(body) && body.length > 0) {
     const firstBook = body[0];
     bru.setEnvVar('book_id', firstBook.id);

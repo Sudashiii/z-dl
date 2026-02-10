@@ -14,24 +14,30 @@ function Menu.addToMainMenu(menu_items, ctx)
                 end,
             },
             {
+                text = _("Sync Progress Now"),
+                callback = function()
+                    ctx.actions.onProgressSync()
+                end,
+            },
+            {
                 text = _("Set API URL"),
                 keep_menu_open = true,
-                callback = function() ctx.actions.showInput("sake_api_url", "api_url", "Enter API URL") end,
+                callback = function() ctx.actions.showInput("api_url", "Enter API URL") end,
             },
             {
                 text = _("Set API Username"),
                 keep_menu_open = true,
-                callback = function() ctx.actions.showInput("sake_api_user", "api_user", "Enter Username") end,
+                callback = function() ctx.actions.showInput("api_user", "Enter Username") end,
             },
             {
                 text = _("Set API Password"),
                 keep_menu_open = true,
-                callback = function() ctx.actions.showInput("sake_api_pass", "api_pass", "Enter Password") end,
+                callback = function() ctx.actions.showInput("api_pass", "Enter Password") end,
             },
             {
                 text = _("Set Device Name"),
                 keep_menu_open = true,
-                callback = function() ctx.actions.showInput("sake_device_name", "device_name", "Enter Device Name") end,
+                callback = function() ctx.actions.showInput("device_name", "Enter Device Name") end,
             }
         }
     }

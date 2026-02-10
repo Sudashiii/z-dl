@@ -7,9 +7,20 @@ function Utils.formatSize(bytes)
 end
 
 function Utils.sanitizeFilename(name)
+    name = tostring(name or "")
     name = string.gsub(name, "%s+", "_")
     name = string.gsub(name, "[^%w%._%-]", "")
+    if name == "" then
+        return "download.bin"
+    end
     return name
+end
+
+function Utils.basename(path)
+    if not path or path == "" then
+        return nil
+    end
+    return path:match("^.+/(.+)$") or path
 end
 
 return Utils

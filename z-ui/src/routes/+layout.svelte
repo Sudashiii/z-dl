@@ -21,7 +21,7 @@
 	let username = $state("");
 	let password = $state("");
 	let zlibName = $state("");
-	let loginWithToken = $state(false);
+	let authMode = $state<"password" | "remix">("password");
 	let isLoading = $state(false);
 	let error = $state<ApiError | null>(null);
 	let sidebarCollapsed = $state(false);
@@ -39,6 +39,7 @@
 		showModal = false;
 		username = "";
 		password = "";
+		authMode = "password";
 		error = null;
 	}
 
@@ -50,7 +51,7 @@
 		isLoading = true;
 		error = null;
 
-		if (loginWithToken) {
+		if (authMode === "remix") {
 			const result = await ZLibAuthService.tokenLogin(username, password);
 			if (!result.ok) {
 				error = result.error;
@@ -258,35 +259,50 @@
 				</div>
 			{/if}
 
+			<div class="auth-tabs" aria-label="Z-Library authentication mode">
+				<button
+					type="button"
+					class="auth-tab"
+					class:active={authMode === "password"}
+					aria-pressed={authMode === "password"}
+					onclick={() => (authMode = "password")}
+				>
+					Email Login
+				</button>
+				<button
+					type="button"
+					class="auth-tab"
+					class:active={authMode === "remix"}
+					aria-pressed={authMode === "remix"}
+					onclick={() => (authMode = "remix")}
+				>
+					Remix Credentials
+				</button>
+			</div>
+
 			<div class="form-group">
 				<label for="zlib-username">
-					{loginWithToken ? "User ID" : "Email"}
+					{authMode === "remix" ? "Remix UserID" : "Email"}
 				</label>
 				<input 
 					id="zlib-username"
 					type="text" 
 					bind:value={username}
-					placeholder={loginWithToken ? "Enter your User ID" : "Enter your email"}
+					placeholder={authMode === "remix" ? "Enter your Remix UserID" : "Enter your email"}
 				/>
 			</div>
 
 			<div class="form-group">
 				<label for="zlib-password">
-					{loginWithToken ? "User Key" : "Password"}
+					{authMode === "remix" ? "Remix UserKey" : "Password"}
 				</label>
 				<input 
 					id="zlib-password"
 					type="password" 
 					bind:value={password}
-					placeholder={loginWithToken ? "Enter your User Key" : "Enter your password"}
+					placeholder={authMode === "remix" ? "Enter your Remix UserKey" : "Enter your password"}
 				/>
 			</div>
-
-			<label class="checkbox-label">
-				<input type="checkbox" bind:checked={loginWithToken} />
-				<span class="checkbox-custom"></span>
-				<span class="checkbox-text">Use token authentication</span>
-			</label>
 
 			<div class="actions">
 				<button class="btn-secondary" onclick={closeModal}>Cancel</button>
@@ -610,41 +626,35 @@
 		color: var(--color-text-muted);
 	}
 
-	.checkbox-label {
+	.auth-tabs {
 		display: flex;
-		align-items: center;
-		gap: 0.68rem;
-		cursor: pointer;
-		font-size: 0.88rem;
+		gap: 0.45rem;
+		padding: 0.25rem;
+		background: rgba(8, 21, 36, 0.65);
+		border: 1px solid var(--color-border);
+		border-radius: 0.7rem;
+	}
+
+	.auth-tab {
+		flex: 1;
+		padding: 0.5rem 0.6rem;
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: 0.55rem;
 		color: var(--color-text-secondary);
-	}
-
-	.checkbox-label input[type="checkbox"] {
-		display: none;
-	}
-
-	.checkbox-custom {
-		width: 18px;
-		height: 18px;
-		border: 2px solid var(--color-border);
-		border-radius: 6px;
+		font-size: 0.81rem;
+		font-weight: 600;
+		cursor: pointer;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		transition: all 0.2s ease;
-		flex-shrink: 0;
 	}
 
-	.checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
-		background: var(--color-accent);
-		border-color: var(--color-accent);
-	}
-
-	.checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
-		content: "✓";
-		color: #fff;
-		font-size: 12px;
-		font-weight: 700;
+	.auth-tab.active {
+		background: linear-gradient(135deg, rgba(47, 139, 233, 0.28), rgba(78, 167, 255, 0.24));
+		border-color: rgba(116, 185, 255, 0.45);
+		color: #ecf6ff;
 	}
 
 	.actions {

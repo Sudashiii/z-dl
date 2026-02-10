@@ -5,5 +5,6 @@ export interface DeviceDownloadRepositoryPort {
 	getByDevice(deviceId: string): Promise<DeviceDownload[]>;
 	getByBookId(bookId: number): Promise<DeviceDownload[]>;
 	create(download: Omit<DeviceDownload, 'id'>): Promise<DeviceDownload>;
+	deleteByBookIdAndDeviceId(bookId: number, deviceId: string): Promise<void>;
 	delete(id: number): Promise<void>;
 }

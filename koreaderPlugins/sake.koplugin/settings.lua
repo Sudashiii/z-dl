@@ -34,6 +34,18 @@ function Settings.saveField(settings, field, value)
     Settings.saveKey(key, value)
 end
 
+function Settings.validateRequired(settings)
+    local missing = {}
+    if not settings.api_url or settings.api_url == "" then table.insert(missing, "API URL") end
+    if not settings.api_user or settings.api_user == "" then table.insert(missing, "API Username") end
+    if not settings.api_pass or settings.api_pass == "" then table.insert(missing, "API Password") end
+    if not settings.device_name or settings.device_name == "" then table.insert(missing, "Device Name") end
+    if #missing > 0 then
+        return false, table.concat(missing, ", ")
+    end
+    return true
+end
+
 function Settings.keyFor(field)
     return KEY_MAP[field]
 end

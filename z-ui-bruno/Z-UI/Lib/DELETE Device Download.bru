@@ -1,0 +1,22 @@
+meta {
+  name: DELETE Device Download
+  type: http
+  seq: 14
+}
+
+delete {
+  url: {{base_url}}/api/library/{{book_id}}/downloads/{{device_id}}
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  base_url: http://localhost:5173
+  book_id: 1
+  device_id: kindle_001
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

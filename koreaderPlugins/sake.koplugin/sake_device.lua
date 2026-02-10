@@ -1,9 +1,9 @@
 local logger = require("logger")
 local Settings = require("settings")
 
-local Device = {}
+local SakeDevice = {}
 
-function Device.ensure(settings)
+function SakeDevice.ensure(settings)
     settings = settings or {}
     local stored_name = settings.device_name
     if not stored_name or stored_name == "" then
@@ -18,4 +18,4 @@ function Device.ensure(settings)
     return stored_name
 end
 
-return Device
+return SakeDevice

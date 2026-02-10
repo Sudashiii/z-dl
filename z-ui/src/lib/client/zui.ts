@@ -17,6 +17,7 @@ import {
 	refetchLibraryBookMetadata,
 	type RefetchLibraryBookMetadataResponse
 } from './routes/refetchLibraryBookMetadata';
+import { removeLibraryBookDeviceDownload } from './routes/removeLibraryBookDeviceDownload';
 import { resetDownloadStatus } from './routes/resetDownloadStatus';
 import { queueToLibrary, type QueueResponse } from './routes/queueToLibrary';
 import type { LibraryBookDetail } from '$lib/types/Library/BookDetail';
@@ -52,6 +53,9 @@ export const ZUI = {
 		bookId: number
 	): Promise<Result<RefetchLibraryBookMetadataResponse, ApiError>> =>
 		refetchLibraryBookMetadata(bookId),
+
+	removeLibraryBookDeviceDownload: (bookId: number, deviceId: string): Promise<Result<void, ApiError>> =>
+		removeLibraryBookDeviceDownload(bookId, deviceId),
 
 	resetDownloadStatus: (bookId: number): Promise<Result<void, ApiError>> =>
 		resetDownloadStatus(bookId)

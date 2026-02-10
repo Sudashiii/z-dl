@@ -8,7 +8,7 @@ local Settings = require("settings")
 
 local Dialogs = {}
 
-function Dialogs.showStringInput(ctx, setting_key, field, title)
+function Dialogs.showStringInput(ctx, field, title)
     ctx.input_dialog = InputDialog:new{
         title = _(title),
         input = ctx.settings[field],
@@ -24,10 +24,16 @@ function Dialogs.showStringInput(ctx, setting_key, field, title)
                     text = _("Save"),
                     callback = function()
                         local new_val = ctx.input_dialog:getInputText()
-                        ctx.settings[field] = new_val
-                        Settings.saveKey(setting_key, new_val)
+                        local key = Settings.keyFor(field)
+                        if not key then
+                            logger.error("[Sake] Unknown settings field: " .. tostring(field))
+                            UIManager:show(InfoMessage:new{ text = _("Unable to save setting.") })
+                            return
+                        end
+                        Settings.saveField(ctx.settings, field, new_val)
 
-                        logger.info("[Sake] Updated setting: " .. setting_key .. " = " .. new_val)
+                        local displayed_val = field == "api_pass" and "***" or tostring(new_val)
+                        logger.info("[Sake] Updated setting: " .. key .. " = " .. displayed_val)
 
                         UIManager:close(ctx.input_dialog)
                         UIManager:show(InfoMessage:new{ text = _("Saved!") })
