@@ -259,23 +259,21 @@
 				</div>
 			{/if}
 
-			<div class="auth-tabs" role="tablist" aria-label="Z-Library authentication mode">
+			<div class="auth-tabs" aria-label="Z-Library authentication mode">
 				<button
 					type="button"
-					role="tab"
 					class="auth-tab"
 					class:active={authMode === "password"}
-					aria-selected={authMode === "password"}
+					aria-pressed={authMode === "password"}
 					onclick={() => (authMode = "password")}
 				>
 					Email Login
 				</button>
 				<button
 					type="button"
-					role="tab"
 					class="auth-tab"
 					class:active={authMode === "remix"}
-					aria-selected={authMode === "remix"}
+					aria-pressed={authMode === "remix"}
 					onclick={() => (authMode = "remix")}
 				>
 					Remix Credentials

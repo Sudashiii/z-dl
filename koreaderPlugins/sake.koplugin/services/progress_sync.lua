@@ -74,6 +74,15 @@ function ProgressSync:readMetadataFile(path)
 end
 
 function ProgressSync:writeMetadataFile(path, content)
+    local parent = path:match("^(.*)/[^/]+$")
+    if parent and parent ~= "" then
+        local quoted_parent = "'" .. parent:gsub("'", "'\\''") .. "'"
+        local mk_ok = os.execute("mkdir -p " .. quoted_parent)
+        if mk_ok ~= true and mk_ok ~= 0 then
+            return false, "Failed to create metadata directory: " .. tostring(parent)
+        end
+    end
+
     local temp_path = path .. ".part"
     local f_write, open_err = io.open(temp_path, "w")
     if not f_write then

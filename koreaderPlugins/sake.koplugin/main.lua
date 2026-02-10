@@ -26,7 +26,7 @@ function Sake:startDeferredProgressWatcher()
     logger.info("[Sake] Started deferred progress watcher.")
 
     local function checkAndApply()
-        if self.ui and self.ui.document then
+        if self.progressSync and self.progressSync.hasOpenDocument and self.progressSync:hasOpenDocument() then
             UIManager:scheduleIn(1.0, checkAndApply)
             return
         end
