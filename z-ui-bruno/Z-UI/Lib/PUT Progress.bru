@@ -6,7 +6,7 @@ meta {
 
 put {
   url: {{base_url}}/api/library/progress
-  body: multipart-form
+  body: multipartForm
   auth: inherit
 }
 
@@ -17,7 +17,7 @@ body:multipart-form {
 }
 
 vars:pre-request {
-  base_url: http://localhost:5173
+  base_url: https://books.suda.sh
   book_title_file: Harry Potter und der Stein der Weisen_2009186.epub
   device_id: kindle_001
 }
