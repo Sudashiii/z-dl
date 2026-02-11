@@ -34,8 +34,22 @@ jobs:
             echo "${{ secrets.Z_UI_ENV }}" | sudo tee ./z-ui/.env > /dev/null
             
             sudo docker compose build --no-cache --progress=plain
-            sudo docker compose up --abort-on-container-exit --exit-code-from z-ui-migrator z-ui-migrator
+            sudo docker compose run --rm z-ui-migrator
             sudo docker compose up -d --remove-orphans z-ui
             sudo docker compose ps z-ui
-            sudo docker inspect -f '{{.State.Running}}' z-ui | grep -q true
+
+            for i in {1..20}; do
+              if sudo docker inspect -f '{{.State.Running}}' z-ui 2>/dev/null | grep -q true; then
+                break
+              fi
+
+              if [ "$i" -eq 20 ]; then
+                echo "z-ui did not enter running state in time"
+                sudo docker compose logs --tail=200 z-ui
+                exit 1
+              fi
+
+              sleep 1
+            done
+
             sudo docker image prune -f

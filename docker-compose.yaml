@@ -24,9 +24,6 @@ services:
       - "5173:3000"
     environment:
       - PUBLIC_ZDL_URL=http://z-dl:6126
-    volumes:
-      - ./z-ui/src:/app/src
-      - /app/node_modules   
     env_file:
       - ./z-ui/.env
     networks:
