@@ -20,6 +20,14 @@ interface DownloadBookUseCaseResult {
 }
 
 function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+	if (data.buffer instanceof ArrayBuffer) {
+		if (data.byteOffset === 0 && data.byteLength === data.buffer.byteLength) {
+			return data.buffer;
+		}
+
+		return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+	}
+
 	return Uint8Array.from(data).buffer as ArrayBuffer;
 }
 

@@ -4,16 +4,22 @@ import { requireBasicAuth } from '$lib/server/auth/basicAuth';
 import { errorResponse } from '$lib/server/http/api';
 import { purgeExpiredTrashUseCase } from '$lib/server/application/composition';
 
-let purgeStarted = false;
-let purgePromise: Promise<void> | null = null;
+const TRASH_PURGE_INTERVAL_MS = 6 * 60 * 60 * 1000;
+let lastTrashPurgeStartedAt = 0;
+let runningPurgePromise: Promise<void> | null = null;
 
-function ensureTrashPurgeStarted(): Promise<void> {
-	if (purgeStarted) {
-		return purgePromise ?? Promise.resolve();
+function triggerTrashPurgeIfDue(): void {
+	const now = Date.now();
+	if (runningPurgePromise) {
+		return;
 	}
 
-	purgeStarted = true;
-	purgePromise = (async () => {
+	if (now - lastTrashPurgeStartedAt < TRASH_PURGE_INTERVAL_MS) {
+		return;
+	}
+
+	lastTrashPurgeStartedAt = now;
+	runningPurgePromise = (async () => {
 		try {
 			const result = await purgeExpiredTrashUseCase.execute();
 			if (!result.ok) {
@@ -23,10 +29,10 @@ function ensureTrashPurgeStarted(): Promise<void> {
 			}
 		} catch (err: unknown) {
 			console.error('Trash purge failed:', err);
+		} finally {
+			runningPurgePromise = null;
 		}
 	})();
-
-	return purgePromise;
 }
 
 const basicAuthHandle: Handle = async ({ event, resolve }) => {
@@ -48,7 +54,7 @@ const basicAuthHandle: Handle = async ({ event, resolve }) => {
 };
 
 const cookieHandle: Handle = async ({ event, resolve }) => {
-	await ensureTrashPurgeStarted();
+	triggerTrashPurgeIfDue();
 
 	const userId = event.cookies.get('userId');
 	const userKey = event.cookies.get('userKey');

@@ -101,6 +101,10 @@
 	}
 
 	function closeDetailModal() {
+		if (isMovingToTrash) {
+			return;
+		}
+
 		showDetailModal = false;
 		selectedBook = null;
 		selectedBookDetail = null;
@@ -216,8 +220,9 @@
 			return;
 		}
 
+		const targetBook = selectedBook;
 		isMovingToTrash = true;
-		const result = await ZUI.moveLibraryBookToTrash(selectedBook.id);
+		const result = await ZUI.moveLibraryBookToTrash(targetBook.id);
 		isMovingToTrash = false;
 
 		if (!result.ok) {
@@ -225,9 +230,10 @@
 			return;
 		}
 
-		toastStore.add(`Moved "${selectedBook.title}" to trash`, "success");
+		toastStore.add(`Moved "${targetBook.title}" to trash`, "success");
 		closeDetailModal();
-		await Promise.all([loadLibrary(), loadTrash()]);
+		await loadLibrary();
+		await loadTrash();
 	}
 
 	async function handleRestoreBook(book: LibraryBook): Promise<void> {
@@ -245,7 +251,8 @@
 		}
 
 		toastStore.add(`Restored "${book.title}"`, "success");
-		await Promise.all([loadLibrary(), loadTrash()]);
+		await loadLibrary();
+		await loadTrash();
 	}
 
 	async function confirmResetStatus() {
@@ -390,6 +397,7 @@
 				<button
 					type="button"
 					class:active={currentView === "library"}
+					aria-pressed={currentView === "library"}
 					onclick={() => switchView("library")}
 				>
 					Library
@@ -397,6 +405,7 @@
 				<button
 					type="button"
 					class:active={currentView === "trash"}
+					aria-pressed={currentView === "trash"}
 					onclick={() => switchView("trash")}
 				>
 					Trash
