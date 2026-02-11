@@ -48,7 +48,7 @@ export const zlibraryTokenLoginUseCase = new ZLibraryTokenLoginUseCase(zlibraryC
 export const zlibraryPasswordLoginUseCase = new ZLibraryPasswordLoginUseCase(zlibraryClient);
 export const zlibraryLogoutUseCase = new ZLibraryLogoutUseCase();
 
-export const listLibraryUseCase = new ListLibraryUseCase(bookRepository);
+export const listLibraryUseCase = new ListLibraryUseCase(bookRepository, storage);
 export const getLibraryBookDetailUseCase = new GetLibraryBookDetailUseCase(
 	bookRepository,
 	storage,

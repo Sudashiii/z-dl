@@ -11,6 +11,7 @@ export interface LibraryBook {
 	year: number | null;
 	progress_storage_key: string | null;
 	progress_updated_at: string | null;
+	progressPercent?: number | null;
 	createdAt: string | null;
 	isDownloaded?: boolean;
 }

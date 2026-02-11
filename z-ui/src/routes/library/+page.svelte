@@ -369,6 +369,11 @@
 							<p class="author">by {book.author}</p>
 						{/if}
 						<div class="meta">
+							{#if book.progressPercent !== null && book.progressPercent !== undefined}
+								<span class="status-badge progress" title="Reading progress">
+									{book.progressPercent.toFixed(1)}%
+								</span>
+							{/if}
 							{#if book.isDownloaded}
 								<span
 									class="status-badge downloaded"
@@ -853,6 +858,12 @@
 		background: rgba(42, 159, 94, 0.2);
 		color: #91f3b8;
 		border: 1px solid rgba(95, 211, 145, 0.3);
+	}
+
+	.status-badge.progress {
+		background: rgba(61, 162, 255, 0.2);
+		color: #9bd4ff;
+		border: 1px solid rgba(125, 195, 255, 0.32);
 	}
 
 	.right-details {
