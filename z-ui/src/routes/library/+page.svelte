@@ -8,9 +8,13 @@
 
 	import { toastStore } from "$lib/client/stores/toastStore.svelte";
 
+	type LibrarySort = "dateAdded" | "titleAsc" | "progressRecent";
+	const LIBRARY_SORT_KEY = "librarySort";
+
 	let books = $state<LibraryBook[]>([]);
 	let isLoading = $state(true);
 	let error = $state<ApiError | null>(null);
+	let sortBy = $state<LibrarySort>("dateAdded");
 
 	let showConfirmModal = $state(false);
 	let bookToReset = $state<LibraryBook | null>(null);
@@ -22,7 +26,15 @@
 	let removingDeviceId = $state<string | null>(null);
 	let detailError = $state<string | null>(null);
 
+	let sortedBooks = $derived(sortBooks(books, sortBy));
+
 	onMount(async () => {
+		if (typeof localStorage !== "undefined") {
+			const stored = localStorage.getItem(LIBRARY_SORT_KEY);
+			if (stored === "dateAdded" || stored === "titleAsc" || stored === "progressRecent") {
+				sortBy = stored;
+			}
+		}
 		await loadLibrary();
 	});
 
@@ -253,6 +265,40 @@
 		if (percent === null) return "No progress yet";
 		return `${percent.toFixed(1)}%`;
 	}
+
+	function handleSortChange(event: Event): void {
+		const target = event.target as HTMLSelectElement;
+		const value = target.value as LibrarySort;
+		if (value !== "dateAdded" && value !== "titleAsc" && value !== "progressRecent") {
+			return;
+		}
+
+		sortBy = value;
+		if (typeof localStorage !== "undefined") {
+			localStorage.setItem(LIBRARY_SORT_KEY, value);
+		}
+	}
+
+	function sortBooks(list: LibraryBook[], mode: LibrarySort): LibraryBook[] {
+		const copy = [...list];
+		if (mode === "titleAsc") {
+			return copy.sort((a, b) => (a.title || "").localeCompare(b.title || "", undefined, { sensitivity: "base" }));
+		}
+
+		if (mode === "progressRecent") {
+			return copy.sort((a, b) => {
+				const aTime = a.progress_updated_at ? Date.parse(a.progress_updated_at) : 0;
+				const bTime = b.progress_updated_at ? Date.parse(b.progress_updated_at) : 0;
+				return bTime - aTime;
+			});
+		}
+
+		return copy.sort((a, b) => {
+			const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
+			const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
+			return bTime - aTime;
+		});
+	}
 </script>
 
 <div class="library-page">
@@ -263,13 +309,21 @@
 			<h1>My Library</h1>
 			<p>Your saved and downloaded books</p>
 		</div>
-		<div class="header-stats">
+		<div class="header-controls">
+			<div class="sort-group">
+				<label for="library-sort">Sort</label>
+				<select id="library-sort" value={sortBy} onchange={handleSortChange}>
+					<option value="titleAsc">A-Z</option>
+					<option value="dateAdded">Date added</option>
+					<option value="progressRecent">Most recent reading progress</option>
+				</select>
+			</div>
 			<div class="stat-badge">
 				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
 					<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
 				</svg>
-				<span>{books.length} book{books.length !== 1 ? "s" : ""}</span>
+				<span>{sortedBooks.length} book{sortedBooks.length !== 1 ? "s" : ""}</span>
 			</div>
 		</div>
 	</header>
@@ -287,8 +341,8 @@
 	{/if}
 
 	<div class="book-grid">
-		{#if books.length > 0}
-			{#each books as book (book.id)}
+		{#if sortedBooks.length > 0}
+			{#each sortedBooks as book (book.id)}
 				<div
 					class="book-card clickable"
 					role="button"
@@ -518,6 +572,39 @@
 		margin: 0;
 		color: var(--color-text-muted);
 		font-size: 0.98rem;
+	}
+
+	.header-controls {
+		display: flex;
+		align-items: center;
+		gap: 0.7rem;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+	}
+
+	.sort-group {
+		display: flex;
+		align-items: center;
+		gap: 0.45rem;
+		padding: 0.38rem 0.55rem;
+		background: rgba(61, 162, 255, 0.1);
+		border: 1px solid rgba(117, 191, 255, 0.24);
+		border-radius: 0.75rem;
+	}
+
+	.sort-group label {
+		font-size: 0.78rem;
+		font-weight: 600;
+		color: rgba(222, 237, 255, 0.8);
+	}
+
+	.sort-group select {
+		background: rgba(11, 25, 40, 0.92);
+		border: 1px solid rgba(117, 191, 255, 0.28);
+		color: rgba(234, 245, 255, 0.95);
+		border-radius: 0.55rem;
+		font-size: 0.8rem;
+		padding: 0.32rem 0.5rem;
 	}
 
 	.stat-badge {
@@ -1066,6 +1153,16 @@
 		.page-header {
 			margin-bottom: 1.25rem;
 			gap: 0.8rem;
+		}
+
+		.header-controls {
+			width: 100%;
+			justify-content: space-between;
+		}
+
+		.sort-group {
+			flex: 1;
+			justify-content: space-between;
 		}
 
 		.header-content h1 {
