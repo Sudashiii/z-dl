@@ -7,6 +7,7 @@ import type {
 export interface BookRepositoryPort {
 	getAll(): Promise<Book[]>;
 	getById(id: number): Promise<Book | undefined>;
+	getByIdIncludingTrashed(id: number): Promise<Book | undefined>;
 	getByZLibId(zLibId: string): Promise<Book | undefined>;
 	getByStorageKey(storageKey: string): Promise<Book | undefined>;
 	getByTitleAndExtension(title: string, extension: string): Promise<Book | undefined>;
@@ -18,5 +19,9 @@ export interface BookRepositoryPort {
 	updateProgress(bookId: number, progressKey: string): Promise<void>;
 	getNotDownloadedByDevice(deviceId: string): Promise<Book[]>;
 	getBooksWithNewProgressForDevice(deviceId: string): Promise<Book[]>;
+	getTrashed(): Promise<Book[]>;
+	moveToTrash(id: number, deletedAt: string, trashExpiresAt: string): Promise<void>;
+	restoreFromTrash(id: number): Promise<void>;
+	getExpiredTrash(nowIso: string): Promise<Book[]>;
 	count(): Promise<number>;
 }

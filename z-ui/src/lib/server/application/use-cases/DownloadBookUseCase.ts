@@ -1,10 +1,11 @@
 import type { BookRepositoryPort } from '$lib/server/application/ports/BookRepositoryPort';
 import type { ZLibraryCredentials, ZLibraryPort } from '$lib/server/application/ports/ZLibraryPort';
+import { EpubMetadataService } from '$lib/server/application/services/EpubMetadataService';
 import { apiOk, type ApiResult } from '$lib/server/http/api';
 import type { ZDownloadBookRequest } from '$lib/types/ZLibrary/Requests/ZDownloadBookRequest';
 
 interface UploadService {
-	upload(fileName: string, data: Buffer): Promise<void>;
+	upload(fileName: string, data: Buffer | Uint8Array): Promise<void>;
 }
 
 interface DownloadBookUseCaseInput {
@@ -18,11 +19,34 @@ interface DownloadBookUseCaseResult {
 	responseHeaders?: Headers;
 }
 
+function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+	return Uint8Array.from(data).buffer as ArrayBuffer;
+}
+
+function buildDownloadHeaders(originalHeaders: Headers, byteLength: number, rewritten: boolean): Headers {
+	const headers = new Headers(originalHeaders);
+
+	// Always enforce actual payload length from the bytes we return.
+	headers.set('content-length', String(byteLength));
+
+	// If bytes changed, upstream integrity/encoding headers are no longer valid.
+	if (rewritten) {
+		headers.delete('content-encoding');
+		headers.delete('transfer-encoding');
+		headers.delete('content-range');
+		headers.delete('etag');
+		headers.delete('content-md5');
+	}
+
+	return headers;
+}
+
 export class DownloadBookUseCase {
 	constructor(
 		private readonly zlibrary: ZLibraryPort,
 		private readonly bookRepository: BookRepositoryPort,
-		private readonly uploadServiceFactory: () => UploadService
+		private readonly uploadServiceFactory: () => UploadService,
+		private readonly epubMetadataService = new EpubMetadataService()
 	) {}
 
 	async execute(input: DownloadBookUseCaseInput): Promise<ApiResult<DownloadBookUseCaseResult>> {
@@ -39,11 +63,30 @@ export class DownloadBookUseCase {
 		}
 
 		const fileData = await downloadResult.value.arrayBuffer();
+		const downloadedBuffer = Buffer.from(fileData);
+		let finalFileData: Uint8Array = downloadedBuffer;
+		let rewrittenEpub = false;
+
+		if (request.extension.toLowerCase() === 'epub') {
+			const rewrittenEpubResult = await this.epubMetadataService.rewriteTitle(
+				downloadedBuffer,
+				request.title
+			);
+
+			if (rewrittenEpubResult.ok) {
+				finalFileData = rewrittenEpubResult.value;
+				rewrittenEpub = true;
+			} else {
+				console.warn(
+					`[DownloadBookUseCase] EPUB title rewrite skipped for ${request.bookId}: ${rewrittenEpubResult.error.message}`
+				);
+			}
+		}
 
 		if (request.upload) {
 			const key = `${request.title}_${request.bookId}.${request.extension}`;
 			const uploadService = this.uploadServiceFactory();
-			await uploadService.upload(key, Buffer.from(fileData));
+			await uploadService.upload(key, finalFileData);
 
 			await this.bookRepository.create({
 				zLibId: request.bookId,
@@ -64,8 +107,12 @@ export class DownloadBookUseCase {
 
 		return apiOk({
 			success: true,
-			fileData,
-			responseHeaders: downloadResult.value.headers
+			fileData: toArrayBuffer(finalFileData),
+			responseHeaders: buildDownloadHeaders(
+				downloadResult.value.headers,
+				finalFileData.byteLength,
+				rewrittenEpub
+			)
 		});
 	}
 }

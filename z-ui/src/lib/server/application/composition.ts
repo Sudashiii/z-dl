@@ -30,6 +30,10 @@ import { GetLibraryFileUseCase } from '$lib/server/application/use-cases/GetLibr
 import { PutLibraryFileUseCase } from '$lib/server/application/use-cases/PutLibraryFileUseCase';
 import { DeleteLibraryFileUseCase } from '$lib/server/application/use-cases/DeleteLibraryFileUseCase';
 import { ListDavDirectoryUseCase } from '$lib/server/application/use-cases/ListDavDirectoryUseCase';
+import { MoveLibraryBookToTrashUseCase } from '$lib/server/application/use-cases/MoveLibraryBookToTrashUseCase';
+import { ListLibraryTrashUseCase } from '$lib/server/application/use-cases/ListLibraryTrashUseCase';
+import { RestoreLibraryBookUseCase } from '$lib/server/application/use-cases/RestoreLibraryBookUseCase';
+import { PurgeExpiredTrashUseCase } from '$lib/server/application/use-cases/PurgeExpiredTrashUseCase';
 
 export const zlibraryClient = new ZLibraryClient('https://1lib.sk');
 export const storage = new S3Storage();
@@ -79,3 +83,7 @@ export const getLibraryFileUseCase = new GetLibraryFileUseCase(storage);
 export const putLibraryFileUseCase = new PutLibraryFileUseCase(storage, bookRepository);
 export const deleteLibraryFileUseCase = new DeleteLibraryFileUseCase(storage);
 export const listDavDirectoryUseCase = new ListDavDirectoryUseCase(storage);
+export const moveLibraryBookToTrashUseCase = new MoveLibraryBookToTrashUseCase(bookRepository);
+export const listLibraryTrashUseCase = new ListLibraryTrashUseCase(bookRepository, storage);
+export const restoreLibraryBookUseCase = new RestoreLibraryBookUseCase(bookRepository);
+export const purgeExpiredTrashUseCase = new PurgeExpiredTrashUseCase(bookRepository, storage);

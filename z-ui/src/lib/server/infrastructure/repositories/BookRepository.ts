@@ -22,6 +22,8 @@ type DbBookRow = {
 	progressStorageKey: string | null;
 	progressUpdatedAt: string | null;
 	createdAt: string | null;
+	deletedAt: string | null;
+	trashExpiresAt: string | null;
 };
 
 type DbBookWithDownloadRow = DbBookRow & {
@@ -41,7 +43,9 @@ const bookSelection = {
 	year: books.year,
 	progressStorageKey: books.progressStorageKey,
 	progressUpdatedAt: books.progressUpdatedAt,
-	createdAt: books.createdAt
+	createdAt: books.createdAt,
+	deletedAt: books.deletedAt,
+	trashExpiresAt: books.trashExpiresAt
 };
 
 function mapBookRow(row: DbBookRow): Book {
@@ -58,7 +62,9 @@ function mapBookRow(row: DbBookRow): Book {
 		year: row.year,
 		progress_storage_key: row.progressStorageKey,
 		progress_updated_at: row.progressUpdatedAt,
-		createdAt: row.createdAt
+		createdAt: row.createdAt,
+		deleted_at: row.deletedAt,
+		trash_expires_at: row.trashExpiresAt
 	};
 }
 
@@ -80,18 +86,32 @@ export class BookRepository implements BookRepositoryPort {
 					sql<number>`exists (select 1 from ${deviceDownloads} where ${deviceDownloads.bookId} = ${books.id})`
 			})
 			.from(books)
+			.where(isNull(books.deletedAt))
 			.orderBy(desc(books.createdAt));
 
 		return rows.map((row) => mapBookWithDownloadRow(row));
 	}
 
 	async getById(id: number): Promise<Book | undefined> {
+		const [row] = await drizzleDb
+			.select(bookSelection)
+			.from(books)
+			.where(and(eq(books.id, id), isNull(books.deletedAt)))
+			.limit(1);
+		return row ? mapBookRow(row) : undefined;
+	}
+
+	async getByIdIncludingTrashed(id: number): Promise<Book | undefined> {
 		const [row] = await drizzleDb.select(bookSelection).from(books).where(eq(books.id, id)).limit(1);
 		return row ? mapBookRow(row) : undefined;
 	}
 
 	async getByZLibId(zLibId: string): Promise<Book | undefined> {
-		const [row] = await drizzleDb.select(bookSelection).from(books).where(eq(books.zLibId, zLibId)).limit(1);
+		const [row] = await drizzleDb
+			.select(bookSelection)
+			.from(books)
+			.where(and(eq(books.zLibId, zLibId), isNull(books.deletedAt)))
+			.limit(1);
 		return row ? mapBookRow(row) : undefined;
 	}
 
@@ -99,7 +119,7 @@ export class BookRepository implements BookRepositoryPort {
 		const [row] = await drizzleDb
 			.select(bookSelection)
 			.from(books)
-			.where(eq(books.s3StorageKey, storageKey))
+			.where(and(eq(books.s3StorageKey, storageKey), isNull(books.deletedAt)))
 			.limit(1);
 		return row ? mapBookRow(row) : undefined;
 	}
@@ -108,13 +128,17 @@ export class BookRepository implements BookRepositoryPort {
 		const [row] = await drizzleDb
 			.select(bookSelection)
 			.from(books)
-			.where(and(eq(books.title, title), eq(books.extension, extension)))
+			.where(and(eq(books.title, title), eq(books.extension, extension), isNull(books.deletedAt)))
 			.limit(1);
 		return row ? mapBookRow(row) : undefined;
 	}
 
 	async getByTitle(title: string): Promise<Book | undefined> {
-		const [row] = await drizzleDb.select(bookSelection).from(books).where(eq(books.title, title)).limit(1);
+		const [row] = await drizzleDb
+			.select(bookSelection)
+			.from(books)
+			.where(and(eq(books.title, title), isNull(books.deletedAt)))
+			.limit(1);
 		return row ? mapBookRow(row) : undefined;
 	}
 
@@ -190,7 +214,7 @@ export class BookRepository implements BookRepositoryPort {
 				deviceDownloads,
 				and(eq(books.id, deviceDownloads.bookId), eq(deviceDownloads.deviceId, deviceId))
 			)
-			.where(isNull(deviceDownloads.bookId))
+			.where(and(isNull(deviceDownloads.bookId), isNull(books.deletedAt)))
 			.orderBy(desc(books.createdAt));
 
 		return rows.map((row) => mapBookRow(row));
@@ -209,6 +233,7 @@ export class BookRepository implements BookRepositoryPort {
 			)
 			.where(
 				and(
+					isNull(books.deletedAt),
 					isNotNull(books.progressStorageKey),
 					isNotNull(books.progressUpdatedAt),
 					or(
@@ -222,8 +247,54 @@ export class BookRepository implements BookRepositoryPort {
 		return rows.map((row) => mapBookRow(row));
 	}
 
+	async getTrashed(): Promise<Book[]> {
+		const rows = await drizzleDb
+			.select(bookSelection)
+			.from(books)
+			.where(isNotNull(books.deletedAt))
+			.orderBy(desc(books.deletedAt), desc(books.createdAt));
+		return rows.map((row) => mapBookRow(row));
+	}
+
+	async moveToTrash(id: number, deletedAt: string, trashExpiresAt: string): Promise<void> {
+		await drizzleDb
+			.update(books)
+			.set({
+				deletedAt,
+				trashExpiresAt
+			})
+			.where(and(eq(books.id, id), isNull(books.deletedAt)));
+	}
+
+	async restoreFromTrash(id: number): Promise<void> {
+		await drizzleDb
+			.update(books)
+			.set({
+				deletedAt: null,
+				trashExpiresAt: null
+			})
+			.where(and(eq(books.id, id), isNotNull(books.deletedAt)));
+	}
+
+	async getExpiredTrash(nowIso: string): Promise<Book[]> {
+		const rows = await drizzleDb
+			.select(bookSelection)
+			.from(books)
+			.where(
+				and(
+					isNotNull(books.deletedAt),
+					isNotNull(books.trashExpiresAt),
+					sql`${books.trashExpiresAt} <= ${nowIso}`
+				)
+			);
+		return rows.map((row) => mapBookRow(row));
+	}
+
 	async count(): Promise<number> {
-		const [result] = await drizzleDb.select({ count: sql<number>`count(*)` }).from(books);
+		const [result] = await drizzleDb
+			.select({ count: sql<number>`count(*)` })
+			.from(books)
+			.where(isNull(books.deletedAt));
 		return Number(result?.count ?? 0);
 	}
 
@@ -233,6 +304,10 @@ export class BookRepository implements BookRepositoryPort {
 
 	static async getById(id: number): Promise<Book | undefined> {
 		return BookRepository.instance.getById(id);
+	}
+
+	static async getByIdIncludingTrashed(id: number): Promise<Book | undefined> {
+		return BookRepository.instance.getByIdIncludingTrashed(id);
 	}
 
 	static async getByZLibId(zLibId: string): Promise<Book | undefined> {
@@ -277,6 +352,22 @@ export class BookRepository implements BookRepositoryPort {
 
 	static async getBooksWithNewProgressForDevice(deviceId: string): Promise<Book[]> {
 		return BookRepository.instance.getBooksWithNewProgressForDevice(deviceId);
+	}
+
+	static async getTrashed(): Promise<Book[]> {
+		return BookRepository.instance.getTrashed();
+	}
+
+	static async moveToTrash(id: number, deletedAt: string, trashExpiresAt: string): Promise<void> {
+		return BookRepository.instance.moveToTrash(id, deletedAt, trashExpiresAt);
+	}
+
+	static async restoreFromTrash(id: number): Promise<void> {
+		return BookRepository.instance.restoreFromTrash(id);
+	}
+
+	static async getExpiredTrash(nowIso: string): Promise<Book[]> {
+		return BookRepository.instance.getExpiredTrash(nowIso);
 	}
 
 	static async count(): Promise<number> {

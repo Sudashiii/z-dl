@@ -1,0 +1,16 @@
+meta {
+  name: GET Library Trash
+  type: http
+  seq: 26
+}
+
+get {
+  url: {{base_url}}/api/library/trash
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

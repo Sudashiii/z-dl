@@ -13,5 +13,7 @@ export interface LibraryBook {
 	progress_updated_at: string | null;
 	progressPercent?: number | null;
 	createdAt: string | null;
+	deleted_at?: string | null;
+	trash_expires_at?: string | null;
 	isDownloaded?: boolean;
 }

@@ -9,12 +9,15 @@
 	import { toastStore } from "$lib/client/stores/toastStore.svelte";
 
 	type LibrarySort = "dateAdded" | "titleAsc" | "progressRecent";
+	type LibraryView = "library" | "trash";
 	const LIBRARY_SORT_KEY = "librarySort";
 
 	let books = $state<LibraryBook[]>([]);
+	let trashBooks = $state<LibraryBook[]>([]);
 	let isLoading = $state(true);
 	let error = $state<ApiError | null>(null);
 	let sortBy = $state<LibrarySort>("dateAdded");
+	let currentView = $state<LibraryView>("library");
 
 	let showConfirmModal = $state(false);
 	let bookToReset = $state<LibraryBook | null>(null);
@@ -24,6 +27,8 @@
 	let isDetailLoading = $state(false);
 	let isRefetchingMetadata = $state(false);
 	let removingDeviceId = $state<string | null>(null);
+	let isMovingToTrash = $state(false);
+	let restoringBookId = $state<number | null>(null);
 	let detailError = $state<string | null>(null);
 
 	let sortedBooks = $derived(sortBooks(books, sortBy));
@@ -46,6 +51,21 @@
 
 		if (result.ok) {
 			books = result.value.books;
+		} else {
+			error = result.error;
+		}
+
+		isLoading = false;
+	}
+
+	async function loadTrash() {
+		isLoading = true;
+		error = null;
+
+		const result = await ZUI.getLibraryTrash();
+
+		if (result.ok) {
+			trashBooks = result.value.books;
 		} else {
 			error = result.error;
 		}
@@ -88,6 +108,7 @@
 		isDetailLoading = false;
 		isRefetchingMetadata = false;
 		removingDeviceId = null;
+		isMovingToTrash = false;
 	}
 
 	function openResetFromDetail(): void {
@@ -188,6 +209,43 @@
 		};
 		setBookDownloadedState(selectedBook.id, remaining.length > 0);
 		toastStore.add(`Removed download for device "${deviceId}"`, "success");
+	}
+
+	async function handleMoveToTrash(): Promise<void> {
+		if (!selectedBook || isMovingToTrash) {
+			return;
+		}
+
+		isMovingToTrash = true;
+		const result = await ZUI.moveLibraryBookToTrash(selectedBook.id);
+		isMovingToTrash = false;
+
+		if (!result.ok) {
+			toastStore.add(`Failed to move book to trash: ${result.error.message}`, "error");
+			return;
+		}
+
+		toastStore.add(`Moved "${selectedBook.title}" to trash`, "success");
+		closeDetailModal();
+		await Promise.all([loadLibrary(), loadTrash()]);
+	}
+
+	async function handleRestoreBook(book: LibraryBook): Promise<void> {
+		if (restoringBookId !== null) {
+			return;
+		}
+
+		restoringBookId = book.id;
+		const result = await ZUI.restoreLibraryBook(book.id);
+		restoringBookId = null;
+
+		if (!result.ok) {
+			toastStore.add(`Failed to restore book: ${result.error.message}`, "error");
+			return;
+		}
+
+		toastStore.add(`Restored "${book.title}"`, "success");
+		await Promise.all([loadLibrary(), loadTrash()]);
 	}
 
 	async function confirmResetStatus() {
@@ -299,6 +357,20 @@
 			return bTime - aTime;
 		});
 	}
+
+	async function switchView(nextView: LibraryView): Promise<void> {
+		if (currentView === nextView) {
+			return;
+		}
+
+		currentView = nextView;
+		if (nextView === "library") {
+			await loadLibrary();
+			return;
+		}
+
+		await loadTrash();
+	}
 </script>
 
 <div class="library-page">
@@ -306,24 +378,48 @@
 
 	<header class="page-header">
 		<div class="header-content">
-			<h1>My Library</h1>
-			<p>Your saved and downloaded books</p>
+			<h1>{currentView === "library" ? "My Library" : "Trash"}</h1>
+			<p>
+				{currentView === "library"
+					? "Your saved and downloaded books"
+					: "Books in trash are permanently deleted after 30 days"}
+			</p>
 		</div>
 		<div class="header-controls">
-			<div class="sort-group">
-				<label for="library-sort">Sort</label>
-				<select id="library-sort" value={sortBy} onchange={handleSortChange}>
-					<option value="titleAsc">A-Z</option>
-					<option value="dateAdded">Date added</option>
-					<option value="progressRecent">Most recent reading progress</option>
-				</select>
+			<div class="view-toggle" role="group" aria-label="Library view">
+				<button
+					type="button"
+					class:active={currentView === "library"}
+					onclick={() => switchView("library")}
+				>
+					Library
+				</button>
+				<button
+					type="button"
+					class:active={currentView === "trash"}
+					onclick={() => switchView("trash")}
+				>
+					Trash
+				</button>
 			</div>
+			{#if currentView === "library"}
+				<div class="sort-group">
+					<label for="library-sort">Sort</label>
+					<select id="library-sort" value={sortBy} onchange={handleSortChange}>
+						<option value="titleAsc">A-Z</option>
+						<option value="dateAdded">Date added</option>
+						<option value="progressRecent">Most recent reading progress</option>
+					</select>
+				</div>
+			{/if}
 			<div class="stat-badge">
 				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
 					<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
 				</svg>
-				<span>{sortedBooks.length} book{sortedBooks.length !== 1 ? "s" : ""}</span>
+				<span
+					>{(currentView === "library" ? sortedBooks.length : trashBooks.length)} book{(currentView === "library" ? sortedBooks.length : trashBooks.length) !== 1 ? "s" : ""}</span
+				>
 			</div>
 		</div>
 	</header>
@@ -341,7 +437,7 @@
 	{/if}
 
 	<div class="book-grid">
-		{#if sortedBooks.length > 0}
+		{#if currentView === "library" && sortedBooks.length > 0}
 			{#each sortedBooks as book (book.id)}
 				<div
 					class="book-card clickable"
@@ -406,6 +502,49 @@
 					</div>
 				</div>
 			{/each}
+		{:else if currentView === "trash" && trashBooks.length > 0}
+			{#each trashBooks as book (book.id)}
+				<div class="book-card trash-card">
+					<div class="book-cover">
+						{#if book.cover}
+							<img src={book.cover} alt={book.title} loading="lazy" />
+						{:else}
+							<div class="no-cover">
+								<span class="extension">{book.extension?.toUpperCase() || "?"}</span>
+							</div>
+						{/if}
+					</div>
+					<div class="book-info">
+						<h3 title={book.title}>{book.title}</h3>
+						{#if book.author}
+							<p class="author">by {book.author}</p>
+						{/if}
+						<div class="meta">
+							{#if book.progressPercent !== null && book.progressPercent !== undefined}
+								<span class="status-badge progress" title="Reading progress">
+									{book.progressPercent.toFixed(1)}%
+								</span>
+							{/if}
+							{#if book.extension}
+								<span class="tag format">{book.extension.toUpperCase()}</span>
+							{/if}
+						</div>
+						<div class="details">
+							<span class="date">Deleted {formatDate(book.deleted_at ?? null)}</span>
+							<span class="date">Auto-delete {formatDate(book.trash_expires_at ?? null)}</span>
+						</div>
+						<div class="trash-actions">
+							<button
+								class="detail-refetch-btn"
+								onclick={() => handleRestoreBook(book)}
+								disabled={restoringBookId !== null}
+							>
+								{restoringBookId === book.id ? "Restoring..." : "Restore"}
+							</button>
+						</div>
+					</div>
+				</div>
+			{/each}
 		{:else if !isLoading}
 			<div class="empty-state">
 				<div class="empty-icon">
@@ -414,15 +553,20 @@
 						<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
 					</svg>
 				</div>
-				<h3>Your library is empty</h3>
-				<p>Search and download books from Z-Library to build your collection</p>
-				<a href="/search" class="link-btn">
-					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<circle cx="11" cy="11" r="8"></circle>
-						<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-					</svg>
-					Go to Search
-				</a>
+				{#if currentView === "library"}
+					<h3>Your library is empty</h3>
+					<p>Search and download books from Z-Library to build your collection</p>
+					<a href="/search" class="link-btn">
+						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<circle cx="11" cy="11" r="8"></circle>
+							<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+						</svg>
+						Go to Search
+					</a>
+				{:else}
+					<h3>Trash is empty</h3>
+					<p>Books moved to trash will appear here for 30 days.</p>
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -513,6 +657,13 @@
 							Reset Download Status
 						</button>
 					{/if}
+					<button
+						class="detail-remove-btn"
+						onclick={handleMoveToTrash}
+						disabled={isMovingToTrash}
+					>
+						{isMovingToTrash ? "Moving..." : "Move To Trash"}
+					</button>
 				</section>
 			{/if}
 		</div>
@@ -587,6 +738,32 @@
 		justify-content: flex-end;
 	}
 
+	.view-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.25rem;
+		background: rgba(15, 32, 50, 0.92);
+		border: 1px solid rgba(117, 191, 255, 0.24);
+		border-radius: 0.8rem;
+	}
+
+	.view-toggle button {
+		border: none;
+		border-radius: 0.6rem;
+		padding: 0.35rem 0.7rem;
+		background: transparent;
+		color: rgba(205, 226, 247, 0.88);
+		font-size: 0.78rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.view-toggle button.active {
+		background: rgba(61, 162, 255, 0.2);
+		color: rgba(236, 245, 255, 0.95);
+	}
+
 	.sort-group {
 		display: flex;
 		align-items: center;
@@ -658,6 +835,10 @@
 		outline-offset: 2px;
 	}
 
+	.trash-card {
+		cursor: default;
+	}
+
 	.book-cover {
 		flex-shrink: 0;
 		width: 80px;
@@ -693,6 +874,12 @@
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
+	}
+
+	.trash-actions {
+		margin-top: 0.65rem;
+		display: flex;
+		justify-content: flex-end;
 	}
 
 	.book-info h3 {
@@ -1035,6 +1222,17 @@
 		border: 1px solid rgba(239, 116, 126, 0.38);
 		border-radius: 0.55rem;
 		color: #ffb5be;
+		cursor: pointer;
+		font-size: 0.83rem;
+		font-weight: 600;
+	}
+
+	.detail-remove-btn {
+		padding: 0.55rem 0.9rem;
+		background: rgba(126, 52, 17, 0.48);
+		border: 1px solid rgba(245, 166, 104, 0.42);
+		border-radius: 0.55rem;
+		color: #ffd3b0;
 		cursor: pointer;
 		font-size: 0.83rem;
 		font-weight: 600;
