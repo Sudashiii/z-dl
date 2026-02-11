@@ -13,7 +13,9 @@ export const books = sqliteTable('Books', {
 	year: integer('year'),
 	progressStorageKey: text('progress_storage_key'),
 	progressUpdatedAt: text('progress_updated_at'),
-	createdAt: text('createdAt')
+	createdAt: text('createdAt'),
+	deletedAt: text('deleted_at'),
+	trashExpiresAt: text('trash_expires_at')
 });
 
 export const deviceDownloads = sqliteTable('DeviceDownloads', {

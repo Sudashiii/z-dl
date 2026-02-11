@@ -12,6 +12,7 @@ import { passwordLogin } from './routes/passwordLogin';
 import { searchBook } from './routes/searchBook';
 import { tokenLogin } from './routes/tokenLogin';
 import { getLibrary, type LibraryResponse } from './routes/getLibrary';
+import { getLibraryTrash, type LibraryTrashResponse } from './routes/getLibraryTrash';
 import { getLibraryBookDetail } from './routes/getLibraryBookDetail';
 import {
 	refetchLibraryBookMetadata,
@@ -19,6 +20,8 @@ import {
 } from './routes/refetchLibraryBookMetadata';
 import { removeLibraryBookDeviceDownload } from './routes/removeLibraryBookDeviceDownload';
 import { resetDownloadStatus } from './routes/resetDownloadStatus';
+import { moveLibraryBookToTrash } from './routes/moveLibraryBookToTrash';
+import { restoreLibraryBook } from './routes/restoreLibraryBook';
 import { queueToLibrary, type QueueResponse } from './routes/queueToLibrary';
 import type { LibraryBookDetail } from '$lib/types/Library/BookDetail';
 
@@ -46,6 +49,8 @@ export const ZUI = {
 
 	getLibrary: (): Promise<Result<LibraryResponse, ApiError>> => getLibrary(),
 
+	getLibraryTrash: (): Promise<Result<LibraryTrashResponse, ApiError>> => getLibraryTrash(),
+
 	getLibraryBookDetail: (bookId: number): Promise<Result<LibraryBookDetail, ApiError>> =>
 		getLibraryBookDetail(bookId),
 
@@ -58,7 +63,11 @@ export const ZUI = {
 		removeLibraryBookDeviceDownload(bookId, deviceId),
 
 	resetDownloadStatus: (bookId: number): Promise<Result<void, ApiError>> =>
-		resetDownloadStatus(bookId)
+		resetDownloadStatus(bookId),
+
+	moveLibraryBookToTrash: (bookId: number) => moveLibraryBookToTrash(bookId),
+
+	restoreLibraryBook: (bookId: number) => restoreLibraryBook(bookId)
 } as const;
 
 export type ZUIClient = typeof ZUI;
