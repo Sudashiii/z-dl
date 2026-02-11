@@ -24,6 +24,7 @@ import { moveLibraryBookToTrash } from './routes/moveLibraryBookToTrash';
 import { restoreLibraryBook } from './routes/restoreLibraryBook';
 import { queueToLibrary, type QueueResponse } from './routes/queueToLibrary';
 import type { LibraryBookDetail } from '$lib/types/Library/BookDetail';
+import { downloadLibraryBookFile } from './routes/downloadLibraryBookFile';
 
 /**
  * Facade for all Z-Library UI client operations.
@@ -67,7 +68,10 @@ export const ZUI = {
 
 	moveLibraryBookToTrash: (bookId: number) => moveLibraryBookToTrash(bookId),
 
-	restoreLibraryBook: (bookId: number) => restoreLibraryBook(bookId)
+	restoreLibraryBook: (bookId: number) => restoreLibraryBook(bookId),
+
+	downloadLibraryBookFile: (storageKey: string, fileName: string) =>
+		downloadLibraryBookFile(storageKey, fileName)
 } as const;
 
 export type ZUIClient = typeof ZUI;
