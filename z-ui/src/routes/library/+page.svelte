@@ -28,6 +28,7 @@
 	let isRefetchingMetadata = $state(false);
 	let removingDeviceId = $state<string | null>(null);
 	let isMovingToTrash = $state(false);
+	let isDownloadingLibraryFile = $state(false);
 	let restoringBookId = $state<number | null>(null);
 	let detailError = $state<string | null>(null);
 
@@ -113,6 +114,7 @@
 		isRefetchingMetadata = false;
 		removingDeviceId = null;
 		isMovingToTrash = false;
+		isDownloadingLibraryFile = false;
 	}
 
 	function openResetFromDetail(): void {
@@ -234,6 +236,39 @@
 		closeDetailModal();
 		await loadLibrary();
 		await loadTrash();
+	}
+
+	function buildLibraryDownloadName(book: LibraryBook): string {
+		const rawTitle = (book.title || "book").trim();
+		const title = rawTitle.length > 0 ? rawTitle : "book";
+		const extension = book.extension?.trim().toLowerCase();
+
+		if (!extension) {
+			return title;
+		}
+
+		return title.toLowerCase().endsWith(`.${extension}`) ? title : `${title}.${extension}`;
+	}
+
+	async function handleDownloadFromLibrary(): Promise<void> {
+		if (!selectedBook || isDownloadingLibraryFile) {
+			return;
+		}
+
+		const targetBook = selectedBook;
+		isDownloadingLibraryFile = true;
+		const result = await ZUI.downloadLibraryBookFile(
+			targetBook.s3_storage_key,
+			buildLibraryDownloadName(targetBook)
+		);
+		isDownloadingLibraryFile = false;
+
+		if (!result.ok) {
+			toastStore.add(`Failed to download from library: ${result.error.message}`, "error");
+			return;
+		}
+
+		toastStore.add(`Downloaded "${targetBook.title}"`, "success");
 	}
 
 	async function handleRestoreBook(book: LibraryBook): Promise<void> {
@@ -651,6 +686,13 @@
 				</section>
 
 				<section class="detail-section detail-actions">
+					<button
+						class="detail-download-btn"
+						onclick={handleDownloadFromLibrary}
+						disabled={isDownloadingLibraryFile}
+					>
+						{isDownloadingLibraryFile ? "Downloading..." : "Download From Library"}
+					</button>
 					<button
 						class="detail-refetch-btn"
 						onclick={handleRefetchMetadata}
@@ -1207,6 +1249,22 @@
 		display: flex;
 		gap: 0.6rem;
 		justify-content: flex-end;
+	}
+
+	.detail-download-btn {
+		padding: 0.55rem 0.9rem;
+		background: rgba(45, 119, 199, 0.35);
+		border: 1px solid rgba(129, 189, 255, 0.45);
+		border-radius: 0.55rem;
+		color: rgba(233, 244, 255, 0.95);
+		cursor: pointer;
+		font-size: 0.83rem;
+		font-weight: 600;
+	}
+
+	.detail-download-btn:disabled {
+		opacity: 0.65;
+		cursor: wait;
 	}
 
 	.detail-refetch-btn {
