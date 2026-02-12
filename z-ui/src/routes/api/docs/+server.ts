@@ -1,5 +1,7 @@
 import { getApiRouteCatalog } from '$lib/server/http/routeCatalog';
 import { errorResponse } from '$lib/server/http/api';
+import { getRequestLogger } from '$lib/server/http/requestLogger';
+import { toLogError } from '$lib/server/infrastructure/logging/logger';
 import type { RequestHandler } from './$types';
 
 async function renderHtml(): Promise<string> {
@@ -46,7 +48,8 @@ a { color: #7fc2ff; }
 </html>`;
 }
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = async ({ locals }) => {
+	const requestLogger = getRequestLogger(locals);
 	try {
 		return new Response(await renderHtml(), {
 			headers: {
@@ -54,7 +57,7 @@ export const GET: RequestHandler = async () => {
 			}
 		});
 	} catch (err: unknown) {
-		console.error('Failed to render API docs page:', err);
+		requestLogger.error({ event: 'api.docs.render.failed', error: toLogError(err) }, 'Failed to render API docs page');
 		return errorResponse('Failed to render API docs page', 500);
 	}
 };

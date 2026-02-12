@@ -37,6 +37,8 @@
 		"@aws-sdk/client-s3": "^3.922.0",
 		"@libsql/client": "^0.15.15",
 		"drizzle-orm": "^0.44.6",
-		"jszip": "^3.10.1"
+		"jszip": "^3.10.1",
+		"pino": "^9.9.2",
+		"pino-pretty": "^13.1.2"
 	}
 }

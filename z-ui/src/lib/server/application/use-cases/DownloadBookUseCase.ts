@@ -2,6 +2,7 @@ import type { BookRepositoryPort } from '$lib/server/application/ports/BookRepos
 import type { ZLibraryCredentials, ZLibraryPort } from '$lib/server/application/ports/ZLibraryPort';
 import { EpubMetadataService } from '$lib/server/application/services/EpubMetadataService';
 import { apiOk, type ApiResult } from '$lib/server/http/api';
+import { createChildLogger } from '$lib/server/infrastructure/logging/logger';
 import type { ZDownloadBookRequest } from '$lib/types/ZLibrary/Requests/ZDownloadBookRequest';
 
 interface UploadService {
@@ -50,6 +51,8 @@ function buildDownloadHeaders(originalHeaders: Headers, byteLength: number, rewr
 }
 
 export class DownloadBookUseCase {
+	private readonly useCaseLogger = createChildLogger({ useCase: 'DownloadBookUseCase' });
+
 	constructor(
 		private readonly zlibrary: ZLibraryPort,
 		private readonly bookRepository: BookRepositoryPort,
@@ -85,8 +88,13 @@ export class DownloadBookUseCase {
 				finalFileData = rewrittenEpubResult.value;
 				rewrittenEpub = true;
 			} else {
-				console.warn(
-					`[DownloadBookUseCase] EPUB title rewrite skipped for ${request.bookId}: ${rewrittenEpubResult.error.message}`
+				this.useCaseLogger.warn(
+					{
+						event: 'epub.title.rewrite.skipped',
+						bookId: request.bookId,
+						reason: rewrittenEpubResult.error.message
+					},
+					'EPUB title rewrite skipped'
 				);
 			}
 		}
@@ -95,6 +103,10 @@ export class DownloadBookUseCase {
 			const key = `${request.title}_${request.bookId}.${request.extension}`;
 			const uploadService = this.uploadServiceFactory();
 			await uploadService.upload(key, finalFileData);
+			this.useCaseLogger.info(
+				{ event: 'library.upload.completed', bookId: request.bookId, storageKey: key },
+				'Uploaded book to library storage'
+			);
 
 			await this.bookRepository.create({
 				zLibId: request.bookId,
@@ -107,6 +119,10 @@ export class DownloadBookUseCase {
 				language: request.language ?? null,
 				year: request.year ?? null
 			});
+			this.useCaseLogger.info(
+				{ event: 'library.book.created', bookId: request.bookId, storageKey: key },
+				'Created library book record'
+			);
 		}
 
 		if (request.downloadToDevice === false) {

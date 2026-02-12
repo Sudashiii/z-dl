@@ -2,6 +2,7 @@ import { DavUploadServiceFactory } from '$lib/server/infrastructure/factories/Da
 import { DownloadBookUseCase } from '$lib/server/application/use-cases/DownloadBookUseCase';
 import { ZLibraryClient } from '$lib/server/infrastructure/clients/ZLibraryClient';
 import { BookRepository } from '$lib/server/infrastructure/repositories/BookRepository';
+import { createChildLogger, toLogError } from '$lib/server/infrastructure/logging/logger';
 
 export interface QueuedDownload {
 	id: string;
@@ -24,6 +25,7 @@ export interface QueuedDownload {
 class DownloadQueue {
 	private queue: QueuedDownload[] = [];
 	private isProcessing = false;
+	private readonly queueLogger = createChildLogger({ component: 'downloadQueue' });
 	private readonly downloadBookUseCase = new DownloadBookUseCase(
 		new ZLibraryClient('https://1lib.sk'),
 		new BookRepository(),
@@ -44,7 +46,10 @@ class DownloadQueue {
 		};
 
 		this.queue.push(queuedTask);
-		console.log(`[Queue] Task ${id} added for book: ${task.title}`);
+		this.queueLogger.info(
+			{ event: 'queue.task.enqueued', taskId: id, bookId: task.bookId, title: task.title },
+			'Queue task added'
+		);
 
 		// Start processing if not already running
 		this.processQueue();
@@ -75,16 +80,31 @@ class DownloadQueue {
 			if (!task) break;
 
 			task.status = 'processing';
-			console.log(`[Queue] Processing task ${task.id}: ${task.title}`);
+			this.queueLogger.info(
+				{ event: 'queue.task.processing', taskId: task.id, bookId: task.bookId, title: task.title },
+				'Processing queue task'
+			);
 
 			try {
 				await this.processTask(task);
 				task.status = 'completed';
-				console.log(`[Queue] Completed task ${task.id}: ${task.title}`);
+				this.queueLogger.info(
+					{ event: 'queue.task.completed', taskId: task.id, bookId: task.bookId, title: task.title },
+					'Queue task completed'
+				);
 			} catch (error) {
 				task.status = 'failed';
 				task.error = error instanceof Error ? error.message : 'Unknown error';
-				console.error(`[Queue] Failed task ${task.id}:`, error);
+				this.queueLogger.error(
+					{
+						event: 'queue.task.failed',
+						taskId: task.id,
+						bookId: task.bookId,
+						title: task.title,
+						error: toLogError(error)
+					},
+					'Queue task failed'
+				);
 			}
 
 			// Remove completed/failed tasks after a delay (cleanup)

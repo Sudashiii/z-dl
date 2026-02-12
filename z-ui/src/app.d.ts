@@ -1,3 +1,5 @@
+import type { Logger } from 'pino';
+
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
@@ -12,6 +14,8 @@ declare global {
 				userId: string;
 				userKey: string;
 			};
+			requestId?: string;
+			logger?: Logger;
 		}
 	}
 }

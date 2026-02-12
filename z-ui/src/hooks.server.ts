@@ -3,6 +3,8 @@ import { sequence } from '@sveltejs/kit/hooks';
 import { requireBasicAuth } from '$lib/server/auth/basicAuth';
 import { errorResponse } from '$lib/server/http/api';
 import { purgeExpiredTrashUseCase } from '$lib/server/application/composition';
+import { createChildLogger, toLogError } from '$lib/server/infrastructure/logging/logger';
+import { randomUUID } from 'node:crypto';
 
 const TRASH_PURGE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let lastTrashPurgeStartedAt = 0;
@@ -20,20 +22,64 @@ function triggerTrashPurgeIfDue(): void {
 
 	lastTrashPurgeStartedAt = now;
 	runningPurgePromise = (async () => {
+		const purgeLogger = createChildLogger({ event: 'trash.purge' });
 		try {
 			const result = await purgeExpiredTrashUseCase.execute();
 			if (!result.ok) {
-				console.error('Trash purge failed:', result.error.message);
+				purgeLogger.error({ error: result.error }, 'Trash purge failed');
 			} else if (result.value.purgedBookIds.length > 0) {
-				console.info(`Purged ${result.value.purgedBookIds.length} expired trashed book(s)`);
+				purgeLogger.info(
+					{ purgedBookIds: result.value.purgedBookIds, count: result.value.purgedBookIds.length },
+					'Purged expired trashed books'
+				);
 			}
 		} catch (err: unknown) {
-			console.error('Trash purge failed:', err);
+			purgeLogger.error({ error: toLogError(err) }, 'Trash purge failed');
 		} finally {
 			runningPurgePromise = null;
 		}
 	})();
 }
+
+const requestLogHandle: Handle = async ({ event, resolve }) => {
+	const requestId = randomUUID();
+	const start = Date.now();
+	const requestLogger = createChildLogger({
+		requestId,
+		method: event.request.method,
+		route: event.url.pathname
+	});
+
+	event.locals.requestId = requestId;
+	event.locals.logger = requestLogger;
+
+	requestLogger.info({ event: 'request.start' }, 'Request started');
+
+	try {
+		const response = await resolve(event);
+		const durationMs = Date.now() - start;
+		response.headers.set('x-request-id', requestId);
+		requestLogger.info(
+			{
+				event: 'request.finish',
+				statusCode: response.status,
+				durationMs
+			},
+			'Request completed'
+		);
+		return response;
+	} catch (err: unknown) {
+		requestLogger.error(
+			{
+				event: 'request.error',
+				durationMs: Date.now() - start,
+				error: toLogError(err)
+			},
+			'Request failed'
+		);
+		throw err;
+	}
+};
 
 const basicAuthHandle: Handle = async ({ event, resolve }) => {
 	const { request, url } = event;
@@ -43,9 +89,13 @@ const basicAuthHandle: Handle = async ({ event, resolve }) => {
 			requireBasicAuth(request);
 		} catch (err) {
 				if (err instanceof Response) {
+					event.locals.logger?.warn(
+						{ event: 'auth.denied', statusCode: err.status },
+						'Basic auth denied'
+					);
 					return err;
 				}
-				console.error('Auth error:', err);
+				event.locals.logger?.error({ event: 'auth.error', error: toLogError(err) }, 'Auth error');
 				return errorResponse('Authentication error', 500);
 			}
 		}
@@ -65,4 +115,4 @@ const cookieHandle: Handle = async ({ event, resolve }) => {
 
 	return resolve(event);
 };
-export const handle = sequence(cookieHandle, basicAuthHandle);
+export const handle = sequence(requestLogHandle, cookieHandle, basicAuthHandle);

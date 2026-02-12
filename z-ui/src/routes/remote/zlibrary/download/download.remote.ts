@@ -1,6 +1,9 @@
 import { command } from '$app/server'; // or correct import based on your version/adapter
 import { downloadBookUseCase } from '$lib/server/application/composition';
+import { createChildLogger, toLogError } from '$lib/server/infrastructure/logging/logger';
 import type { ZDownloadBookRequest } from '$lib/types/ZLibrary/Requests/ZDownloadBookRequest';
+
+const remoteLogger = createChildLogger({ component: 'remote.zlibrary.download' });
 
 // @ts-ignore - signature mismatch with command wrapper
 export const downloadBook = command(async (data: ZDownloadBookRequest, event: any) => {
@@ -43,7 +46,7 @@ export const downloadBook = command(async (data: ZDownloadBookRequest, event: an
 		        };
 
     } catch (err: any) {
-        console.error("Remote function error:", err);
+        remoteLogger.error({ event: 'remote.download.failed', error: toLogError(err) }, 'Remote function error');
         throw new Error(err.message || 'File not found');
     }
 });

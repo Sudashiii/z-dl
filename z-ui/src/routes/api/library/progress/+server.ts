@@ -2,16 +2,29 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import { getProgressUseCase, putProgressUseCase } from '$lib/server/application/composition';
 import { errorResponse } from '$lib/server/http/api';
+import { getRequestLogger } from '$lib/server/http/requestLogger';
+import { toLogError } from '$lib/server/infrastructure/logging/logger';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
+	const requestLogger = getRequestLogger(locals);
 	const fileName = url.searchParams.get('fileName');
 	if (!fileName) {
+		requestLogger.warn({ event: 'progress.fetch.validation_failed' }, 'Missing fileName parameter');
 		return errorResponse('Missing fileName parameter', 400);
 	}
 
 	try {
 		const result = await getProgressUseCase.execute({ fileName });
 		if (!result.ok) {
+			requestLogger.warn(
+				{
+					event: 'progress.fetch.use_case_failed',
+					fileName,
+					statusCode: result.error.status,
+					reason: result.error.message
+				},
+				'Progress fetch rejected'
+			);
 			return errorResponse(result.error.message, result.error.status);
 		}
 
@@ -22,12 +35,16 @@ export const GET: RequestHandler = async ({ url }) => {
 			}
 		});
 	} catch (err: unknown) {
-		console.error('Progress fetch failed:', err);
+		requestLogger.error(
+			{ event: 'progress.fetch.failed', error: toLogError(err), fileName },
+			'Progress fetch failed'
+		);
 		return errorResponse('Progress file not found', 404);
 	}
 };
 
-export const PUT: RequestHandler = async ({ request }) => {
+export const PUT: RequestHandler = async ({ request, locals }) => {
+	const requestLogger = getRequestLogger(locals);
 	try {
 		const formData = await request.formData();
 		const fileName = formData.get('fileName');
@@ -35,9 +52,11 @@ export const PUT: RequestHandler = async ({ request }) => {
 		const deviceId = formData.get('deviceId');
 
 		if (typeof fileName !== 'string' || fileName.length === 0) {
+			requestLogger.warn({ event: 'progress.upload.validation_failed', reason: 'fileName missing' }, 'Missing fileName in form data');
 			return errorResponse('Missing fileName in form data', 400);
 		}
 		if (!file || typeof (file as File).arrayBuffer !== 'function') {
+			requestLogger.warn({ event: 'progress.upload.validation_failed', reason: 'file missing' }, 'Missing file in form data');
 			return errorResponse('Missing file in form data', 400);
 		}
 
@@ -49,6 +68,16 @@ export const PUT: RequestHandler = async ({ request }) => {
 		});
 
 		if (!result.ok) {
+			requestLogger.warn(
+				{
+					event: 'progress.upload.use_case_failed',
+					fileName,
+					deviceId,
+					statusCode: result.error.status,
+					reason: result.error.message
+				},
+				'Progress upload rejected'
+			);
 			return errorResponse(result.error.message, result.error.status);
 		}
 
@@ -58,7 +87,7 @@ export const PUT: RequestHandler = async ({ request }) => {
 			incomingLatest: result.value.incomingLatest
 		});
 	} catch (err: unknown) {
-		console.error('Progress upload failed:', err);
+		requestLogger.error({ event: 'progress.upload.failed', error: toLogError(err) }, 'Progress upload failed');
 		return errorResponse('Progress upload failed', 500);
 	}
 };

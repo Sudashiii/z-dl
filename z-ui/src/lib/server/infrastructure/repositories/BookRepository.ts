@@ -6,6 +6,7 @@ import type {
 } from '$lib/server/domain/entities/Book';
 import { drizzleDb } from '$lib/server/infrastructure/db/client';
 import { books, deviceDownloads, deviceProgressDownloads } from '$lib/server/infrastructure/db/schema';
+import { createChildLogger } from '$lib/server/infrastructure/logging/logger';
 import { and, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
 
 type DbBookRow = {
@@ -77,6 +78,7 @@ function mapBookWithDownloadRow(row: DbBookWithDownloadRow): Book {
 
 export class BookRepository implements BookRepositoryPort {
 	private static readonly instance = new BookRepository();
+	private readonly repoLogger = createChildLogger({ repository: 'BookRepository' });
 
 	async getAll(): Promise<Book[]> {
 		const rows = await drizzleDb
@@ -162,6 +164,11 @@ export class BookRepository implements BookRepositoryPort {
 			throw new Error('Failed to create book');
 		}
 
+		this.repoLogger.info(
+			{ event: 'book.created', id: created.id, zLibId: created.zLibId, storageKey: created.s3StorageKey },
+			'Book row inserted'
+		);
+
 		return mapBookRow(created);
 	}
 
@@ -185,15 +192,22 @@ export class BookRepository implements BookRepositoryPort {
 			throw new Error('Failed to update book metadata');
 		}
 
+		this.repoLogger.info(
+			{ event: 'book.metadata.updated', id, zLibId: updated.zLibId, storageKey: updated.s3StorageKey },
+			'Book metadata updated'
+		);
+
 		return mapBookRow(updated);
 	}
 
 	async delete(id: number): Promise<void> {
 		await drizzleDb.delete(books).where(eq(books.id, id));
+		this.repoLogger.info({ event: 'book.deleted', id }, 'Book row deleted');
 	}
 
 	async resetDownloadStatus(bookId: number): Promise<void> {
 		await drizzleDb.delete(deviceDownloads).where(eq(deviceDownloads.bookId, bookId));
+		this.repoLogger.info({ event: 'book.downloadStatus.reset', bookId }, 'Book download status reset');
 	}
 
 	async updateProgress(bookId: number, progressKey: string): Promise<void> {
@@ -204,6 +218,10 @@ export class BookRepository implements BookRepositoryPort {
 				progressUpdatedAt: sql`CURRENT_TIMESTAMP`
 			})
 			.where(eq(books.id, bookId));
+		this.repoLogger.info(
+			{ event: 'book.progress.updated', bookId, progressStorageKey: progressKey },
+			'Book progress reference updated'
+		);
 	}
 
 	async getNotDownloadedByDevice(deviceId: string): Promise<Book[]> {
@@ -264,6 +282,10 @@ export class BookRepository implements BookRepositoryPort {
 				trashExpiresAt
 			})
 			.where(and(eq(books.id, id), isNull(books.deletedAt)));
+		this.repoLogger.info(
+			{ event: 'book.trashed', id, deletedAt, trashExpiresAt },
+			'Book moved to trash'
+		);
 	}
 
 	async restoreFromTrash(id: number): Promise<void> {
@@ -274,6 +296,7 @@ export class BookRepository implements BookRepositoryPort {
 				trashExpiresAt: null
 			})
 			.where(and(eq(books.id, id), isNotNull(books.deletedAt)));
+		this.repoLogger.info({ event: 'book.restored', id }, 'Book restored from trash');
 	}
 
 	async getExpiredTrash(nowIso: string): Promise<Book[]> {
