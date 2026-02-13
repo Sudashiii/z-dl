@@ -1,6 +1,7 @@
 import type { BookRepositoryPort } from '$lib/server/application/ports/BookRepositoryPort';
 import type { ZLibraryCredentials, ZLibraryPort } from '$lib/server/application/ports/ZLibraryPort';
 import { EpubMetadataService } from '$lib/server/application/services/EpubMetadataService';
+import { buildSanitizedBookFileName } from '$lib/server/domain/value-objects/StorageKeySanitizer';
 import { apiOk, type ApiResult } from '$lib/server/http/api';
 import { createChildLogger } from '$lib/server/infrastructure/logging/logger';
 import type { ZDownloadBookRequest } from '$lib/types/ZLibrary/Requests/ZDownloadBookRequest';
@@ -100,7 +101,7 @@ export class DownloadBookUseCase {
 		}
 
 		if (request.upload) {
-			const key = `${request.title}_${request.bookId}.${request.extension}`;
+			const key = buildSanitizedBookFileName(request.title, request.bookId, request.extension);
 			const uploadService = this.uploadServiceFactory();
 			await uploadService.upload(key, finalFileData);
 			this.useCaseLogger.info(

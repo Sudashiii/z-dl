@@ -15,7 +15,11 @@
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
 		"db:baseline:mark": "node ./scripts/db/mark-drizzle-baseline.mjs",
-		"db:status": "node --env-file=.env ./scripts/db/drizzle-status.mjs"
+		"db:status": "node --env-file=.env ./scripts/db/drizzle-status.mjs",
+		"db:keys:dry-run": "node --env-file=.env ./scripts/db/backfill-sanitized-storage-keys.mjs",
+		"db:keys:apply": "node --env-file=.env ./scripts/db/backfill-sanitized-storage-keys.mjs --apply",
+		"db:keys:dedupe:dry-run": "node --env-file=.env ./scripts/db/backfill-sanitized-storage-keys.mjs --dedupe",
+		"db:keys:dedupe:apply": "node --env-file=.env ./scripts/db/backfill-sanitized-storage-keys.mjs --dedupe --apply"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",

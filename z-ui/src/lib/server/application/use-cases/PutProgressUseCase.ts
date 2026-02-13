@@ -3,9 +3,9 @@ import type { DeviceProgressDownloadRepositoryPort } from '$lib/server/applicati
 import type { StoragePort } from '$lib/server/application/ports/StoragePort';
 import { isIncomingProgressOlder } from '$lib/server/domain/services/ProgressConflictPolicy';
 import {
+	buildProgressLookupTitleCandidates,
 	buildProgressFileDescriptor,
 	extractSummaryModified,
-	normalizeProgressLookupTitle
 } from '$lib/server/domain/value-objects/ProgressFile';
 import { apiError, apiOk, type ApiResult } from '$lib/server/http/api';
 import { createChildLogger } from '$lib/server/infrastructure/logging/logger';
@@ -31,19 +31,38 @@ export class PutProgressUseCase {
 	) {}
 
 	async execute(input: PutProgressInput): Promise<ApiResult<PutProgressResult>> {
-		const normalizedTitle = normalizeProgressLookupTitle(input.fileName);
-		const book = await this.bookRepository.getByStorageKey(normalizedTitle);
+		const lookupCandidates = buildProgressLookupTitleCandidates(input.fileName);
+		let book = undefined;
+		let matchedStorageKey: string | null = null;
+		for (const candidate of lookupCandidates) {
+			book = await this.bookRepository.getByStorageKey(candidate);
+			if (book) {
+				matchedStorageKey = candidate;
+				break;
+			}
+		}
+
 		if (!book) {
 			this.useCaseLogger.warn(
 				{
 					event: 'progress.book.not_found',
 					fileName: input.fileName,
-					searchedStorageKey: normalizedTitle
+					searchedStorageKeys: lookupCandidates
 				},
-				`Book with title "${normalizedTitle}" was not found`
+				`Book matching progress file "${input.fileName}" was not found`
 			);
 			return apiError('Book not found', 404);
 		}
+
+		this.useCaseLogger.info(
+			{
+				event: 'progress.book.matched',
+				fileName: input.fileName,
+				matchedStorageKey,
+				bookId: book.id
+			},
+			'Matched progress file to book'
+		);
 
 		let progressKey: string;
 		try {

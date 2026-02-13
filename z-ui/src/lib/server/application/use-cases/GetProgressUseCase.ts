@@ -2,8 +2,8 @@ import type { BookRepositoryPort } from '$lib/server/application/ports/BookRepos
 import type { StoragePort } from '$lib/server/application/ports/StoragePort';
 import { apiError, apiOk, type ApiResult } from '$lib/server/http/api';
 import {
+	buildProgressLookupTitleCandidates,
 	buildProgressFileDescriptor,
-	normalizeProgressLookupTitle
 } from '$lib/server/domain/value-objects/ProgressFile';
 
 interface GetProgressResult {
@@ -24,8 +24,14 @@ export class GetProgressUseCase {
 	async execute(input: GetProgressInput): Promise<ApiResult<GetProgressResult>> {
 		let descriptor;
 		try {
-			const normalizedTitle = normalizeProgressLookupTitle(input.fileName);
-			const book = await this.bookRepository.getByStorageKey(normalizedTitle);
+			const lookupCandidates = buildProgressLookupTitleCandidates(input.fileName);
+			let book: Awaited<ReturnType<BookRepositoryPort['getByStorageKey']>> = undefined;
+			for (const candidate of lookupCandidates) {
+				book = await this.bookRepository.getByStorageKey(candidate);
+				if (book) {
+					break;
+				}
+			}
 			descriptor = buildProgressFileDescriptor(book ? book.s3_storage_key : input.fileName);
 		} catch (cause) {
 			return apiError('Invalid title format. Expected filename with extension.', 400, cause);

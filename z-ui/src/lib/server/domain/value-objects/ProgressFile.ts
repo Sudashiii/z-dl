@@ -48,3 +48,18 @@ export function normalizeProgressLookupTitle(targetTitle: string): string {
 	const idPart = targetTitle.substring(lastUnderscoreIndex);
 	return titlePart.replace(/_/g, ' ') + idPart;
 }
+
+export function buildProgressLookupTitleCandidates(targetTitle: string): string[] {
+	const raw = String(targetTitle ?? '').trim();
+	if (!raw) {
+		return [];
+	}
+
+	const candidates = [raw];
+	const legacy = normalizeProgressLookupTitle(raw);
+	if (legacy !== raw) {
+		candidates.push(legacy);
+	}
+
+	return candidates;
+}
