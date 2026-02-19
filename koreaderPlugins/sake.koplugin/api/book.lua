@@ -6,9 +6,22 @@ local Client = require("api/client")
 
 local BookApi = {}
 
+local API_PREFIX = "/api/library"
 local ROUTE_NEW = "/new?deviceId="
 local ROUTE_DOWNLOAD = "/"
 local ROUTE_CONFIRM = "/confirmDownload"
+
+local function normalizedBaseUrl(base_url)
+    local url = tostring(base_url or "")
+    url = url:gsub("^%s+", ""):gsub("%s+$", "")
+    url = url:gsub("/+$", "")
+    url = url:gsub("/api/library/?$", "")
+    return url
+end
+
+local function libraryBaseUrl(base_url)
+    return normalizedBaseUrl(base_url) .. API_PREFIX
+end
 
 local function parseJson(body)
     local ok, result = pcall(function() return json.decode(body) end)
@@ -20,7 +33,7 @@ end
 
 function BookApi.fetchBookList(base_url, user, pass, device_id)
     local auth_header = Client.authHeader(user, pass)
-    local target_url = base_url .. ROUTE_NEW .. socket.escape(device_id or "")
+    local target_url = libraryBaseUrl(base_url) .. ROUTE_NEW .. socket.escape(device_id or "")
 
     local ok, statusCode, _, requestErr, response_chunks = Client.request{
         url = target_url,
@@ -50,7 +63,7 @@ function BookApi.fetchBookContent(base_url, user, pass, book)
     end
 
     local encodedKey = socket.escape(s3Key)
-    local download_url = base_url .. ROUTE_DOWNLOAD .. encodedKey
+    local download_url = libraryBaseUrl(base_url) .. ROUTE_DOWNLOAD .. encodedKey
     local auth_header = Client.authHeader(user, pass)
     local response_chunks = {}
 
@@ -81,7 +94,7 @@ end
 
 function BookApi.confirmDownload(base_url, user, pass, device_id, book_id)
     local body = json.encode({ deviceId = device_id, bookId = book_id })
-    local target_url = base_url .. ROUTE_CONFIRM
+    local target_url = libraryBaseUrl(base_url) .. ROUTE_CONFIRM
     local auth_header = Client.authHeader(user, pass)
 
     local ok, statusCode, _, requestErr, response_chunks = Client.request{

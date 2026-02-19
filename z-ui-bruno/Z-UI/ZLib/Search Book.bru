@@ -11,8 +11,8 @@ post {
 }
 
 auth:basic {
-  username: suda
-  password: shi
+  username: {{env.BASIC_AUTH_USERNAME}}
+  password: {{env.BASIC_AUTH_PASSWORD}}
 }
 
 body:json {

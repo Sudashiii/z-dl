@@ -50,6 +50,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 		const fileName = formData.get('fileName');
 		const file = formData.get('file');
 		const deviceId = formData.get('deviceId');
+		const percentFinishedRaw = formData.get('percentFinished');
 
 		if (typeof fileName !== 'string' || fileName.length === 0) {
 			requestLogger.warn({ event: 'progress.upload.validation_failed', reason: 'fileName missing' }, 'Missing fileName in form data');
@@ -59,11 +60,32 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 			requestLogger.warn({ event: 'progress.upload.validation_failed', reason: 'file missing' }, 'Missing file in form data');
 			return errorResponse('Missing file in form data', 400);
 		}
+		if (typeof percentFinishedRaw !== 'string' || percentFinishedRaw.trim() === '') {
+			requestLogger.warn(
+				{ event: 'progress.upload.validation_failed', reason: 'percentFinished missing' },
+				'Missing percentFinished in form data'
+			);
+			return errorResponse('Missing percentFinished in form data', 400);
+		}
+
+		const percentFinished = Number.parseFloat(percentFinishedRaw);
+		if (!Number.isFinite(percentFinished) || percentFinished < 0 || percentFinished > 1) {
+			requestLogger.warn(
+				{
+					event: 'progress.upload.validation_failed',
+					reason: 'percentFinished invalid',
+					percentFinishedRaw
+				},
+				'Invalid percentFinished in form data'
+			);
+			return errorResponse('percentFinished must be a number between 0 and 1', 400);
+		}
 
 		const body = await (file as File).arrayBuffer();
 		const result = await putProgressUseCase.execute({
 			fileName,
 			fileData: body,
+			percentFinished,
 			deviceId: typeof deviceId === 'string' && deviceId.trim() !== '' ? deviceId : undefined
 		});
 
@@ -83,8 +105,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 
 		return json({
 			success: true,
-			progressKey: result.value.progressKey,
-			incomingLatest: result.value.incomingLatest
+			progressKey: result.value.progressKey
 		});
 	} catch (err: unknown) {
 		requestLogger.error({ event: 'progress.upload.failed', error: toLogError(err) }, 'Progress upload failed');

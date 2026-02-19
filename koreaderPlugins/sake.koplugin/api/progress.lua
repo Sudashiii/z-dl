@@ -6,9 +6,22 @@ local logger = require("logger")
 
 local ProgressApi = {}
 local LOG_PREFIX = "[Sake] "
+local API_PREFIX = "/api/library"
 
-function ProgressApi.uploadProgress(base_url, user, pass, filename, content, device_id)
-    local target_url = base_url .. "/progress"
+local function normalizedBaseUrl(base_url)
+    local url = tostring(base_url or "")
+    url = url:gsub("^%s+", ""):gsub("%s+$", "")
+    url = url:gsub("/+$", "")
+    url = url:gsub("/api/library/?$", "")
+    return url
+end
+
+local function libraryBaseUrl(base_url)
+    return normalizedBaseUrl(base_url) .. API_PREFIX
+end
+
+function ProgressApi.uploadProgress(base_url, user, pass, filename, content, device_id, percent_finished)
+    local target_url = libraryBaseUrl(base_url) .. "/progress"
 
     local auth_header = Client.authHeader(user, pass)
     local response_chunks = {}
@@ -26,6 +39,13 @@ function ProgressApi.uploadProgress(base_url, user, pass, filename, content, dev
         table.insert(body_parts, 'Content-Disposition: form-data; name="deviceId"')
         table.insert(body_parts, "")
         table.insert(body_parts, tostring(device_id))
+    end
+
+    if percent_finished ~= nil then
+        table.insert(body_parts, "--" .. boundary)
+        table.insert(body_parts, 'Content-Disposition: form-data; name="percentFinished"')
+        table.insert(body_parts, "")
+        table.insert(body_parts, tostring(percent_finished))
     end
 
     table.insert(body_parts, "--" .. boundary)
@@ -92,7 +112,7 @@ end
 
 function ProgressApi.downloadProgress(base_url, user, pass, filename)
     local safe_filename = socket.escape(filename)
-    local target_url = base_url .. "/progress?fileName=" .. safe_filename
+    local target_url = libraryBaseUrl(base_url) .. "/progress?fileName=" .. safe_filename
 
     local auth_header = Client.authHeader(user, pass)
     local response_chunks = {}
@@ -132,7 +152,7 @@ end
 
 function ProgressApi.getNewProgressForDevice(base_url, user, pass, device_id)
     local safe_device_id = socket.escape(device_id or "")
-    local target_url = base_url .. "/progress/new?deviceId=" .. safe_device_id
+    local target_url = libraryBaseUrl(base_url) .. "/progress/new?deviceId=" .. safe_device_id
     local auth_header = Client.authHeader(user, pass)
     local response_chunks = {}
 
@@ -174,7 +194,7 @@ function ProgressApi.getNewProgressForDevice(base_url, user, pass, device_id)
 end
 
 function ProgressApi.confirmProgressDownload(base_url, user, pass, device_id, book_id)
-    local target_url = base_url .. "/progress/confirm"
+    local target_url = libraryBaseUrl(base_url) .. "/progress/confirm"
     local auth_header = Client.authHeader(user, pass)
     local body = json.encode({
         deviceId = device_id,

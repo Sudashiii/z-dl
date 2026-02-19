@@ -13,6 +13,8 @@ This file defines project-specific engineering rules for automated agents and co
 - Styling uses **SCSS modules** conventions in the app. Keep styling changes consistent with existing SCSS/module usage patterns.
 - Database schema and migrations are owned in this repo via **Drizzle** (`drizzle.config.ts`, `drizzle/`, `src/lib/server/infrastructure/db/schema.ts`).
 - Do not reintroduce migration ownership in external projects (old `z-mg` flow is decommissioned for migrations).
+- KOReader plugin distribution is startup-synced from local plugin files to R2 and exposed via API endpoints (`/api/plugin/koreader/latest`, `/api/plugin/koreader/download`).
+- KOReader plugin release metadata source-of-truth is the DB table `PluginReleases` (not an R2 `latest.json` manifest).
 
 ## Architecture rules
 

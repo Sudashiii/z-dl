@@ -26,6 +26,8 @@ services:
       - PUBLIC_ZDL_URL=http://z-dl:6126
     env_file:
       - ./z-ui/.env
+    volumes:
+      - ./koreaderPlugins/sake.koplugin:/app/koreaderPlugins/sake.koplugin:ro
     networks:
       - caddy_net
     depends_on:
@@ -34,4 +36,4 @@ services:
 
 networks:
   caddy_net:
-    external: true
+    # external: true

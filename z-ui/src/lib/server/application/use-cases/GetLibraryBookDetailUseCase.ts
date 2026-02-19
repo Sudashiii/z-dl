@@ -1,7 +1,5 @@
 import type { BookRepositoryPort } from '$lib/server/application/ports/BookRepositoryPort';
 import type { DeviceDownloadRepositoryPort } from '$lib/server/application/ports/DeviceDownloadRepositoryPort';
-import type { StoragePort } from '$lib/server/application/ports/StoragePort';
-import { extractPercentFinished } from '$lib/server/domain/value-objects/ProgressFile';
 import { apiError, apiOk, type ApiResult } from '$lib/server/http/api';
 
 interface GetLibraryBookDetailInput {
@@ -18,7 +16,6 @@ export interface LibraryBookDetail {
 export class GetLibraryBookDetailUseCase {
 	constructor(
 		private readonly bookRepository: BookRepositoryPort,
-		private readonly storage: StoragePort,
 		private readonly deviceDownloadRepository: DeviceDownloadRepositoryPort
 	) {}
 
@@ -31,18 +28,10 @@ export class GetLibraryBookDetailUseCase {
 		const downloads = await this.deviceDownloadRepository.getByBookId(input.bookId);
 		const downloadedDevices = [...new Set(downloads.map((download) => download.deviceId))].sort();
 
-		let progressPercent: number | null = null;
-		if (book.progress_storage_key) {
-			try {
-				const content = (await this.storage.get(`library/${book.progress_storage_key}`)).toString('utf8');
-				const percentFinished = extractPercentFinished(content);
-				if (percentFinished !== null) {
-					progressPercent = Math.max(0, Math.min(100, percentFinished * 100));
-				}
-			} catch {
-				progressPercent = null;
-			}
-		}
+		const progressPercent =
+			typeof book.progress_percent === 'number'
+				? Math.max(0, Math.min(100, book.progress_percent * 100))
+				: null;
 
 		return apiOk({
 			success: true,

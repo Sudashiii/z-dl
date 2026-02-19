@@ -34,9 +34,16 @@ import { MoveLibraryBookToTrashUseCase } from '$lib/server/application/use-cases
 import { ListLibraryTrashUseCase } from '$lib/server/application/use-cases/ListLibraryTrashUseCase';
 import { RestoreLibraryBookUseCase } from '$lib/server/application/use-cases/RestoreLibraryBookUseCase';
 import { PurgeExpiredTrashUseCase } from '$lib/server/application/use-cases/PurgeExpiredTrashUseCase';
+import { KoreaderPluginArtifactService } from '$lib/server/application/services/KoreaderPluginArtifactService';
+import { SyncKoreaderPluginReleaseUseCase } from '$lib/server/application/use-cases/SyncKoreaderPluginReleaseUseCase';
+import { GetLatestKoreaderPluginUseCase } from '$lib/server/application/use-cases/GetLatestKoreaderPluginUseCase';
+import { GetKoreaderPluginDownloadUseCase } from '$lib/server/application/use-cases/GetKoreaderPluginDownloadUseCase';
+import { PluginReleaseRepository } from '$lib/server/infrastructure/repositories/PluginReleaseRepository';
 
 export const zlibraryClient = new ZLibraryClient('https://1lib.sk');
 export const storage = new S3Storage();
+export const koreaderPluginArtifactService = new KoreaderPluginArtifactService();
+export const pluginReleaseRepository = new PluginReleaseRepository();
 export const bookRepository = new BookRepository();
 export const deviceDownloadRepository = new DeviceDownloadRepository();
 export const deviceProgressDownloadRepository = new DeviceProgressDownloadRepository();
@@ -52,10 +59,9 @@ export const zlibraryTokenLoginUseCase = new ZLibraryTokenLoginUseCase(zlibraryC
 export const zlibraryPasswordLoginUseCase = new ZLibraryPasswordLoginUseCase(zlibraryClient);
 export const zlibraryLogoutUseCase = new ZLibraryLogoutUseCase();
 
-export const listLibraryUseCase = new ListLibraryUseCase(bookRepository, storage);
+export const listLibraryUseCase = new ListLibraryUseCase(bookRepository);
 export const getLibraryBookDetailUseCase = new GetLibraryBookDetailUseCase(
 	bookRepository,
-	storage,
 	deviceDownloadRepository
 );
 export const refetchLibraryBookMetadataUseCase = new RefetchLibraryBookMetadataUseCase(
@@ -84,6 +90,16 @@ export const putLibraryFileUseCase = new PutLibraryFileUseCase(storage, bookRepo
 export const deleteLibraryFileUseCase = new DeleteLibraryFileUseCase(storage);
 export const listDavDirectoryUseCase = new ListDavDirectoryUseCase(storage);
 export const moveLibraryBookToTrashUseCase = new MoveLibraryBookToTrashUseCase(bookRepository);
-export const listLibraryTrashUseCase = new ListLibraryTrashUseCase(bookRepository, storage);
+export const listLibraryTrashUseCase = new ListLibraryTrashUseCase(bookRepository);
 export const restoreLibraryBookUseCase = new RestoreLibraryBookUseCase(bookRepository);
 export const purgeExpiredTrashUseCase = new PurgeExpiredTrashUseCase(bookRepository, storage);
+export const syncKoreaderPluginReleaseUseCase = new SyncKoreaderPluginReleaseUseCase(
+	storage,
+	pluginReleaseRepository,
+	koreaderPluginArtifactService
+);
+export const getLatestKoreaderPluginUseCase = new GetLatestKoreaderPluginUseCase(pluginReleaseRepository);
+export const getKoreaderPluginDownloadUseCase = new GetKoreaderPluginDownloadUseCase(
+	storage,
+	getLatestKoreaderPluginUseCase
+);

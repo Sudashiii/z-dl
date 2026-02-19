@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const books = sqliteTable('Books', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -13,10 +13,26 @@ export const books = sqliteTable('Books', {
 	year: integer('year'),
 	progressStorageKey: text('progress_storage_key'),
 	progressUpdatedAt: text('progress_updated_at'),
+	progressPercent: real('progress_percent'),
 	createdAt: text('createdAt'),
 	deletedAt: text('deleted_at'),
 	trashExpiresAt: text('trash_expires_at')
 });
+
+export const pluginReleases = sqliteTable(
+	'PluginReleases',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		version: text('version').notNull(),
+		fileName: text('file_name').notNull(),
+		storageKey: text('storage_key').notNull(),
+		sha256: text('sha256').notNull(),
+		isLatest: integer('is_latest', { mode: 'boolean' }).notNull().default(false),
+		createdAt: text('created_at').notNull(),
+		updatedAt: text('updated_at').notNull()
+	},
+	(table) => [uniqueIndex('plugin_releases_version_unique').on(table.version)]
+);
 
 export const deviceDownloads = sqliteTable('DeviceDownloads', {
 	id: integer('id').primaryKey({ autoIncrement: true }),

@@ -22,6 +22,7 @@ type DbBookRow = {
 	year: number | null;
 	progressStorageKey: string | null;
 	progressUpdatedAt: string | null;
+	progressPercent: number | null;
 	createdAt: string | null;
 	deletedAt: string | null;
 	trashExpiresAt: string | null;
@@ -44,6 +45,7 @@ const bookSelection = {
 	year: books.year,
 	progressStorageKey: books.progressStorageKey,
 	progressUpdatedAt: books.progressUpdatedAt,
+	progressPercent: books.progressPercent,
 	createdAt: books.createdAt,
 	deletedAt: books.deletedAt,
 	trashExpiresAt: books.trashExpiresAt
@@ -63,6 +65,7 @@ function mapBookRow(row: DbBookRow): Book {
 		year: row.year,
 		progress_storage_key: row.progressStorageKey,
 		progress_updated_at: row.progressUpdatedAt,
+		progress_percent: row.progressPercent,
 		createdAt: row.createdAt,
 		deleted_at: row.deletedAt,
 		trash_expires_at: row.trashExpiresAt
@@ -210,16 +213,17 @@ export class BookRepository implements BookRepositoryPort {
 		this.repoLogger.info({ event: 'book.downloadStatus.reset', bookId }, 'Book download status reset');
 	}
 
-	async updateProgress(bookId: number, progressKey: string): Promise<void> {
+	async updateProgress(bookId: number, progressKey: string, progressPercent: number | null): Promise<void> {
 		await drizzleDb
 			.update(books)
 			.set({
 				progressStorageKey: progressKey,
-				progressUpdatedAt: sql`CURRENT_TIMESTAMP`
+				progressUpdatedAt: sql`CURRENT_TIMESTAMP`,
+				progressPercent
 			})
 			.where(eq(books.id, bookId));
 		this.repoLogger.info(
-			{ event: 'book.progress.updated', bookId, progressStorageKey: progressKey },
+			{ event: 'book.progress.updated', bookId, progressStorageKey: progressKey, progressPercent },
 			'Book progress reference updated'
 		);
 	}
@@ -365,8 +369,12 @@ export class BookRepository implements BookRepositoryPort {
 		return BookRepository.instance.resetDownloadStatus(bookId);
 	}
 
-	static async updateProgress(bookId: number, progressKey: string): Promise<void> {
-		return BookRepository.instance.updateProgress(bookId, progressKey);
+	static async updateProgress(
+		bookId: number,
+		progressKey: string,
+		progressPercent: number | null
+	): Promise<void> {
+		return BookRepository.instance.updateProgress(bookId, progressKey, progressPercent);
 	}
 
 	static async getNotDownloadedByDevice(deviceId: string): Promise<Book[]> {
