@@ -17,6 +17,29 @@ local Sake = WidgetContainer:extend{
     is_doc_only = false,
 }
 
+local function getSakePluginDir()
+    local src = debug.getinfo(1, "S").source or ""
+    local path = src:sub(1, 1) == "@" and src:sub(2) or src
+    return path:match("^(.*)/main%.lua$")
+end
+
+local function loadUpdaterModule()
+    local sake_dir = getSakePluginDir()
+    if not sake_dir then
+        return false, "Cannot determine Sake plugin directory", nil, nil
+    end
+    local plugins_root = sake_dir:match("^(.*)/sake%.koplugin$")
+    if not plugins_root then
+        return false, "Cannot determine plugins root", nil, nil
+    end
+    local updater_path = plugins_root .. "/sakeUpdater.koplugin/updater.lua"
+    local ok, mod_or_err = pcall(dofile, updater_path)
+    if not ok then
+        return false, tostring(mod_or_err), nil, nil
+    end
+    return true, mod_or_err, sake_dir, plugins_root
+end
+
 function Sake:startDeferredProgressWatcher()
     if self.progress_watcher_active then
         return
@@ -67,6 +90,62 @@ function Sake:runProgressSync(opts)
     return true
 end
 
+function Sake:checkPluginUpdate()
+    if not self.updater then
+        return false
+    end
+    local ok, info_or_err = self.updater:checkForUpdate()
+    if not ok then
+        logger.warn("[Sake] Updater check failed: " .. tostring(info_or_err))
+        return false
+    end
+    local info = info_or_err
+    if info.update_available then
+        UIManager:show(InfoMessage:new{
+            text = _("Sake update available: ") .. tostring(info.current_version) .. " -> " .. tostring(info.latest_version),
+            timeout = 4
+        })
+    end
+    return true
+end
+
+function Sake:performPluginUpdate()
+    if not self.updater then
+        UIManager:show(InfoMessage:new{
+            text = _("Updater module not available."),
+            timeout = 4
+        })
+        return
+    end
+    if not self.updater:isUpdateAvailable() then
+        UIManager:show(InfoMessage:new{
+            text = _("No update available."),
+            timeout = 3
+        })
+        return
+    end
+
+    UIManager:show(InfoMessage:new{
+        text = _("Updating Sake plugin..."),
+        timeout = 2
+    })
+
+    UIManager:scheduleIn(0.1, function()
+        local ok, err = self.updater:performUpdate()
+        if not ok then
+            UIManager:show(InfoMessage:new{
+                text = _("Update failed: ") .. tostring(err),
+                timeout = 6
+            })
+            return
+        end
+        UIManager:show(InfoMessage:new{
+            text = _("Update complete. Please restart KOReader."),
+            timeout = 8
+        })
+    end)
+end
+
 function Sake:onDispatcherRegisterActions()
     Dispatcher:registerAction("sake_action", {category="none", event="Sake", title="Sake", general=true,})
 end
@@ -90,6 +169,7 @@ function Sake:init()
     self.books_downloaded_bg = 0
     self.bg_error_messages = {}
     self.progress_watcher_active = false
+    self.updater = nil
     local device_name = tostring(self.settings.device_name or "Not Set")
     local api_url = (self.settings.api_url ~= "" and self.settings.api_url or "Not Set")
     logger.info("[Sake] Initialized. Device: " .. device_name .. " | URL: " .. api_url)
@@ -104,8 +184,23 @@ function Sake:init()
     self.bookSync = BookSync:new(self.ctx)
     self.progressSync = ProgressSync:new(self.ctx)
 
+    local updater_ok, updater_mod_or_err, sake_plugin_dir, plugins_root = loadUpdaterModule()
+    if updater_ok and updater_mod_or_err and updater_mod_or_err.new then
+        self.updater = updater_mod_or_err:new(self.ctx, {
+            sake_plugin_dir = sake_plugin_dir,
+            plugins_root = plugins_root,
+        })
+        logger.info("[Sake] Updater module loaded.")
+    else
+        logger.warn("[Sake] Updater module not loaded: " .. tostring(updater_mod_or_err))
+    end
+
     self.ctx.actions.onSync = function() self.bookSync:syncNow() end
     self.ctx.actions.onProgressSync = function() self:runProgressSync() end
+    self.ctx.actions.onUpdatePlugin = function() self:performPluginUpdate() end
+    self.ctx.actions.hasPluginUpdate = function()
+        return self.updater and self.updater:isUpdateAvailable() or false
+    end
     self.ctx.actions.showInput = function(field, title)
         Dialogs.showStringInput(self.ctx, field, title)
     end
@@ -151,6 +246,10 @@ function Sake:handleSuspend()
             logger.info("[Sake] Silent sync finished. No new books.")
         end
     end)
+
+    UIManager:scheduleIn(1.5, function()
+        self:checkPluginUpdate()
+    end)
 end
 
 function Sake:handleResume()
@@ -171,7 +270,7 @@ function Sake:handleResume()
         self.bg_error_messages = {}
     end
 
-    UIManager:scheduleIn(0.3, function()
+    UIManager:scheduleIn(3.0, function()
         self:runProgressSync()
     end)
 end

@@ -4,5 +4,5 @@ return {
     fullname = _("Sake"),
     description = _([[Svelte and Koreader Ecosystem - Syncs your books (maybe).]]),
     author = "Sascha Lorenz",
-    version = "1.0",
+    version = "0.4.2",
 }

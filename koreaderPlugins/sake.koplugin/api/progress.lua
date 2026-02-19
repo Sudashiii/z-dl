@@ -7,7 +7,7 @@ local logger = require("logger")
 local ProgressApi = {}
 local LOG_PREFIX = "[Sake] "
 
-function ProgressApi.uploadProgress(base_url, user, pass, filename, content, device_id)
+function ProgressApi.uploadProgress(base_url, user, pass, filename, content, device_id, percent_finished)
     local target_url = base_url .. "/progress"
 
     local auth_header = Client.authHeader(user, pass)
@@ -26,6 +26,13 @@ function ProgressApi.uploadProgress(base_url, user, pass, filename, content, dev
         table.insert(body_parts, 'Content-Disposition: form-data; name="deviceId"')
         table.insert(body_parts, "")
         table.insert(body_parts, tostring(device_id))
+    end
+
+    if percent_finished ~= nil then
+        table.insert(body_parts, "--" .. boundary)
+        table.insert(body_parts, 'Content-Disposition: form-data; name="percentFinished"')
+        table.insert(body_parts, "")
+        table.insert(body_parts, tostring(percent_finished))
     end
 
     table.insert(body_parts, "--" .. boundary)

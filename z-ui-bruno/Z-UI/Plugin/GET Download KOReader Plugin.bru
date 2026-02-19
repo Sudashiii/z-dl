@@ -1,0 +1,16 @@
+meta {
+  name: GET Download KOReader Plugin
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/plugin/koreader/download
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

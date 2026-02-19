@@ -2,13 +2,17 @@ import type { Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { requireBasicAuth } from '$lib/server/auth/basicAuth';
 import { errorResponse } from '$lib/server/http/api';
-import { purgeExpiredTrashUseCase } from '$lib/server/application/composition';
+import {
+	purgeExpiredTrashUseCase,
+	syncKoreaderPluginReleaseUseCase
+} from '$lib/server/application/composition';
 import { createChildLogger, toLogError } from '$lib/server/infrastructure/logging/logger';
 import { randomUUID } from 'node:crypto';
 
 const TRASH_PURGE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let lastTrashPurgeStartedAt = 0;
 let runningPurgePromise: Promise<void> | null = null;
+let pluginSyncStarted = false;
 
 function triggerTrashPurgeIfDue(): void {
 	const now = Date.now();
@@ -40,6 +44,40 @@ function triggerTrashPurgeIfDue(): void {
 		}
 	})();
 }
+
+function triggerPluginSyncOnStartup(): void {
+	if (pluginSyncStarted) {
+		return;
+	}
+
+	pluginSyncStarted = true;
+	void (async () => {
+		const pluginLogger = createChildLogger({ event: 'plugin.sync.startup' });
+		try {
+			const result = await syncKoreaderPluginReleaseUseCase.execute();
+			if (!result.ok) {
+				pluginLogger.error(
+					{ statusCode: result.error.status, reason: result.error.message },
+					'KOReader plugin startup sync rejected'
+				);
+				return;
+			}
+
+			pluginLogger.info(
+				{
+					version: result.value.version,
+					storageKey: result.value.storageKey,
+					uploaded: result.value.uploaded
+				},
+				'KOReader plugin startup sync finished'
+			);
+		} catch (err: unknown) {
+			pluginLogger.error({ error: toLogError(err) }, 'KOReader plugin startup sync failed');
+		}
+	})();
+}
+
+triggerPluginSyncOnStartup();
 
 const requestLogHandle: Handle = async ({ event, resolve }) => {
 	const requestId = randomUUID();

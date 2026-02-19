@@ -12,6 +12,7 @@ put {
 
 body:multipart-form {
   fileName: {{book_title_file}}
+  percentFinished: {{percent_finished}}
   deviceId: {{device_id}}
   file: @file(/Users/sascha/Downloads/metadata.epub.lua) @contentType(text/x-lua; charset=utf-8)
 }
@@ -19,6 +20,7 @@ body:multipart-form {
 vars:pre-request {
   base_url: https://books.suda.sh
   book_title_file: Harry Potter und der Stein der Weisen_2009186.epub
+  percent_finished: 0.96
   device_id: kindle_001
 }
 
