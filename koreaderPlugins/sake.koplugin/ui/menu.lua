@@ -16,16 +16,13 @@ function Menu.addToMainMenu(menu_items, ctx)
                 ctx.actions.onProgressSync()
             end,
         },
-    }
-
-    if ctx.actions.hasPluginUpdate and ctx.actions.hasPluginUpdate() then
-        table.insert(sub_items, {
-            text = _("Update Plugin"),
+        {
+            text = _("Check Plugin Updates"),
             callback = function()
-                ctx.actions.onUpdatePlugin()
+                ctx.actions.onCheckPluginUpdate()
             end,
-        })
-    end
+        },
+    }
 
     table.insert(sub_items, {
         text = _("Set API URL"),

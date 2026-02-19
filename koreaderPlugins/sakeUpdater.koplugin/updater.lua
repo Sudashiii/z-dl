@@ -10,6 +10,14 @@ Updater.__index = Updater
 local LOG_PREFIX = "[Sake] "
 local ROUTE_LATEST = "/api/plugin/koreader/latest"
 
+local function normalizedBaseUrl(base_url)
+    local url = tostring(base_url or "")
+    url = url:gsub("^%s+", ""):gsub("%s+$", "")
+    url = url:gsub("/+$", "")
+    url = url:gsub("/api/library/?$", "")
+    return url
+end
+
 local function shellQuote(value)
     return "'" .. tostring(value or ""):gsub("'", "'\\''") .. "'"
 end
@@ -112,7 +120,7 @@ function Updater:checkForUpdate()
     end
     self.current_version = current_version
 
-    local url = tostring(settings.api_url or "") .. ROUTE_LATEST
+    local url = normalizedBaseUrl(settings.api_url) .. ROUTE_LATEST
     local ok, statusCode, _, requestErr, response_chunks = request{
         url = url,
         method = "GET",

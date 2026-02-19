@@ -1,4 +1,5 @@
 local Dispatcher = require("dispatcher")
+local ConfirmBox = require("ui/widget/confirmbox")
 local InfoMessage = require("ui/widget/infomessage")
 local UIManager = require("ui/uimanager")
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
@@ -90,20 +91,40 @@ function Sake:runProgressSync(opts)
     return true
 end
 
-function Sake:checkPluginUpdate()
+function Sake:checkPluginUpdate(opts)
     if not self.updater then
+        if opts and opts.notify then
+            UIManager:show(InfoMessage:new{
+                text = _("Updater module not available."),
+                timeout = 4
+            })
+        end
         return false
     end
     local ok, info_or_err = self.updater:checkForUpdate()
     if not ok then
         logger.warn("[Sake] Updater check failed: " .. tostring(info_or_err))
+        if opts and opts.notify then
+            UIManager:show(InfoMessage:new{
+                text = _("Update check failed: ") .. tostring(info_or_err),
+                timeout = 6
+            })
+        end
         return false
     end
     local info = info_or_err
     if info.update_available then
+        UIManager:show(ConfirmBox:new{
+            text = _("Sake update available: ") .. tostring(info.current_version) .. " -> " .. tostring(info.latest_version) .. _("\nDo you want to update now?"),
+            ok_text = _("Update"),
+            ok_callback = function()
+                self:performPluginUpdate()
+            end,
+        })
+    elseif opts and opts.notify then
         UIManager:show(InfoMessage:new{
-            text = _("Sake update available: ") .. tostring(info.current_version) .. " -> " .. tostring(info.latest_version),
-            timeout = 4
+            text = _("No update available."),
+            timeout = 3
         })
     end
     return true
@@ -197,10 +218,7 @@ function Sake:init()
 
     self.ctx.actions.onSync = function() self.bookSync:syncNow() end
     self.ctx.actions.onProgressSync = function() self:runProgressSync() end
-    self.ctx.actions.onUpdatePlugin = function() self:performPluginUpdate() end
-    self.ctx.actions.hasPluginUpdate = function()
-        return self.updater and self.updater:isUpdateAvailable() or false
-    end
+    self.ctx.actions.onCheckPluginUpdate = function() self:checkPluginUpdate({ notify = true }) end
     self.ctx.actions.showInput = function(field, title)
         Dialogs.showStringInput(self.ctx, field, title)
     end
@@ -247,9 +265,6 @@ function Sake:handleSuspend()
         end
     end)
 
-    UIManager:scheduleIn(1.5, function()
-        self:checkPluginUpdate()
-    end)
 end
 
 function Sake:handleResume()
