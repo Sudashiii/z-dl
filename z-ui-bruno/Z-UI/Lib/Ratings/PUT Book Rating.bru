@@ -1,0 +1,28 @@
+meta {
+  name: PUT Book Rating
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{base_url}}/api/library/{{book_id}}/rating
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "rating": {{rating}}
+  }
+}
+
+vars:pre-request {
+  base_url: https://books.suda.sh
+  book_id: 1
+  rating: 5
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

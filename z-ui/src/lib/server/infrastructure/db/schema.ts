@@ -14,6 +14,7 @@ export const books = sqliteTable('Books', {
 	progressStorageKey: text('progress_storage_key'),
 	progressUpdatedAt: text('progress_updated_at'),
 	progressPercent: real('progress_percent'),
+	rating: integer('rating'),
 	createdAt: text('createdAt'),
 	deletedAt: text('deleted_at'),
 	trashExpiresAt: text('trash_expires_at')

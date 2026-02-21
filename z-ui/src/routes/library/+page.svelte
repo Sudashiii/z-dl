@@ -29,6 +29,7 @@
 	let removingDeviceId = $state<string | null>(null);
 	let isMovingToTrash = $state(false);
 	let isDownloadingLibraryFile = $state(false);
+	let isUpdatingRating = $state(false);
 	let restoringBookId = $state<number | null>(null);
 	let detailError = $state<string | null>(null);
 
@@ -115,6 +116,7 @@
 		removingDeviceId = null;
 		isMovingToTrash = false;
 		isDownloadingLibraryFile = false;
+		isUpdatingRating = false;
 	}
 
 	function openResetFromDetail(): void {
@@ -192,6 +194,50 @@
 
 		books = [...books.slice(0, index), updatedBook, ...books.slice(index + 1)];
 		selectedBook = updatedBook;
+	}
+
+	function setBookRatingState(bookId: number, rating: number | null): void {
+		const index = books.findIndex((book) => book.id === bookId);
+		if (index !== -1) {
+			const updatedBook: LibraryBook = {
+				...books[index],
+				rating
+			};
+			books = [...books.slice(0, index), updatedBook, ...books.slice(index + 1)];
+			selectedBook = updatedBook;
+		}
+
+		if (selectedBookDetail) {
+			selectedBookDetail = {
+				...selectedBookDetail,
+				rating
+			};
+		}
+	}
+
+	async function handleSetRating(rating: number | null): Promise<void> {
+		if (!selectedBook || isUpdatingRating) {
+			return;
+		}
+
+		isUpdatingRating = true;
+		const result = await ZUI.updateLibraryBookRating(selectedBook.id, rating);
+		isUpdatingRating = false;
+
+		if (!result.ok) {
+			toastStore.add(`Failed to update rating: ${result.error.message}`, "error");
+			return;
+		}
+
+		setBookRatingState(selectedBook.id, result.value.rating);
+		if (result.value.rating === null) {
+			toastStore.add("Rating cleared", "success");
+		} else {
+			toastStore.add(
+				`Rating updated to ${result.value.rating} star${result.value.rating === 1 ? "" : "s"}`,
+				"success"
+			);
+		}
 	}
 
 	async function handleRemoveDeviceDownload(deviceId: string): Promise<void> {
@@ -660,6 +706,32 @@
 							></div>
 						</div>
 						<span class="progress-value">{formatProgress(selectedBookDetail.progressPercent)}</span>
+					</div>
+				</section>
+
+				<section class="detail-section">
+					<h4>Rating</h4>
+					<div class="rating-row" role="group" aria-label="Book rating">
+						{#each [1, 2, 3, 4, 5] as star}
+							<button
+								type="button"
+								class="rating-star"
+								class:active={star <= (selectedBookDetail.rating ?? 0)}
+								aria-label={`Set rating to ${star} star${star === 1 ? "" : "s"}`}
+								onclick={() => handleSetRating(star)}
+								disabled={isUpdatingRating}
+							>
+								★
+							</button>
+						{/each}
+						<button
+							type="button"
+							class="rating-clear"
+							onclick={() => handleSetRating(null)}
+							disabled={isUpdatingRating}
+						>
+							{isUpdatingRating ? "Saving..." : "Clear"}
+						</button>
 					</div>
 				</section>
 
@@ -1207,6 +1279,54 @@
 		color: rgba(228, 240, 255, 0.88);
 		min-width: 5rem;
 		text-align: right;
+	}
+
+	.rating-row {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+	}
+
+	.rating-star {
+		width: 2rem;
+		height: 2rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.1rem;
+		line-height: 1;
+		border-radius: 0.45rem;
+		border: 1px solid rgba(167, 203, 237, 0.24);
+		background: rgba(12, 28, 44, 0.8);
+		color: rgba(214, 232, 252, 0.45);
+		cursor: pointer;
+	}
+
+	.rating-star.active {
+		color: #ffd561;
+		border-color: rgba(255, 213, 97, 0.45);
+		background: rgba(89, 68, 12, 0.35);
+	}
+
+	.rating-star:disabled {
+		opacity: 0.65;
+		cursor: wait;
+	}
+
+	.rating-clear {
+		margin-left: 0.45rem;
+		padding: 0.35rem 0.6rem;
+		background: rgba(12, 28, 44, 0.8);
+		border: 1px solid rgba(167, 203, 237, 0.24);
+		border-radius: 0.45rem;
+		color: rgba(214, 232, 252, 0.82);
+		font-size: 0.78rem;
+		cursor: pointer;
+	}
+
+	.rating-clear:disabled {
+		opacity: 0.65;
+		cursor: wait;
 	}
 
 	.device-list {

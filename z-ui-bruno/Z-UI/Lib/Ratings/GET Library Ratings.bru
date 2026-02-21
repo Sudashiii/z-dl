@@ -1,0 +1,20 @@
+meta {
+  name: GET Library Ratings
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/library/ratings
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  base_url: http:localhost:5173
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

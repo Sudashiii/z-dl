@@ -23,6 +23,7 @@ type DbBookRow = {
 	progressStorageKey: string | null;
 	progressUpdatedAt: string | null;
 	progressPercent: number | null;
+	rating: number | null;
 	createdAt: string | null;
 	deletedAt: string | null;
 	trashExpiresAt: string | null;
@@ -46,6 +47,7 @@ const bookSelection = {
 	progressStorageKey: books.progressStorageKey,
 	progressUpdatedAt: books.progressUpdatedAt,
 	progressPercent: books.progressPercent,
+	rating: books.rating,
 	createdAt: books.createdAt,
 	deletedAt: books.deletedAt,
 	trashExpiresAt: books.trashExpiresAt
@@ -66,6 +68,7 @@ function mapBookRow(row: DbBookRow): Book {
 		progress_storage_key: row.progressStorageKey,
 		progress_updated_at: row.progressUpdatedAt,
 		progress_percent: row.progressPercent,
+		rating: typeof row.rating === 'number' && row.rating >= 1 && row.rating <= 5 ? row.rating : null,
 		createdAt: row.createdAt,
 		deleted_at: row.deletedAt,
 		trash_expires_at: row.trashExpiresAt
@@ -228,6 +231,14 @@ export class BookRepository implements BookRepositoryPort {
 		);
 	}
 
+	async updateRating(bookId: number, rating: number | null): Promise<void> {
+		await drizzleDb
+			.update(books)
+			.set({ rating })
+			.where(eq(books.id, bookId));
+		this.repoLogger.info({ event: 'book.rating.updated', bookId, rating }, 'Book rating updated');
+	}
+
 	async getNotDownloadedByDevice(deviceId: string): Promise<Book[]> {
 		const rows = await drizzleDb
 			.select(bookSelection)
@@ -375,6 +386,10 @@ export class BookRepository implements BookRepositoryPort {
 		progressPercent: number | null
 	): Promise<void> {
 		return BookRepository.instance.updateProgress(bookId, progressKey, progressPercent);
+	}
+
+	static async updateRating(bookId: number, rating: number | null): Promise<void> {
+		return BookRepository.instance.updateRating(bookId, rating);
 	}
 
 	static async getNotDownloadedByDevice(deviceId: string): Promise<Book[]> {
