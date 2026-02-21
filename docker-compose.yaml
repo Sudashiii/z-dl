@@ -36,4 +36,4 @@ services:
 
 networks:
   caddy_net:
-    external: true
+    # external: true

@@ -25,6 +25,11 @@ import { restoreLibraryBook } from './routes/restoreLibraryBook';
 import { queueToLibrary, type QueueResponse } from './routes/queueToLibrary';
 import type { LibraryBookDetail } from '$lib/types/Library/BookDetail';
 import { downloadLibraryBookFile } from './routes/downloadLibraryBookFile';
+import {
+	updateLibraryBookRating,
+	type UpdateLibraryBookRatingResponse
+} from './routes/updateLibraryBookRating';
+import { getLibraryRatings, type LibraryRatingsResponse } from './routes/getLibraryRatings';
 
 /**
  * Facade for all Z-Library UI client operations.
@@ -71,7 +76,15 @@ export const ZUI = {
 	restoreLibraryBook: (bookId: number) => restoreLibraryBook(bookId),
 
 	downloadLibraryBookFile: (storageKey: string, fileName: string) =>
-		downloadLibraryBookFile(storageKey, fileName)
+		downloadLibraryBookFile(storageKey, fileName),
+
+	updateLibraryBookRating: (
+		bookId: number,
+		rating: number | null
+	): Promise<Result<UpdateLibraryBookRatingResponse, ApiError>> =>
+		updateLibraryBookRating(bookId, rating),
+
+	getLibraryRatings: (): Promise<Result<LibraryRatingsResponse, ApiError>> => getLibraryRatings()
 } as const;
 
 export type ZUIClient = typeof ZUI;

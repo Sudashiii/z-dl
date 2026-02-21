@@ -36,6 +36,13 @@
       "when": 1771600000000,
       "tag": "0004_wise_plugin_releases",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1771700000000,
+      "tag": "0005_slim_ratings",
+      "breakpoints": true
     }
   ]
 }

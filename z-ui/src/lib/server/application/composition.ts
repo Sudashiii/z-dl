@@ -39,6 +39,8 @@ import { SyncKoreaderPluginReleaseUseCase } from '$lib/server/application/use-ca
 import { GetLatestKoreaderPluginUseCase } from '$lib/server/application/use-cases/GetLatestKoreaderPluginUseCase';
 import { GetKoreaderPluginDownloadUseCase } from '$lib/server/application/use-cases/GetKoreaderPluginDownloadUseCase';
 import { PluginReleaseRepository } from '$lib/server/infrastructure/repositories/PluginReleaseRepository';
+import { UpdateBookRatingUseCase } from '$lib/server/application/use-cases/UpdateBookRatingUseCase';
+import { ListLibraryRatingsUseCase } from '$lib/server/application/use-cases/ListLibraryRatingsUseCase';
 
 export const zlibraryClient = new ZLibraryClient('https://1lib.sk');
 export const storage = new S3Storage();
@@ -103,3 +105,5 @@ export const getKoreaderPluginDownloadUseCase = new GetKoreaderPluginDownloadUse
 	storage,
 	getLatestKoreaderPluginUseCase
 );
+export const updateBookRatingUseCase = new UpdateBookRatingUseCase(bookRepository);
+export const listLibraryRatingsUseCase = new ListLibraryRatingsUseCase(bookRepository);

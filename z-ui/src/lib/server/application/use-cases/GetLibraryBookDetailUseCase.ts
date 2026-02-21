@@ -10,6 +10,7 @@ export interface LibraryBookDetail {
 	success: true;
 	bookId: number;
 	progressPercent: number | null;
+	rating: number | null;
 	downloadedDevices: string[];
 }
 
@@ -37,6 +38,7 @@ export class GetLibraryBookDetailUseCase {
 			success: true,
 			bookId: input.bookId,
 			progressPercent,
+			rating: book.rating,
 			downloadedDevices
 		});
 	}
