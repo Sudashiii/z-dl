@@ -1,0 +1,3 @@
+# Local-only Bruno secrets (never commit)
+**/environments/*.private.bru
+**/environments/*.local-secrets.bru
