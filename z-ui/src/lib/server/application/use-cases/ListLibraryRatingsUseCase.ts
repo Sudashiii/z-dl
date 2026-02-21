@@ -5,7 +5,6 @@ interface RatedBook {
 	id: number;
 	title: string;
 	author: string | null;
-	cover: string | null;
 	extension: string | null;
 	rating: number;
 }
@@ -26,7 +25,6 @@ export class ListLibraryRatingsUseCase {
 				id: book.id,
 				title: book.title,
 				author: book.author,
-				cover: book.cover,
 				extension: book.extension,
 				rating: book.rating as number
 			}))

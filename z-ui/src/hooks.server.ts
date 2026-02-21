@@ -121,8 +121,9 @@ const requestLogHandle: Handle = async ({ event, resolve }) => {
 
 const basicAuthHandle: Handle = async ({ event, resolve }) => {
 	const { request, url } = event;
+	const isPublicApiRoute = url.pathname === '/api/library/ratings';
 
-	if (url.pathname.startsWith('/api/')) {
+	if (url.pathname.startsWith('/api/') && !isPublicApiRoute) {
 		try {
 			requireBasicAuth(request);
 		} catch (err) {
