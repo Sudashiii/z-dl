@@ -12,6 +12,8 @@ export interface LibraryBook {
 	progress_storage_key: string | null;
 	progress_updated_at: string | null;
 	rating: number | null;
+	read_at?: string | null;
+	exclude_from_new_books?: boolean;
 	progressPercent?: number | null;
 	createdAt: string | null;
 	deleted_at?: string | null;

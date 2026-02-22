@@ -18,6 +18,15 @@ export interface BookRepositoryPort {
 	resetDownloadStatus(bookId: number): Promise<void>;
 	updateProgress(bookId: number, progressKey: string, progressPercent: number | null): Promise<void>;
 	updateRating(bookId: number, rating: number | null): Promise<void>;
+	updateState(
+		bookId: number,
+		state: {
+			readAt?: string | null;
+			progressPercent?: number | null;
+			progressBeforeRead?: number | null;
+			excludeFromNewBooks?: boolean;
+		}
+	): Promise<void>;
 	getNotDownloadedByDevice(deviceId: string): Promise<Book[]>;
 	getBooksWithNewProgressForDevice(deviceId: string): Promise<Book[]>;
 	getTrashed(): Promise<Book[]>;

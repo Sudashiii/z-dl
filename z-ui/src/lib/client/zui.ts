@@ -30,6 +30,10 @@ import {
 	type UpdateLibraryBookRatingResponse
 } from './routes/updateLibraryBookRating';
 import { getLibraryRatings, type LibraryRatingsResponse } from './routes/getLibraryRatings';
+import {
+	updateLibraryBookState,
+	type UpdateLibraryBookStateResponse
+} from './routes/updateLibraryBookState';
 
 /**
  * Facade for all Z-Library UI client operations.
@@ -84,7 +88,13 @@ export const ZUI = {
 	): Promise<Result<UpdateLibraryBookRatingResponse, ApiError>> =>
 		updateLibraryBookRating(bookId, rating),
 
-	getLibraryRatings: (): Promise<Result<LibraryRatingsResponse, ApiError>> => getLibraryRatings()
+	getLibraryRatings: (): Promise<Result<LibraryRatingsResponse, ApiError>> => getLibraryRatings(),
+
+	updateLibraryBookState: (
+		bookId: number,
+		request: { isRead?: boolean; excludeFromNewBooks?: boolean }
+	): Promise<Result<UpdateLibraryBookStateResponse, ApiError>> =>
+		updateLibraryBookState(bookId, request)
 } as const;
 
 export type ZUIClient = typeof ZUI;
