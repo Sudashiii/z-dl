@@ -23,7 +23,10 @@ type DbBookRow = {
 	progressStorageKey: string | null;
 	progressUpdatedAt: string | null;
 	progressPercent: number | null;
+	progressBeforeRead: number | null;
 	rating: number | null;
+	readAt: string | null;
+	excludeFromNewBooks: boolean;
 	createdAt: string | null;
 	deletedAt: string | null;
 	trashExpiresAt: string | null;
@@ -47,7 +50,10 @@ const bookSelection = {
 	progressStorageKey: books.progressStorageKey,
 	progressUpdatedAt: books.progressUpdatedAt,
 	progressPercent: books.progressPercent,
+	progressBeforeRead: books.progressBeforeRead,
 	rating: books.rating,
+	readAt: books.readAt,
+	excludeFromNewBooks: books.excludeFromNewBooks,
 	createdAt: books.createdAt,
 	deletedAt: books.deletedAt,
 	trashExpiresAt: books.trashExpiresAt
@@ -68,7 +74,10 @@ function mapBookRow(row: DbBookRow): Book {
 		progress_storage_key: row.progressStorageKey,
 		progress_updated_at: row.progressUpdatedAt,
 		progress_percent: row.progressPercent,
+		progress_before_read: row.progressBeforeRead,
 		rating: typeof row.rating === 'number' && row.rating >= 1 && row.rating <= 5 ? row.rating : null,
+		read_at: row.readAt,
+		exclude_from_new_books: row.excludeFromNewBooks,
 		createdAt: row.createdAt,
 		deleted_at: row.deletedAt,
 		trash_expires_at: row.trashExpiresAt
@@ -217,16 +226,26 @@ export class BookRepository implements BookRepositoryPort {
 	}
 
 	async updateProgress(bookId: number, progressKey: string, progressPercent: number | null): Promise<void> {
+		const readAtValue =
+			typeof progressPercent === 'number' && progressPercent >= 1 ? sql`CURRENT_TIMESTAMP` : null;
 		await drizzleDb
 			.update(books)
 			.set({
 				progressStorageKey: progressKey,
 				progressUpdatedAt: sql`CURRENT_TIMESTAMP`,
-				progressPercent
+				progressPercent,
+				progressBeforeRead: null,
+				readAt: readAtValue
 			})
 			.where(eq(books.id, bookId));
 		this.repoLogger.info(
-			{ event: 'book.progress.updated', bookId, progressStorageKey: progressKey, progressPercent },
+			{
+				event: 'book.progress.updated',
+				bookId,
+				progressStorageKey: progressKey,
+				progressPercent,
+				readAt: readAtValue === null ? null : 'CURRENT_TIMESTAMP'
+			},
 			'Book progress reference updated'
 		);
 	}
@@ -239,6 +258,41 @@ export class BookRepository implements BookRepositoryPort {
 		this.repoLogger.info({ event: 'book.rating.updated', bookId, rating }, 'Book rating updated');
 	}
 
+	async updateState(
+		bookId: number,
+		state: {
+			readAt?: string | null;
+			progressPercent?: number | null;
+			progressBeforeRead?: number | null;
+			excludeFromNewBooks?: boolean;
+		}
+	): Promise<void> {
+		const updates: {
+			readAt?: string | null;
+			progressPercent?: number | null;
+			progressBeforeRead?: number | null;
+			excludeFromNewBooks?: boolean;
+		} = {};
+		if (state.readAt !== undefined) {
+			updates.readAt = state.readAt;
+		}
+		if (state.progressPercent !== undefined) {
+			updates.progressPercent = state.progressPercent;
+		}
+		if (state.progressBeforeRead !== undefined) {
+			updates.progressBeforeRead = state.progressBeforeRead;
+		}
+		if (state.excludeFromNewBooks !== undefined) {
+			updates.excludeFromNewBooks = state.excludeFromNewBooks;
+		}
+
+		await drizzleDb.update(books).set(updates).where(eq(books.id, bookId));
+		this.repoLogger.info(
+			{ event: 'book.state.updated', bookId, ...updates },
+			'Book state updated'
+		);
+	}
+
 	async getNotDownloadedByDevice(deviceId: string): Promise<Book[]> {
 		const rows = await drizzleDb
 			.select(bookSelection)
@@ -247,7 +301,13 @@ export class BookRepository implements BookRepositoryPort {
 				deviceDownloads,
 				and(eq(books.id, deviceDownloads.bookId), eq(deviceDownloads.deviceId, deviceId))
 			)
-			.where(and(isNull(deviceDownloads.bookId), isNull(books.deletedAt)))
+			.where(
+				and(
+					isNull(deviceDownloads.bookId),
+					isNull(books.deletedAt),
+					eq(books.excludeFromNewBooks, false)
+				)
+			)
 			.orderBy(desc(books.createdAt));
 
 		return rows.map((row) => mapBookRow(row));
@@ -390,6 +450,18 @@ export class BookRepository implements BookRepositoryPort {
 
 	static async updateRating(bookId: number, rating: number | null): Promise<void> {
 		return BookRepository.instance.updateRating(bookId, rating);
+	}
+
+	static async updateState(
+		bookId: number,
+		state: {
+			readAt?: string | null;
+			progressPercent?: number | null;
+			progressBeforeRead?: number | null;
+			excludeFromNewBooks?: boolean;
+		}
+	): Promise<void> {
+		return BookRepository.instance.updateState(bookId, state);
 	}
 
 	static async getNotDownloadedByDevice(deviceId: string): Promise<Book[]> {

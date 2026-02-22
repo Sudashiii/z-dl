@@ -11,6 +11,9 @@ export interface LibraryBookDetail {
 	bookId: number;
 	progressPercent: number | null;
 	rating: number | null;
+	isRead: boolean;
+	readAt: string | null;
+	excludeFromNewBooks: boolean;
 	downloadedDevices: string[];
 }
 
@@ -39,6 +42,9 @@ export class GetLibraryBookDetailUseCase {
 			bookId: input.bookId,
 			progressPercent,
 			rating: book.rating,
+			isRead: Boolean(book.read_at),
+			readAt: book.read_at,
+			excludeFromNewBooks: book.exclude_from_new_books,
 			downloadedDevices
 		});
 	}

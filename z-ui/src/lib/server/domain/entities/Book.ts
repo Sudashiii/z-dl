@@ -12,7 +12,10 @@ export interface Book {
 	progress_storage_key: string | null;
 	progress_updated_at: string | null;
 	progress_percent: number | null;
+	progress_before_read: number | null;
 	rating: number | null;
+	read_at: string | null;
+	exclude_from_new_books: boolean;
 	createdAt: string | null;
 	deleted_at: string | null;
 	trash_expires_at: string | null;
@@ -26,7 +29,10 @@ export type CreateBookInput = Omit<
 	| 'progress_storage_key'
 	| 'progress_updated_at'
 	| 'progress_percent'
+	| 'progress_before_read'
 	| 'rating'
+	| 'read_at'
+	| 'exclude_from_new_books'
 	| 'deleted_at'
 	| 'trash_expires_at'
 >;

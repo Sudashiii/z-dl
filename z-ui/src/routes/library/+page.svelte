@@ -30,6 +30,8 @@
 	let isMovingToTrash = $state(false);
 	let isDownloadingLibraryFile = $state(false);
 	let isUpdatingRating = $state(false);
+	let isUpdatingReadState = $state(false);
+	let isUpdatingNewBooksExclusion = $state(false);
 	let restoringBookId = $state<number | null>(null);
 	let detailError = $state<string | null>(null);
 
@@ -117,6 +119,8 @@
 		isMovingToTrash = false;
 		isDownloadingLibraryFile = false;
 		isUpdatingRating = false;
+		isUpdatingReadState = false;
+		isUpdatingNewBooksExclusion = false;
 	}
 
 	function openResetFromDetail(): void {
@@ -238,6 +242,64 @@
 				"success"
 			);
 		}
+	}
+
+	async function handleToggleReadState(): Promise<void> {
+		if (!selectedBook || !selectedBookDetail || isUpdatingReadState) {
+			return;
+		}
+
+		const nextIsRead = !selectedBookDetail.isRead;
+		isUpdatingReadState = true;
+		const result = await ZUI.updateLibraryBookState(selectedBook.id, { isRead: nextIsRead });
+		isUpdatingReadState = false;
+
+		if (!result.ok) {
+			toastStore.add(`Failed to update read state: ${result.error.message}`, "error");
+			return;
+		}
+
+		selectedBookDetail = {
+			...selectedBookDetail,
+			isRead: result.value.isRead,
+			readAt: result.value.readAt,
+			progressPercent:
+				typeof result.value.progressPercent === "number"
+					? Math.max(0, Math.min(100, result.value.progressPercent * 100))
+					: null
+		};
+		toastStore.add(result.value.isRead ? "Marked as read" : "Marked as unread", "success");
+	}
+
+	async function handleExcludeFromNewBooksToggle(event: Event): Promise<void> {
+		if (!selectedBook || !selectedBookDetail || isUpdatingNewBooksExclusion) {
+			return;
+		}
+
+		const target = event.target as HTMLInputElement;
+		const nextValue = target.checked;
+		isUpdatingNewBooksExclusion = true;
+		const result = await ZUI.updateLibraryBookState(selectedBook.id, {
+			excludeFromNewBooks: nextValue
+		});
+		isUpdatingNewBooksExclusion = false;
+
+		if (!result.ok) {
+			target.checked = selectedBookDetail.excludeFromNewBooks;
+			toastStore.add(`Failed to update new-books exclusion: ${result.error.message}`, "error");
+			return;
+		}
+
+		selectedBookDetail = {
+			...selectedBookDetail,
+			excludeFromNewBooks: result.value.excludeFromNewBooks
+		};
+		toastStore.add(
+			result.value.excludeFromNewBooks
+				? "Book excluded from new-books API"
+				: "Book included in new-books API",
+			"success"
+		);
 	}
 
 	async function handleRemoveDeviceDownload(deviceId: string): Promise<void> {
@@ -707,6 +769,39 @@
 						</div>
 						<span class="progress-value">{formatProgress(selectedBookDetail.progressPercent)}</span>
 					</div>
+					<div class="read-state-row">
+						<button
+							type="button"
+							class="detail-refetch-btn"
+							onclick={handleToggleReadState}
+							disabled={isUpdatingReadState}
+						>
+							{#if isUpdatingReadState}
+								Saving...
+							{:else if selectedBookDetail.isRead}
+								Mark As Unread
+							{:else}
+								Mark As Read
+							{/if}
+						</button>
+						{#if selectedBookDetail.isRead}
+							<span class="read-state-label">
+								Read{selectedBookDetail.readAt ? ` on ${formatDate(selectedBookDetail.readAt)}` : ""}
+							</span>
+						{:else}
+							<span class="read-state-label">Unread</span>
+						{/if}
+					</div>
+
+					<label class="exclude-new-books-row">
+						<input
+							type="checkbox"
+							checked={selectedBookDetail.excludeFromNewBooks}
+							onchange={handleExcludeFromNewBooksToggle}
+							disabled={isUpdatingNewBooksExclusion}
+						/>
+						<span>Exclude this book from the New Books API</span>
+					</label>
 				</section>
 
 				<section class="detail-section">
@@ -1327,6 +1422,33 @@
 	.rating-clear:disabled {
 		opacity: 0.65;
 		cursor: wait;
+	}
+
+	.read-state-row {
+		display: flex;
+		align-items: center;
+		gap: 0.7rem;
+		flex-wrap: wrap;
+	}
+
+	.read-state-label {
+		font-size: 0.82rem;
+		color: rgba(214, 232, 252, 0.78);
+	}
+
+	.exclude-new-books-row {
+		margin-top: 0.7rem;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.82rem;
+		color: rgba(214, 232, 252, 0.82);
+	}
+
+	.exclude-new-books-row input[type="checkbox"] {
+		width: 0.95rem;
+		height: 0.95rem;
+		accent-color: #4ea7ff;
 	}
 
 	.device-list {
