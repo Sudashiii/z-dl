@@ -17,6 +17,10 @@
 	let isDownloading = $state(false);
 	let downloadingBook = $state<string | null>(null);
 	let error = $state<ApiError | null>(null);
+	let showTitleAdjustModal = $state(false);
+	let pendingBookAction = $state<"download" | "library" | null>(null);
+	let pendingBook = $state<ZBook | null>(null);
+	let adjustedTitle = $state("");
 
 	async function searchBooks() {
 		if (!title.trim()) return;
@@ -75,6 +79,46 @@
 				: '';
 			toastStore.add(`"${book.title}" added to download queue${queueInfo}`, "success");
 		}
+	}
+
+	function openTitleAdjustModal(book: ZBook, action: "download" | "library"): void {
+		pendingBook = book;
+		pendingBookAction = action;
+		adjustedTitle = book.title;
+		showTitleAdjustModal = true;
+	}
+
+	function closeTitleAdjustModal(): void {
+		showTitleAdjustModal = false;
+		pendingBook = null;
+		pendingBookAction = null;
+		adjustedTitle = "";
+	}
+
+	async function confirmTitleAdjustAction(): Promise<void> {
+		if (!pendingBook || !pendingBookAction) {
+			return;
+		}
+
+		const finalTitle = adjustedTitle.trim();
+		if (!finalTitle) {
+			toastStore.add("Title cannot be empty", "error");
+			return;
+		}
+
+		const bookWithAdjustedTitle: ZBook = {
+			...pendingBook,
+			title: finalTitle
+		};
+		const action = pendingBookAction;
+		closeTitleAdjustModal();
+
+		if (action === "download") {
+			await handleDownload(bookWithAdjustedTitle);
+			return;
+		}
+
+		await handleShare(bookWithAdjustedTitle);
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
@@ -164,8 +208,8 @@
 				{#each books as book (book.id)}
 					<BookCard
 						{book}
-						onDownload={handleDownload}
-						onShare={handleShare}
+						onDownload={(selected) => openTitleAdjustModal(selected, "download")}
+						onShare={(selected) => openTitleAdjustModal(selected, "library")}
 					/>
 				{/each}
 			</div>
@@ -192,10 +236,136 @@
 	</div>
 </div>
 
+{#if showTitleAdjustModal && pendingBook}
+	<div
+		class="title-adjust-modal-overlay"
+		role="button"
+		tabindex="0"
+		aria-label="Close title adjustment modal"
+		onclick={closeTitleAdjustModal}
+		onkeydown={(event) => event.key === "Escape" && closeTitleAdjustModal()}
+	>
+		<div
+			class="title-adjust-modal-content"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="title-adjust-heading"
+			tabindex="-1"
+			onclick={(event) => event.stopPropagation()}
+			onkeydown={(event) => event.stopPropagation()}
+		>
+			<h3 id="title-adjust-heading">Adjust Book Title</h3>
+			<p class="title-adjust-description">
+				This title will be used for the filename and reader metadata.
+			</p>
+			<label class="title-adjust-label" for="adjusted-book-title">Title</label>
+			<input
+				id="adjusted-book-title"
+				type="text"
+				bind:value={adjustedTitle}
+				placeholder="Book title"
+			/>
+			<div class="title-adjust-actions">
+				<button type="button" class="title-adjust-cancel" onclick={closeTitleAdjustModal}>
+					Cancel
+				</button>
+				<button
+					type="button"
+					class="title-adjust-confirm"
+					onclick={confirmTitleAdjustAction}
+				>
+					{pendingBookAction === "download" ? "Download" : "Add To Library"}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <style>
 	.search-page {
 		padding: 2rem 0;
 		color: var(--color-text-primary);
+	}
+
+	.title-adjust-modal-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(1, 6, 14, 0.72);
+		backdrop-filter: blur(8px);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1100;
+	}
+
+	.title-adjust-modal-content {
+		width: min(520px, 92vw);
+		background: linear-gradient(160deg, rgba(17, 37, 58, 0.95), rgba(11, 25, 40, 0.95));
+		border: 1px solid rgba(160, 194, 226, 0.24);
+		border-radius: 1rem;
+		padding: 1.25rem;
+		box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
+	}
+
+	.title-adjust-modal-content h3 {
+		margin: 0;
+		font-size: 1.15rem;
+		color: rgba(236, 245, 255, 0.95);
+	}
+
+	.title-adjust-description {
+		margin: 0.45rem 0 1rem;
+		font-size: 0.88rem;
+		color: rgba(214, 232, 252, 0.74);
+	}
+
+	.title-adjust-label {
+		display: block;
+		font-size: 0.8rem;
+		color: rgba(214, 232, 252, 0.78);
+		margin-bottom: 0.35rem;
+	}
+
+	.title-adjust-modal-content input {
+		width: 100%;
+		box-sizing: border-box;
+		padding: 0.7rem 0.85rem;
+		background: rgba(9, 22, 37, 0.78);
+		border: 1px solid rgba(160, 194, 226, 0.24);
+		border-radius: 0.65rem;
+		color: rgba(236, 245, 255, 0.95);
+		font-size: 0.95rem;
+	}
+
+	.title-adjust-modal-content input:focus {
+		outline: none;
+		border-color: rgba(120, 196, 255, 0.72);
+		box-shadow: 0 0 0 3px rgba(61, 162, 255, 0.22);
+	}
+
+	.title-adjust-actions {
+		margin-top: 1rem;
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.6rem;
+	}
+
+	.title-adjust-cancel {
+		padding: 0.55rem 0.9rem;
+		background: rgba(12, 28, 44, 0.76);
+		border: 1px solid rgba(167, 203, 237, 0.26);
+		border-radius: 0.55rem;
+		color: rgba(228, 240, 255, 0.85);
+		cursor: pointer;
+	}
+
+	.title-adjust-confirm {
+		padding: 0.55rem 0.9rem;
+		background: linear-gradient(135deg, #2f8be9, #4ea7ff);
+		border: 1px solid rgba(124, 193, 255, 0.38);
+		border-radius: 0.55rem;
+		color: #f6fbff;
+		cursor: pointer;
 	}
 
 	.page-header {
