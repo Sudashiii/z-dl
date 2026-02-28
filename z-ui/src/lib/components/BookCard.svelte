@@ -214,7 +214,7 @@
 
 	.action-btn.primary {
 		background: var(--color-primary);
-		color: #0d1013;
+		color: var(--color-primary-foreground);
 	}
 
 	.action-btn.primary:hover {

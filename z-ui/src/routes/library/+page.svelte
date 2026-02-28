@@ -1747,7 +1747,7 @@
 										<input class="detail-v2-input" bind:value={metadataDraft.googleBooksId} />
 									{:else if selectedBookDetail.googleBooksId}
 										<p>
-											<a class="detail-v2-meta-link" href={toGoogleBooksUrl(selectedBookDetail.googleBooksId)} target="_blank" rel="noreferrer">
+											<a class="detail-v2-meta-link" href={toGoogleBooksUrl(selectedBookDetail.googleBooksId)} target="_blank" rel="noopener noreferrer">
 												{selectedBookDetail.googleBooksId}
 											</a>
 										</p>
@@ -1761,7 +1761,7 @@
 										<input class="detail-v2-input" bind:value={metadataDraft.openLibraryKey} />
 									{:else if selectedBookDetail.openLibraryKey}
 										<p>
-											<a class="detail-v2-meta-link" href={toOpenLibraryUrl(selectedBookDetail.openLibraryKey)} target="_blank" rel="noreferrer">
+											<a class="detail-v2-meta-link" href={toOpenLibraryUrl(selectedBookDetail.openLibraryKey)} target="_blank" rel="noopener noreferrer">
 												{selectedBookDetail.openLibraryKey}
 											</a>
 										</p>

@@ -4,7 +4,7 @@ import { ExternalBookMetadataService } from '$lib/server/application/services/Ex
 import { sanitizeLibraryStorageKey } from '$lib/server/domain/value-objects/StorageKeySanitizer';
 import { apiError, apiOk, type ApiResult } from '$lib/server/http/api';
 import type { ExternalBookMetadata } from '$lib/server/application/services/ExternalBookMetadataService';
-import { createChildLogger } from '$lib/server/infrastructure/logging/logger';
+import { createChildLogger, toLogError } from '$lib/server/infrastructure/logging/logger';
 
 interface PutLibraryFileResult {
 	success: true;
@@ -74,13 +74,14 @@ export class PutLibraryFileUseCase {
 				identifier: null,
 				language: null
 			});
-		} catch {
+		} catch (err: unknown) {
 			this.useCaseLogger.warn(
 				{
 					event: 'library.metadata.lookup.failed',
 					originalStorageKey: title,
 					storageKey: sanitizedKey,
-					lookupTitle: displayTitle
+					lookupTitle: displayTitle,
+					error: toLogError(err)
 				},
 				'Metadata lookup failed during manual upload, continuing with empty metadata'
 			);

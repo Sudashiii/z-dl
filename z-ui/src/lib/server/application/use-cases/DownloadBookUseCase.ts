@@ -4,7 +4,7 @@ import { EpubMetadataService } from '$lib/server/application/services/EpubMetada
 import { ExternalBookMetadataService } from '$lib/server/application/services/ExternalBookMetadataService';
 import { buildSanitizedBookFileName } from '$lib/server/domain/value-objects/StorageKeySanitizer';
 import { apiOk, type ApiResult } from '$lib/server/http/api';
-import { createChildLogger } from '$lib/server/infrastructure/logging/logger';
+import { createChildLogger, toLogError } from '$lib/server/infrastructure/logging/logger';
 import type { ZDownloadBookRequest } from '$lib/types/ZLibrary/Requests/ZDownloadBookRequest';
 
 interface UploadService {
@@ -139,12 +139,13 @@ export class DownloadBookUseCase {
 					identifier: request.identifier ?? null,
 					language: request.language ?? null
 				});
-			} catch {
+			} catch (err: unknown) {
 				this.useCaseLogger.warn(
 					{
 						event: 'library.metadata.lookup.failed',
 						bookId: request.bookId,
-						storageKey: key
+						storageKey: key,
+						error: toLogError(err)
 					},
 					'Metadata lookup failed during Z-Library add, continuing with source metadata only'
 				);
@@ -166,7 +167,12 @@ export class DownloadBookUseCase {
 				open_library_key: pickText(null, externalMetadata?.openLibraryKey),
 				amazon_asin: pickText(null, externalMetadata?.amazonAsin),
 				external_rating: pickNumber(null, externalMetadata?.externalRating),
-				external_rating_count: pickNumber(null, externalMetadata?.externalRatingCount),
+				external_rating_count:
+					typeof externalMetadata?.externalRatingCount === 'number' &&
+					Number.isFinite(externalMetadata.externalRatingCount) &&
+					externalMetadata.externalRatingCount >= 0
+						? externalMetadata.externalRatingCount
+						: null,
 				cover: pickText(request.cover, externalMetadata?.cover),
 				extension: pickText(request.extension, null),
 				filesize: pickNumber(request.filesize, null),
