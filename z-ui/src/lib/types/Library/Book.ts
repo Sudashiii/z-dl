@@ -4,6 +4,18 @@ export interface LibraryBook {
 	s3_storage_key: string;
 	title: string;
 	author: string | null;
+	publisher?: string | null;
+	series?: string | null;
+	volume?: string | null;
+	edition?: string | null;
+	identifier?: string | null;
+	pages?: number | null;
+	description?: string | null;
+	google_books_id?: string | null;
+	open_library_key?: string | null;
+	amazon_asin?: string | null;
+	external_rating?: number | null;
+	external_rating_count?: number | null;
 	cover: string | null;
 	extension: string | null;
 	filesize: number | null;
@@ -13,6 +25,7 @@ export interface LibraryBook {
 	progress_updated_at: string | null;
 	rating: number | null;
 	read_at?: string | null;
+	archived_at?: string | null;
 	exclude_from_new_books?: boolean;
 	progressPercent?: number | null;
 	createdAt: string | null;

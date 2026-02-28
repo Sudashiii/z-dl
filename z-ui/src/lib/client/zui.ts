@@ -22,6 +22,7 @@ import { removeLibraryBookDeviceDownload } from './routes/removeLibraryBookDevic
 import { resetDownloadStatus } from './routes/resetDownloadStatus';
 import { moveLibraryBookToTrash } from './routes/moveLibraryBookToTrash';
 import { restoreLibraryBook } from './routes/restoreLibraryBook';
+import { deleteTrashedLibraryBook } from './routes/deleteTrashedLibraryBook';
 import { queueToLibrary, type QueueResponse } from './routes/queueToLibrary';
 import type { LibraryBookDetail } from '$lib/types/Library/BookDetail';
 import { downloadLibraryBookFile } from './routes/downloadLibraryBookFile';
@@ -34,6 +35,11 @@ import {
 	updateLibraryBookState,
 	type UpdateLibraryBookStateResponse
 } from './routes/updateLibraryBookState';
+import { uploadLibraryBookFile } from './routes/uploadLibraryBookFile';
+import { updateLibraryBookMetadata, type UpdateLibraryBookMetadataRequest } from './routes/updateLibraryBookMetadata';
+import { getQueueStatus, type QueueStatusResponse } from './routes/getQueueStatus';
+import { getLibraryBookProgressHistory } from './routes/getLibraryBookProgressHistory';
+import type { BookProgressHistoryResponse } from '$lib/types/Library/BookProgressHistory';
 
 /**
  * Facade for all Z-Library UI client operations.
@@ -57,12 +63,18 @@ export const ZUI = {
 	queueToLibrary: (book: ZBook): Promise<Result<QueueResponse, ApiError>> =>
 		queueToLibrary(book),
 
+	getQueueStatus: (): Promise<Result<QueueStatusResponse, ApiError>> =>
+		getQueueStatus(),
+
 	getLibrary: (): Promise<Result<LibraryResponse, ApiError>> => getLibrary(),
 
 	getLibraryTrash: (): Promise<Result<LibraryTrashResponse, ApiError>> => getLibraryTrash(),
 
 	getLibraryBookDetail: (bookId: number): Promise<Result<LibraryBookDetail, ApiError>> =>
 		getLibraryBookDetail(bookId),
+
+	getLibraryBookProgressHistory: (bookId: number): Promise<Result<BookProgressHistoryResponse, ApiError>> =>
+		getLibraryBookProgressHistory(bookId),
 
 	refetchLibraryBookMetadata: (
 		bookId: number
@@ -79,8 +91,13 @@ export const ZUI = {
 
 	restoreLibraryBook: (bookId: number) => restoreLibraryBook(bookId),
 
+	deleteTrashedLibraryBook: (bookId: number) => deleteTrashedLibraryBook(bookId),
+
 	downloadLibraryBookFile: (storageKey: string, fileName: string) =>
 		downloadLibraryBookFile(storageKey, fileName),
+
+	uploadLibraryBookFile: (file: File): Promise<Result<void, ApiError>> =>
+		uploadLibraryBookFile(file),
 
 	updateLibraryBookRating: (
 		bookId: number,
@@ -92,9 +109,14 @@ export const ZUI = {
 
 	updateLibraryBookState: (
 		bookId: number,
-		request: { isRead?: boolean; excludeFromNewBooks?: boolean }
+		request: { isRead?: boolean; excludeFromNewBooks?: boolean; archived?: boolean }
 	): Promise<Result<UpdateLibraryBookStateResponse, ApiError>> =>
-		updateLibraryBookState(bookId, request)
+		updateLibraryBookState(bookId, request),
+
+	updateLibraryBookMetadata: (
+		bookId: number,
+		request: UpdateLibraryBookMetadataRequest
+	) => updateLibraryBookMetadata(bookId, request)
 } as const;
 
 export type ZUIClient = typeof ZUI;

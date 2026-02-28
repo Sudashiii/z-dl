@@ -126,6 +126,7 @@
 			searchBooks();
 		}
 	}
+
 </script>
 
 <div class="search-page">
@@ -392,6 +393,7 @@
 		margin-bottom: 2rem;
 		box-shadow: inset 0 1px 0 rgba(210, 230, 252, 0.04);
 	}
+
 
 	.search-bar {
 		display: flex;

@@ -2,6 +2,7 @@
 	import { onMount } from "svelte";
 	import type { LibraryBook } from "$lib/types/Library/Book";
 	import type { LibraryBookDetail } from "$lib/types/Library/BookDetail";
+	import type { BookProgressHistoryEntry } from "$lib/types/Library/BookProgressHistory";
 	import type { ApiError } from "$lib/types/ApiError";
 	import Loading from "$lib/components/Loading.svelte";
 	import { ZUI } from "$lib/client/zui";
@@ -9,7 +10,26 @@
 	import { toastStore } from "$lib/client/stores/toastStore.svelte";
 
 	type LibrarySort = "dateAdded" | "titleAsc" | "progressRecent";
-	type LibraryView = "library" | "trash";
+	type LibraryView = "library" | "archived" | "trash";
+	type MetadataDraft = {
+		title: string;
+		author: string;
+		publisher: string;
+		series: string;
+		volume: string;
+		edition: string;
+		identifier: string;
+		pages: string;
+		description: string;
+		cover: string;
+		language: string;
+		year: string;
+		googleBooksId: string;
+		openLibraryKey: string;
+		amazonAsin: string;
+		externalRating: string;
+		externalRatingCount: string;
+	};
 	const LIBRARY_SORT_KEY = "librarySort";
 
 	let books = $state<LibraryBook[]>([]);
@@ -26,25 +46,59 @@
 	let selectedBookDetail = $state<LibraryBookDetail | null>(null);
 	let isDetailLoading = $state(false);
 	let isRefetchingMetadata = $state(false);
+	let isProgressHistoryLoading = $state(false);
+	let showProgressHistory = $state(false);
 	let removingDeviceId = $state<string | null>(null);
 	let isMovingToTrash = $state(false);
 	let isDownloadingLibraryFile = $state(false);
+	let isUploadingLibraryFile = $state(false);
 	let isUpdatingRating = $state(false);
 	let isUpdatingReadState = $state(false);
+	let isUpdatingArchiveState = $state(false);
 	let isUpdatingNewBooksExclusion = $state(false);
+	let isEditingMetadata = $state(false);
+	let isSavingMetadata = $state(false);
 	let restoringBookId = $state<number | null>(null);
+	let deletingTrashBookId = $state<number | null>(null);
 	let detailError = $state<string | null>(null);
+	let progressHistoryError = $state<string | null>(null);
+	let progressHistory = $state<BookProgressHistoryEntry[]>([]);
+	let uploadInputEl = $state<HTMLInputElement | null>(null);
+	let metadataDraft = $state<MetadataDraft>({
+		title: "",
+		author: "",
+		publisher: "",
+		series: "",
+		volume: "",
+		edition: "",
+		identifier: "",
+		pages: "",
+		description: "",
+		cover: "",
+		language: "",
+		year: "",
+		googleBooksId: "",
+		openLibraryKey: "",
+		amazonAsin: "",
+		externalRating: "",
+		externalRatingCount: ""
+	});
 
-	let sortedBooks = $derived(sortBooks(books, sortBy));
+	let activeLibraryBooks = $derived(books.filter((book) => !book.archived_at));
+	let archivedBooks = $derived(books.filter((book) => Boolean(book.archived_at)));
+	let sortedBooks = $derived(sortBooks(activeLibraryBooks, sortBy));
+	let sortedArchivedBooks = $derived(sortBooks(archivedBooks, sortBy));
 
-	onMount(async () => {
-		if (typeof localStorage !== "undefined") {
-			const stored = localStorage.getItem(LIBRARY_SORT_KEY);
-			if (stored === "dateAdded" || stored === "titleAsc" || stored === "progressRecent") {
-				sortBy = stored;
+	onMount(() => {
+		(async () => {
+			if (typeof localStorage !== "undefined") {
+				const stored = localStorage.getItem(LIBRARY_SORT_KEY);
+				if (stored === "dateAdded" || stored === "titleAsc" || stored === "progressRecent") {
+					sortBy = stored;
+				}
 			}
-		}
-		await loadLibrary();
+			await loadLibrary();
+		})();
 	});
 
 	async function loadLibrary() {
@@ -61,6 +115,7 @@
 
 		isLoading = false;
 	}
+
 
 	async function loadTrash() {
 		isLoading = true;
@@ -91,12 +146,17 @@
 		selectedBook = book;
 		selectedBookDetail = null;
 		detailError = null;
+		progressHistoryError = null;
+		progressHistory = [];
+		showProgressHistory = false;
 		showDetailModal = true;
 		isDetailLoading = true;
 
 		const result = await ZUI.getLibraryBookDetail(book.id);
 		if (result.ok) {
 			selectedBookDetail = result.value;
+			initializeMetadataDraft(result.value);
+			await loadProgressHistory(book.id);
 		} else {
 			detailError = result.error.message;
 		}
@@ -114,13 +174,61 @@
 		selectedBookDetail = null;
 		detailError = null;
 		isDetailLoading = false;
+		isProgressHistoryLoading = false;
 		isRefetchingMetadata = false;
 		removingDeviceId = null;
 		isMovingToTrash = false;
 		isDownloadingLibraryFile = false;
 		isUpdatingRating = false;
 		isUpdatingReadState = false;
+		isUpdatingArchiveState = false;
 		isUpdatingNewBooksExclusion = false;
+		isEditingMetadata = false;
+		isSavingMetadata = false;
+		progressHistoryError = null;
+		progressHistory = [];
+		showProgressHistory = false;
+	}
+
+	async function loadProgressHistory(bookId: number): Promise<void> {
+		isProgressHistoryLoading = true;
+		progressHistoryError = null;
+		const result = await ZUI.getLibraryBookProgressHistory(bookId);
+		isProgressHistoryLoading = false;
+
+		if (!result.ok) {
+			progressHistoryError = result.error.message;
+			progressHistory = [];
+			return;
+		}
+
+		progressHistory = result.value.history;
+	}
+
+	function toDraftText(value: string | number | null | undefined): string {
+		return value === null || value === undefined ? "" : String(value);
+	}
+
+	function initializeMetadataDraft(detail: LibraryBookDetail): void {
+		metadataDraft = {
+			title: toDraftText(detail.title),
+			author: toDraftText(detail.author),
+			publisher: toDraftText(detail.publisher),
+			series: toDraftText(detail.series),
+			volume: toDraftText(detail.volume),
+			edition: toDraftText(detail.edition),
+			identifier: toDraftText(detail.identifier),
+			pages: toDraftText(detail.pages),
+			description: toDraftText(detail.description),
+			cover: toDraftText(selectedBook?.cover ?? ""),
+			language: toDraftText(selectedBook?.language ?? ""),
+			year: toDraftText(selectedBook?.year ?? ""),
+			googleBooksId: toDraftText(detail.googleBooksId),
+			openLibraryKey: toDraftText(detail.openLibraryKey),
+			amazonAsin: toDraftText(detail.amazonAsin),
+			externalRating: toDraftText(detail.externalRating),
+			externalRatingCount: toDraftText(detail.externalRatingCount)
+		};
 	}
 
 	function openResetFromDetail(): void {
@@ -138,6 +246,18 @@
 		zLibId: string | null;
 		title: string;
 		author: string | null;
+		publisher: string | null;
+		series: string | null;
+		volume: string | null;
+		edition: string | null;
+		identifier: string | null;
+		pages: number | null;
+		description: string | null;
+		googleBooksId: string | null;
+		openLibraryKey: string | null;
+		amazonAsin: string | null;
+		externalRating: number | null;
+		externalRatingCount: number | null;
 		cover: string | null;
 		extension: string | null;
 		filesize: number | null;
@@ -154,6 +274,18 @@
 			zLibId: updated.zLibId,
 			title: updated.title,
 			author: updated.author,
+			publisher: updated.publisher,
+			series: updated.series,
+			volume: updated.volume,
+			edition: updated.edition,
+			identifier: updated.identifier,
+			pages: updated.pages,
+			description: updated.description,
+			google_books_id: updated.googleBooksId,
+			open_library_key: updated.openLibraryKey,
+			amazon_asin: updated.amazonAsin,
+			external_rating: updated.externalRating,
+			external_rating_count: updated.externalRatingCount,
 			cover: updated.cover,
 			extension: updated.extension,
 			filesize: updated.filesize,
@@ -181,8 +313,102 @@
 		}
 
 		applyBookMetadataUpdate(result.value.book);
+		if (selectedBookDetail) {
+			selectedBookDetail = {
+				...selectedBookDetail,
+				title: result.value.book.title,
+				author: result.value.book.author,
+				publisher: result.value.book.publisher,
+				series: result.value.book.series,
+				volume: result.value.book.volume,
+				edition: result.value.book.edition,
+				identifier: result.value.book.identifier,
+				pages: result.value.book.pages,
+				description: result.value.book.description
+				,
+				googleBooksId: result.value.book.googleBooksId,
+				openLibraryKey: result.value.book.openLibraryKey,
+				amazonAsin: result.value.book.amazonAsin,
+				externalRating: result.value.book.externalRating,
+				externalRatingCount: result.value.book.externalRatingCount
+			};
+			initializeMetadataDraft(selectedBookDetail);
+		}
 		detailError = null;
 		toastStore.add("Book metadata refreshed", "success");
+	}
+
+	function startMetadataEdit(): void {
+		if (!selectedBookDetail) {
+			return;
+		}
+		initializeMetadataDraft(selectedBookDetail);
+		isEditingMetadata = true;
+	}
+
+	function cancelMetadataEdit(): void {
+		isEditingMetadata = false;
+		if (selectedBookDetail) {
+			initializeMetadataDraft(selectedBookDetail);
+		}
+	}
+
+	function parseNullableNumber(value: string): number | null {
+		const trimmed = value.trim();
+		if (!trimmed) {
+			return null;
+		}
+		const parsed = Number(trimmed);
+		return Number.isFinite(parsed) ? parsed : null;
+	}
+
+	async function saveMetadataEdit(): Promise<void> {
+		if (!selectedBook || !selectedBookDetail || isSavingMetadata) {
+			return;
+		}
+
+		const title = metadataDraft.title.trim();
+		if (!title) {
+			toastStore.add("Title cannot be empty", "error");
+			return;
+		}
+
+		isSavingMetadata = true;
+		const updateResult = await ZUI.updateLibraryBookMetadata(selectedBook.id, {
+			title,
+			author: metadataDraft.author.trim() || null,
+			publisher: metadataDraft.publisher.trim() || null,
+			series: metadataDraft.series.trim() || null,
+			volume: metadataDraft.volume.trim() || null,
+			edition: metadataDraft.edition.trim() || null,
+			identifier: metadataDraft.identifier.trim() || null,
+			pages: parseNullableNumber(metadataDraft.pages),
+			description: metadataDraft.description.trim() || null,
+			cover: metadataDraft.cover.trim() || null,
+			language: metadataDraft.language.trim() || null,
+			year: parseNullableNumber(metadataDraft.year),
+			googleBooksId: metadataDraft.googleBooksId.trim() || null,
+			openLibraryKey: metadataDraft.openLibraryKey.trim() || null,
+			amazonAsin: metadataDraft.amazonAsin.trim() || null,
+			externalRating: parseNullableNumber(metadataDraft.externalRating),
+			externalRatingCount: parseNullableNumber(metadataDraft.externalRatingCount),
+		});
+		isSavingMetadata = false;
+
+		if (!updateResult.ok) {
+			toastStore.add(`Failed to save metadata: ${updateResult.error.message}`, "error");
+			return;
+		}
+
+		const detailResult = await ZUI.getLibraryBookDetail(selectedBook.id);
+		if (detailResult.ok) {
+			selectedBookDetail = detailResult.value;
+			initializeMetadataDraft(detailResult.value);
+		}
+
+		await loadLibrary();
+		isEditingMetadata = false;
+		toastStore.add("Metadata updated", "success");
 	}
 
 	function setBookDownloadedState(bookId: number, isDownloaded: boolean): void {
@@ -302,6 +528,48 @@
 		);
 	}
 
+	async function handleToggleArchiveState(): Promise<void> {
+		if (!selectedBook || !selectedBookDetail || isUpdatingArchiveState) {
+			return;
+		}
+
+		const targetBook = selectedBook;
+		const nextArchived = !selectedBookDetail.isArchived;
+		isUpdatingArchiveState = true;
+		const result = await ZUI.updateLibraryBookState(targetBook.id, { archived: nextArchived });
+		isUpdatingArchiveState = false;
+
+		if (!result.ok) {
+			toastStore.add(`Failed to update archive state: ${result.error.message}`, "error");
+			return;
+		}
+
+		selectedBookDetail = {
+			...selectedBookDetail,
+			isArchived: result.value.isArchived,
+			archivedAt: result.value.archivedAt,
+			excludeFromNewBooks: result.value.excludeFromNewBooks
+		};
+
+		const index = books.findIndex((book) => book.id === targetBook.id);
+		if (index !== -1) {
+			const updatedBook: LibraryBook = {
+				...books[index],
+				archived_at: result.value.archivedAt,
+				exclude_from_new_books: result.value.excludeFromNewBooks
+			};
+			books = [...books.slice(0, index), updatedBook, ...books.slice(index + 1)];
+			selectedBook = updatedBook;
+		}
+
+		toastStore.add(
+			result.value.isArchived
+				? "Book archived (it will no longer appear in New Books API)"
+				: "Book unarchived",
+			"success"
+		);
+	}
+
 	async function handleRemoveDeviceDownload(deviceId: string): Promise<void> {
 		if (!selectedBook || !selectedBookDetail || removingDeviceId) {
 			return;
@@ -380,7 +648,7 @@
 	}
 
 	async function handleRestoreBook(book: LibraryBook): Promise<void> {
-		if (restoringBookId !== null) {
+		if (restoringBookId !== null || deletingTrashBookId !== null) {
 			return;
 		}
 
@@ -396,6 +664,61 @@
 		toastStore.add(`Restored "${book.title}"`, "success");
 		await loadLibrary();
 		await loadTrash();
+	}
+
+	async function handleDeleteTrashedBook(book: LibraryBook): Promise<void> {
+		if (restoringBookId !== null || deletingTrashBookId !== null) {
+			return;
+		}
+
+		const confirmed = window.confirm(
+			`Delete "${book.title}" permanently? This removes it from the database and R2 storage.`
+		);
+		if (!confirmed) {
+			return;
+		}
+
+		deletingTrashBookId = book.id;
+		const result = await ZUI.deleteTrashedLibraryBook(book.id);
+		deletingTrashBookId = null;
+
+		if (!result.ok) {
+			toastStore.add(`Failed to delete permanently: ${result.error.message}`, "error");
+			return;
+		}
+
+		toastStore.add(`Deleted "${book.title}" permanently`, "success");
+		await loadLibrary();
+		await loadTrash();
+	}
+
+	function openLibraryUploadPicker(): void {
+		if (currentView !== "library" || isUploadingLibraryFile) {
+			return;
+		}
+
+		uploadInputEl?.click();
+	}
+
+	async function handleLibraryUploadChange(event: Event): Promise<void> {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file || isUploadingLibraryFile) {
+			return;
+		}
+
+		isUploadingLibraryFile = true;
+		const result = await ZUI.uploadLibraryBookFile(file);
+		isUploadingLibraryFile = false;
+		input.value = "";
+
+		if (!result.ok) {
+			toastStore.add(`Failed to upload book: ${result.error.message}`, "error");
+			return;
+		}
+
+		toastStore.add(`Uploaded "${file.name}"`, "success");
+		await loadLibrary();
 	}
 
 	async function confirmResetStatus() {
@@ -462,6 +785,7 @@
 		});
 	}
 
+
 	function handleCardKeyDown(event: KeyboardEvent, book: LibraryBook) {
 		if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
@@ -472,6 +796,54 @@
 	function formatProgress(percent: number | null): string {
 		if (percent === null) return "No progress yet";
 		return `${percent.toFixed(1)}%`;
+	}
+
+	function formatDateTime(dateStr: string): string {
+		const date = new Date(dateStr);
+		return date.toLocaleString("en-US", {
+			year: "numeric",
+			month: "short",
+			day: "numeric",
+			hour: "2-digit",
+			minute: "2-digit"
+		});
+	}
+
+	function getCurrentPage(progressPercent: number | null, pages: number | null): number | null {
+		if (progressPercent === null || pages === null || pages <= 0) {
+			return null;
+		}
+
+		const ratio = Math.max(0, Math.min(100, progressPercent)) / 100;
+		if (ratio === 0) {
+			return 0;
+		}
+
+		return Math.min(pages, Math.max(1, Math.round(ratio * pages)));
+	}
+
+	function getProgressHistoryPageRange(
+		history: BookProgressHistoryEntry[],
+		index: number,
+		pages: number | null
+	): string | null {
+		if (!pages || pages <= 0) {
+			return null;
+		}
+
+		const current = history[index];
+		if (!current) {
+			return null;
+		}
+
+		const previous = history[index + 1];
+		const startPage = getCurrentPage(previous?.progressPercent ?? current.progressPercent, pages);
+		const endPage = getCurrentPage(current.progressPercent, pages);
+		if (startPage === null || endPage === null) {
+			return null;
+		}
+
+		return `Page ${startPage} -> ${endPage}`;
 	}
 
 	function handleSortChange(event: Event): void {
@@ -514,7 +886,7 @@
 		}
 
 		currentView = nextView;
-		if (nextView === "library") {
+		if (nextView === "library" || nextView === "archived") {
 			await loadLibrary();
 			return;
 		}
@@ -528,11 +900,13 @@
 
 	<header class="page-header">
 		<div class="header-content">
-			<h1>{currentView === "library" ? "My Library" : "Trash"}</h1>
+			<h1>{currentView === "library" ? "My Library" : currentView === "archived" ? "Archived" : "Trash"}</h1>
 			<p>
 				{currentView === "library"
 					? "Your saved and downloaded books"
-					: "Books in trash are permanently deleted after 30 days"}
+					: currentView === "archived"
+						? "Archived books stay stored but are excluded from New Books API"
+						: "Books in trash are permanently deleted after 30 days"}
 			</p>
 		</div>
 		<div class="header-controls">
@@ -553,8 +927,16 @@
 				>
 					Trash
 				</button>
+				<button
+					type="button"
+					class:active={currentView === "archived"}
+					aria-pressed={currentView === "archived"}
+					onclick={() => switchView("archived")}
+				>
+					Archived
+				</button>
 			</div>
-			{#if currentView === "library"}
+			{#if currentView === "library" || currentView === "archived"}
 				<div class="sort-group">
 					<label for="library-sort">Sort</label>
 					<select id="library-sort" value={sortBy} onchange={handleSortChange}>
@@ -564,13 +946,29 @@
 					</select>
 				</div>
 			{/if}
+			{#if currentView === "library"}
+				<button
+					type="button"
+					class="upload-btn"
+					onclick={openLibraryUploadPicker}
+					disabled={isUploadingLibraryFile}
+				>
+					{isUploadingLibraryFile ? "Uploading..." : "Upload file"}
+				</button>
+				<input
+					class="upload-input"
+					type="file"
+					bind:this={uploadInputEl}
+					onchange={handleLibraryUploadChange}
+				/>
+			{/if}
 			<div class="stat-badge">
 				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
 					<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
 				</svg>
 				<span
-					>{(currentView === "library" ? sortedBooks.length : trashBooks.length)} book{(currentView === "library" ? sortedBooks.length : trashBooks.length) !== 1 ? "s" : ""}</span
+					>{(currentView === "library" ? sortedBooks.length : currentView === "archived" ? sortedArchivedBooks.length : trashBooks.length)} book{(currentView === "library" ? sortedBooks.length : currentView === "archived" ? sortedArchivedBooks.length : trashBooks.length) !== 1 ? "s" : ""}</span
 				>
 			</div>
 		</div>
@@ -589,8 +987,8 @@
 	{/if}
 
 	<div class="book-grid">
-		{#if currentView === "library" && sortedBooks.length > 0}
-			{#each sortedBooks as book (book.id)}
+		{#if (currentView === "library" && sortedBooks.length > 0) || (currentView === "archived" && sortedArchivedBooks.length > 0)}
+			{#each (currentView === "library" ? sortedBooks : sortedArchivedBooks) as book (book.id)}
 				<div
 					class="book-card clickable"
 					role="button"
@@ -621,6 +1019,9 @@
 								<span class="status-badge progress" title="Reading progress">
 									{book.progressPercent.toFixed(1)}%
 								</span>
+							{/if}
+							{#if book.archived_at}
+								<span class="status-badge archived" title="Archived">Archived</span>
 							{/if}
 							{#if book.isDownloaded}
 								<span
@@ -689,9 +1090,16 @@
 							<button
 								class="detail-refetch-btn"
 								onclick={() => handleRestoreBook(book)}
-								disabled={restoringBookId !== null}
+								disabled={restoringBookId !== null || deletingTrashBookId !== null}
 							>
 								{restoringBookId === book.id ? "Restoring..." : "Restore"}
+							</button>
+							<button
+								class="detail-remove-btn"
+								onclick={() => handleDeleteTrashedBook(book)}
+								disabled={restoringBookId !== null || deletingTrashBookId !== null}
+							>
+								{deletingTrashBookId === book.id ? "Deleting..." : "Delete Permanently"}
 							</button>
 						</div>
 					</div>
@@ -715,6 +1123,9 @@
 						</svg>
 						Go to Search
 					</a>
+				{:else if currentView === "archived"}
+					<h3>No archived books</h3>
+					<p>Archive books from the detail view to keep them out of New Books downloads.</p>
 				{:else}
 					<h3>Trash is empty</h3>
 					<p>Books moved to trash will appear here for 30 days.</p>
@@ -759,6 +1170,83 @@
 				<div class="detail-error">{detailError}</div>
 			{:else if selectedBookDetail}
 				<section class="detail-section">
+					<div class="metadata-header">
+						<h4>Metadata</h4>
+						{#if isEditingMetadata}
+							<div class="metadata-edit-actions">
+								<button type="button" class="detail-refetch-btn" onclick={cancelMetadataEdit} disabled={isSavingMetadata}>Cancel</button>
+								<button type="button" class="detail-download-btn" onclick={saveMetadataEdit} disabled={isSavingMetadata}>
+									{isSavingMetadata ? "Saving..." : "Save"}
+								</button>
+							</div>
+						{:else}
+							<button type="button" class="detail-refetch-btn" onclick={startMetadataEdit}>Edit</button>
+						{/if}
+					</div>
+					{#if isEditingMetadata}
+						<div class="metadata-edit-grid">
+							<label><span>Title</span><input bind:value={metadataDraft.title} /></label>
+							<label><span>Author</span><input bind:value={metadataDraft.author} /></label>
+							<label><span>Publisher</span><input bind:value={metadataDraft.publisher} /></label>
+							<label><span>Series</span><input bind:value={metadataDraft.series} /></label>
+							<label><span>Volume</span><input bind:value={metadataDraft.volume} /></label>
+							<label><span>Edition</span><input bind:value={metadataDraft.edition} /></label>
+							<label><span>Identifier</span><input bind:value={metadataDraft.identifier} /></label>
+							<label><span>Pages</span><input bind:value={metadataDraft.pages} /></label>
+							<label><span>Cover URL</span><input bind:value={metadataDraft.cover} /></label>
+							<label><span>Language</span><input bind:value={metadataDraft.language} /></label>
+							<label><span>Year</span><input bind:value={metadataDraft.year} /></label>
+							<label><span>Google Books ID</span><input bind:value={metadataDraft.googleBooksId} /></label>
+							<label><span>Open Library Key</span><input bind:value={metadataDraft.openLibraryKey} /></label>
+							<label><span>Amazon ASIN</span><input bind:value={metadataDraft.amazonAsin} /></label>
+							<label><span>External Rating</span><input bind:value={metadataDraft.externalRating} /></label>
+							<label><span>External Rating Count</span><input bind:value={metadataDraft.externalRatingCount} /></label>
+							<label class="metadata-edit-full"><span>Description</span><textarea rows="4" bind:value={metadataDraft.description}></textarea></label>
+						</div>
+					{:else}
+						<div class="metadata-grid">
+							<div class="metadata-item"><span>Title</span><strong>{selectedBookDetail.title}</strong></div>
+							{#if selectedBookDetail.author}
+								<div class="metadata-item"><span>Author</span><strong>{selectedBookDetail.author}</strong></div>
+							{/if}
+							{#if selectedBookDetail.publisher}
+								<div class="metadata-item"><span>Publisher</span><strong>{selectedBookDetail.publisher}</strong></div>
+							{/if}
+							{#if selectedBookDetail.series}
+								<div class="metadata-item"><span>Series</span><strong>{selectedBookDetail.series}</strong></div>
+							{/if}
+							{#if selectedBookDetail.volume}
+								<div class="metadata-item"><span>Volume</span><strong>{selectedBookDetail.volume}</strong></div>
+							{/if}
+							{#if selectedBookDetail.edition}
+								<div class="metadata-item"><span>Edition</span><strong>{selectedBookDetail.edition}</strong></div>
+							{/if}
+							{#if selectedBookDetail.identifier}
+								<div class="metadata-item"><span>Identifier</span><strong>{selectedBookDetail.identifier}</strong></div>
+							{/if}
+							{#if selectedBookDetail.pages}
+								<div class="metadata-item"><span>Pages</span><strong>{selectedBookDetail.pages}</strong></div>
+							{/if}
+							{#if selectedBookDetail.externalRating !== null}
+								<div class="metadata-item"><span>External Rating</span><strong>{selectedBookDetail.externalRating.toFixed(1)} ({selectedBookDetail.externalRatingCount ?? 0})</strong></div>
+							{/if}
+							{#if selectedBookDetail.googleBooksId}
+								<div class="metadata-item"><span>Google Books</span><strong>{selectedBookDetail.googleBooksId}</strong></div>
+							{/if}
+							{#if selectedBookDetail.openLibraryKey}
+								<div class="metadata-item"><span>Open Library</span><strong>{selectedBookDetail.openLibraryKey}</strong></div>
+							{/if}
+							{#if selectedBookDetail.amazonAsin}
+								<div class="metadata-item"><span>Amazon ASIN</span><strong>{selectedBookDetail.amazonAsin}</strong></div>
+							{/if}
+						</div>
+						{#if selectedBookDetail.description}
+							<p class="metadata-description">{selectedBookDetail.description}</p>
+						{/if}
+					{/if}
+				</section>
+
+				<section class="detail-section">
 					<h4>Reading Progress</h4>
 					<div class="progress-row">
 						<div class="progress-track">
@@ -769,6 +1257,45 @@
 						</div>
 						<span class="progress-value">{formatProgress(selectedBookDetail.progressPercent)}</span>
 					</div>
+					{#if getCurrentPage(selectedBookDetail.progressPercent, selectedBookDetail.pages) !== null}
+						<p class="detail-muted">
+							Current page: {getCurrentPage(selectedBookDetail.progressPercent, selectedBookDetail.pages)} / {selectedBookDetail.pages}
+						</p>
+					{/if}
+					<div class="history-header">
+						<button
+							type="button"
+							class="detail-refetch-btn"
+							onclick={() => (showProgressHistory = !showProgressHistory)}
+						>
+							{showProgressHistory ? "Hide Progress History" : "View Progress History"}
+						</button>
+					</div>
+					{#if showProgressHistory}
+						{#if isProgressHistoryLoading}
+							<p class="detail-muted">Loading progress history...</p>
+						{:else if progressHistoryError}
+							<p class="detail-error">{progressHistoryError}</p>
+						{:else if progressHistory.length === 0}
+							<p class="detail-muted">No progress history available yet.</p>
+						{:else}
+							<ul class="progress-history-list">
+								{#each progressHistory as entry, index (`${entry.recordedAt}-${entry.progressPercent}-${index}`)}
+									<li>
+										<div class="progress-history-main">
+											<span class="progress-history-percent">{entry.progressPercent.toFixed(1)}%</span>
+											<span class="progress-history-time">{formatDateTime(entry.recordedAt)}</span>
+										</div>
+										{#if getProgressHistoryPageRange(progressHistory, index, selectedBookDetail.pages)}
+											<span class="progress-history-range">
+												{getProgressHistoryPageRange(progressHistory, index, selectedBookDetail.pages)}
+											</span>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					{/if}
 					<div class="read-state-row">
 						<button
 							type="button"
@@ -792,13 +1319,16 @@
 							<span class="read-state-label">Unread</span>
 						{/if}
 					</div>
+					{#if selectedBookDetail.isArchived}
+						<p class="detail-muted">Archived{selectedBookDetail.archivedAt ? ` on ${formatDate(selectedBookDetail.archivedAt)}` : ""}. Archived books are always excluded from New Books API.</p>
+					{/if}
 
 					<label class="exclude-new-books-row">
 						<input
 							type="checkbox"
 							checked={selectedBookDetail.excludeFromNewBooks}
 							onchange={handleExcludeFromNewBooksToggle}
-							disabled={isUpdatingNewBooksExclusion}
+							disabled={isUpdatingNewBooksExclusion || selectedBookDetail.isArchived}
 						/>
 						<span>Exclude this book from the New Books API</span>
 					</label>
@@ -866,6 +1396,19 @@
 						disabled={isRefetchingMetadata}
 					>
 						{isRefetchingMetadata ? "Refetching..." : "Refetch Metadata"}
+					</button>
+					<button
+						class="detail-refetch-btn"
+						onclick={handleToggleArchiveState}
+						disabled={isUpdatingArchiveState}
+					>
+						{#if isUpdatingArchiveState}
+							Saving...
+						{:else if selectedBookDetail.isArchived}
+							Unarchive
+						{:else}
+							Archive
+						{/if}
 					</button>
 					{#if selectedBook.isDownloaded}
 						<button
@@ -1007,6 +1550,32 @@
 		padding: 0.32rem 0.5rem;
 	}
 
+	.upload-btn {
+		border: 1px solid rgba(123, 193, 255, 0.36);
+		background: linear-gradient(135deg, rgba(34, 88, 136, 0.72), rgba(25, 65, 104, 0.72));
+		color: rgba(236, 246, 255, 0.95);
+		border-radius: 0.75rem;
+		padding: 0.5rem 0.85rem;
+		font-size: 0.8rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.upload-btn:hover {
+		border-color: rgba(150, 214, 255, 0.5);
+		background: linear-gradient(135deg, rgba(40, 101, 156, 0.78), rgba(29, 76, 122, 0.78));
+	}
+
+	.upload-btn:disabled {
+		opacity: 0.65;
+		cursor: not-allowed;
+	}
+
+	.upload-input {
+		display: none;
+	}
+
 	.stat-badge {
 		display: flex;
 		align-items: center;
@@ -1019,6 +1588,7 @@
 		font-size: 0.9rem;
 		font-weight: 600;
 	}
+
 
 	.book-grid {
 		display: grid;
@@ -1098,6 +1668,8 @@
 		margin-top: 0.65rem;
 		display: flex;
 		justify-content: flex-end;
+		gap: 0.55rem;
+		flex-wrap: wrap;
 	}
 
 	.book-info h3 {
@@ -1271,6 +1843,12 @@
 		border: 1px solid rgba(125, 195, 255, 0.32);
 	}
 
+	.status-badge.archived {
+		background: rgba(182, 152, 72, 0.2);
+		color: #f2d89a;
+		border: 1px solid rgba(225, 189, 98, 0.3);
+	}
+
 	.right-details {
 		display: flex;
 		align-items: center;
@@ -1285,16 +1863,21 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		padding: clamp(0.75rem, 3vh, 2rem);
+		overflow-y: auto;
 		z-index: 1100;
 	}
 
 	.detail-modal-content {
 		width: min(560px, 94vw);
+		max-height: calc(100dvh - clamp(1.5rem, 6vh, 4rem));
 		background: linear-gradient(160deg, rgba(17, 37, 58, 0.95), rgba(11, 25, 40, 0.95));
 		border: 1px solid rgba(160, 194, 226, 0.24);
 		border-radius: 1rem;
 		padding: 1.25rem;
 		box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
+		overflow-y: auto;
+		overscroll-behavior: contain;
 	}
 
 	.detail-header {
@@ -1302,6 +1885,13 @@
 		align-items: flex-start;
 		justify-content: space-between;
 		gap: 1rem;
+		position: sticky;
+		top: -1.25rem;
+		background: linear-gradient(160deg, rgba(17, 37, 58, 0.98), rgba(11, 25, 40, 0.98));
+		padding: 1rem 0 0.65rem;
+		margin: -1rem 0 0;
+		z-index: 2;
+		border-bottom: 1px solid rgba(160, 194, 226, 0.14);
 	}
 
 	.detail-header h3 {
@@ -1349,6 +1939,88 @@
 		color: rgba(228, 240, 255, 0.85);
 	}
 
+	.metadata-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.55rem 0.9rem;
+	}
+
+	.metadata-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.7rem;
+		margin-bottom: 0.45rem;
+	}
+
+	.metadata-header h4 {
+		margin: 0;
+	}
+
+	.metadata-edit-actions {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.metadata-edit-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.55rem 0.8rem;
+	}
+
+	.metadata-edit-grid label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+
+	.metadata-edit-grid label span {
+		font-size: 0.72rem;
+		color: rgba(190, 211, 235, 0.86);
+	}
+
+	.metadata-edit-grid input,
+	.metadata-edit-grid textarea {
+		background: rgba(9, 22, 35, 0.78);
+		border: 1px solid rgba(103, 158, 214, 0.32);
+		border-radius: 0.5rem;
+		padding: 0.45rem 0.55rem;
+		color: rgba(232, 244, 255, 0.95);
+		font-size: 0.8rem;
+	}
+
+	.metadata-edit-full {
+		grid-column: 1 / -1;
+	}
+
+	.metadata-item {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+	}
+
+	.metadata-item span {
+		font-size: 0.72rem;
+		color: rgba(190, 211, 235, 0.7);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+
+	.metadata-item strong {
+		font-size: 0.84rem;
+		color: rgba(236, 245, 255, 0.94);
+		font-weight: 600;
+		word-break: break-word;
+	}
+
+	.metadata-description {
+		margin: 0.7rem 0 0;
+		font-size: 0.82rem;
+		line-height: 1.5;
+		color: rgba(214, 232, 252, 0.8);
+		white-space: pre-wrap;
+	}
+
 	.progress-row {
 		display: flex;
 		align-items: center;
@@ -1374,6 +2046,50 @@
 		color: rgba(228, 240, 255, 0.88);
 		min-width: 5rem;
 		text-align: right;
+	}
+
+	.history-header {
+		margin-top: 0.65rem;
+	}
+
+	.progress-history-list {
+		list-style: none;
+		margin: 0.75rem 0 0;
+		padding: 0;
+		display: grid;
+		gap: 0.45rem;
+	}
+
+	.progress-history-list li {
+		background: rgba(9, 21, 34, 0.52);
+		border: 1px solid rgba(95, 139, 184, 0.2);
+		border-radius: 0.55rem;
+		padding: 0.55rem 0.65rem;
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.progress-history-main {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.55rem;
+	}
+
+	.progress-history-percent {
+		font-size: 0.82rem;
+		font-weight: 600;
+		color: rgba(236, 245, 255, 0.9);
+	}
+
+	.progress-history-time {
+		font-size: 0.74rem;
+		color: rgba(190, 211, 235, 0.7);
+	}
+
+	.progress-history-range {
+		font-size: 0.76rem;
+		color: rgba(155, 212, 255, 0.9);
 	}
 
 	.rating-row {
@@ -1491,6 +2207,12 @@
 		display: flex;
 		gap: 0.6rem;
 		justify-content: flex-end;
+		position: sticky;
+		bottom: -1.25rem;
+		background: linear-gradient(160deg, rgba(17, 37, 58, 0.98), rgba(11, 25, 40, 0.98));
+		padding: 0.85rem 0 0.2rem;
+		margin-bottom: -0.2rem;
+		border-top: 1px solid rgba(160, 194, 226, 0.14);
 	}
 
 	.detail-download-btn {
@@ -1668,6 +2390,27 @@
 	}
 
 	@media (max-width: 640px) {
+		.detail-modal-overlay {
+			align-items: center;
+			padding: 0.75rem;
+		}
+
+		.detail-modal-content {
+			width: 100%;
+			max-height: calc(100dvh - 1.5rem);
+			border-radius: 0.8rem;
+			padding: 1rem;
+		}
+
+		.detail-header {
+			top: -1rem;
+			padding-top: 0.85rem;
+		}
+
+		.detail-actions {
+			bottom: -1rem;
+		}
+
 		.page-header {
 			margin-bottom: 1.25rem;
 			gap: 0.8rem;
@@ -1681,6 +2424,11 @@
 		.sort-group {
 			flex: 1;
 			justify-content: space-between;
+		}
+
+		.upload-btn {
+			flex: 1;
+			text-align: center;
 		}
 
 		.header-content h1 {
@@ -1712,6 +2460,14 @@
 			flex-direction: column;
 			align-items: flex-start;
 			gap: 0.55rem;
+		}
+
+		.metadata-grid {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.metadata-edit-grid {
+			grid-template-columns: minmax(0, 1fr);
 		}
 
 		.right-details {

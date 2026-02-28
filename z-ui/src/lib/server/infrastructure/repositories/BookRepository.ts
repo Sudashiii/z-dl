@@ -15,6 +15,18 @@ type DbBookRow = {
 	title: string;
 	zLibId: string | null;
 	author: string | null;
+	publisher: string | null;
+	series: string | null;
+	volume: string | null;
+	edition: string | null;
+	identifier: string | null;
+	pages: number | null;
+	description: string | null;
+	googleBooksId: string | null;
+	openLibraryKey: string | null;
+	amazonAsin: string | null;
+	externalRating: number | null;
+	externalRatingCount: number | null;
 	cover: string | null;
 	extension: string | null;
 	filesize: number | null;
@@ -26,6 +38,7 @@ type DbBookRow = {
 	progressBeforeRead: number | null;
 	rating: number | null;
 	readAt: string | null;
+	archivedAt: string | null;
 	excludeFromNewBooks: boolean;
 	createdAt: string | null;
 	deletedAt: string | null;
@@ -42,6 +55,18 @@ const bookSelection = {
 	title: books.title,
 	zLibId: books.zLibId,
 	author: books.author,
+	publisher: books.publisher,
+	series: books.series,
+	volume: books.volume,
+	edition: books.edition,
+	identifier: books.identifier,
+	pages: books.pages,
+	description: books.description,
+	googleBooksId: books.googleBooksId,
+	openLibraryKey: books.openLibraryKey,
+	amazonAsin: books.amazonAsin,
+	externalRating: books.externalRating,
+	externalRatingCount: books.externalRatingCount,
 	cover: books.cover,
 	extension: books.extension,
 	filesize: books.filesize,
@@ -53,6 +78,7 @@ const bookSelection = {
 	progressBeforeRead: books.progressBeforeRead,
 	rating: books.rating,
 	readAt: books.readAt,
+	archivedAt: books.archivedAt,
 	excludeFromNewBooks: books.excludeFromNewBooks,
 	createdAt: books.createdAt,
 	deletedAt: books.deletedAt,
@@ -66,6 +92,18 @@ function mapBookRow(row: DbBookRow): Book {
 		s3_storage_key: row.s3StorageKey,
 		title: row.title,
 		author: row.author,
+		publisher: row.publisher,
+		series: row.series,
+		volume: row.volume,
+		edition: row.edition,
+		identifier: row.identifier,
+		pages: row.pages,
+		description: row.description,
+		google_books_id: row.googleBooksId,
+		open_library_key: row.openLibraryKey,
+		amazon_asin: row.amazonAsin,
+		external_rating: row.externalRating,
+		external_rating_count: row.externalRatingCount,
 		cover: row.cover,
 		extension: row.extension,
 		filesize: row.filesize,
@@ -77,6 +115,7 @@ function mapBookRow(row: DbBookRow): Book {
 		progress_before_read: row.progressBeforeRead,
 		rating: typeof row.rating === 'number' && row.rating >= 1 && row.rating <= 5 ? row.rating : null,
 		read_at: row.readAt,
+		archived_at: row.archivedAt,
 		exclude_from_new_books: row.excludeFromNewBooks,
 		createdAt: row.createdAt,
 		deleted_at: row.deletedAt,
@@ -167,6 +206,18 @@ export class BookRepository implements BookRepositoryPort {
 				s3StorageKey: book.s3_storage_key,
 				title: book.title,
 				author: book.author,
+				publisher: book.publisher,
+				series: book.series,
+				volume: book.volume,
+				edition: book.edition,
+				identifier: book.identifier,
+				pages: book.pages,
+				description: book.description,
+				googleBooksId: book.google_books_id,
+				openLibraryKey: book.open_library_key,
+				amazonAsin: book.amazon_asin,
+				externalRating: book.external_rating,
+				externalRatingCount: book.external_rating_count,
 				cover: book.cover,
 				extension: book.extension,
 				filesize: book.filesize,
@@ -194,6 +245,18 @@ export class BookRepository implements BookRepositoryPort {
 				zLibId: metadata.zLibId,
 				title: metadata.title,
 				author: metadata.author,
+				publisher: metadata.publisher,
+				series: metadata.series,
+				volume: metadata.volume,
+				edition: metadata.edition,
+				identifier: metadata.identifier,
+				pages: metadata.pages,
+				description: metadata.description,
+				googleBooksId: metadata.google_books_id,
+				openLibraryKey: metadata.open_library_key,
+				amazonAsin: metadata.amazon_asin,
+				externalRating: metadata.external_rating,
+				externalRatingCount: metadata.external_rating_count,
 				cover: metadata.cover,
 				extension: metadata.extension,
 				filesize: metadata.filesize,
@@ -262,6 +325,7 @@ export class BookRepository implements BookRepositoryPort {
 		bookId: number,
 		state: {
 			readAt?: string | null;
+			archivedAt?: string | null;
 			progressPercent?: number | null;
 			progressBeforeRead?: number | null;
 			excludeFromNewBooks?: boolean;
@@ -269,12 +333,16 @@ export class BookRepository implements BookRepositoryPort {
 	): Promise<void> {
 		const updates: {
 			readAt?: string | null;
+			archivedAt?: string | null;
 			progressPercent?: number | null;
 			progressBeforeRead?: number | null;
 			excludeFromNewBooks?: boolean;
 		} = {};
 		if (state.readAt !== undefined) {
 			updates.readAt = state.readAt;
+		}
+		if (state.archivedAt !== undefined) {
+			updates.archivedAt = state.archivedAt;
 		}
 		if (state.progressPercent !== undefined) {
 			updates.progressPercent = state.progressPercent;
@@ -305,6 +373,7 @@ export class BookRepository implements BookRepositoryPort {
 				and(
 					isNull(deviceDownloads.bookId),
 					isNull(books.deletedAt),
+					isNull(books.archivedAt),
 					eq(books.excludeFromNewBooks, false)
 				)
 			)

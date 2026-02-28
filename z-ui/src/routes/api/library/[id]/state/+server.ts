@@ -23,6 +23,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 
 	const isRead = (body as { isRead?: unknown }).isRead;
 	const excludeFromNewBooks = (body as { excludeFromNewBooks?: unknown }).excludeFromNewBooks;
+	const archived = (body as { archived?: unknown }).archived;
 
 	if (isRead !== undefined && typeof isRead !== 'boolean') {
 		return errorResponse('isRead must be a boolean', 400);
@@ -31,12 +32,16 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (excludeFromNewBooks !== undefined && typeof excludeFromNewBooks !== 'boolean') {
 		return errorResponse('excludeFromNewBooks must be a boolean', 400);
 	}
+	if (archived !== undefined && typeof archived !== 'boolean') {
+		return errorResponse('archived must be a boolean', 400);
+	}
 
 	try {
 		const result = await updateLibraryBookStateUseCase.execute({
 			bookId: id,
 			isRead,
-			excludeFromNewBooks
+			excludeFromNewBooks,
+			archived
 		});
 		if (!result.ok) {
 			requestLogger.warn(

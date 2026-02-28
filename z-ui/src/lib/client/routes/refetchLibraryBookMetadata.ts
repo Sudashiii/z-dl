@@ -9,6 +9,18 @@ export interface RefetchLibraryBookMetadataResponse {
 		zLibId: string | null;
 		title: string;
 		author: string | null;
+		publisher: string | null;
+		series: string | null;
+		volume: string | null;
+		edition: string | null;
+		identifier: string | null;
+		pages: number | null;
+		description: string | null;
+		googleBooksId: string | null;
+		openLibraryKey: string | null;
+		amazonAsin: string | null;
+		externalRating: number | null;
+		externalRatingCount: number | null;
 		cover: string | null;
 		extension: string | null;
 		filesize: number | null;

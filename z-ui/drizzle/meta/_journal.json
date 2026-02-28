@@ -57,6 +57,34 @@
       "when": 1771900000000,
       "tag": "0007_green_read_progress_restore",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1772300000000,
+      "tag": "0008_quick_archive_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1772400000000,
+      "tag": "0009_booklore_metadata_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1772500000000,
+      "tag": "0010_external_metadata_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1773000000000,
+      "tag": "0011_solid_progress_history",
+      "breakpoints": true
     }
   ]
 }

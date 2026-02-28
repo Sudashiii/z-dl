@@ -1,0 +1,20 @@
+meta {
+  name: GET Queue Status
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{base_url}}/api/zlibrary/queue
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  base_url: http://localhost:5173
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

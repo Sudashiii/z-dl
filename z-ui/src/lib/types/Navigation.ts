@@ -17,5 +17,11 @@ export const menuItems: MenuItem[] = [
 		label: 'Library',
 		href: '/library',
 		icon: 'library'
+	},
+	{
+		id: 'queue',
+		label: 'Queue',
+		href: '/queue',
+		icon: 'queue'
 	}
 ];

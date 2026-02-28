@@ -1,0 +1,21 @@
+meta {
+  name: DELETE Trash Book Permanently
+  type: http
+  seq: 29
+}
+
+delete {
+  url: {{base_url}}/api/library/{{book_id}}/trash
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  base_url: http://localhost:5173
+  book_id: 1
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

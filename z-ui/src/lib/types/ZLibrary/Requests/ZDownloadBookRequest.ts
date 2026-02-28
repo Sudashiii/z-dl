@@ -5,6 +5,13 @@ export interface ZDownloadBookRequest {
 	upload: boolean;
 	extension: string;
 	author?: string;
+	publisher?: string;
+	series?: string;
+	volume?: string;
+	edition?: string | null;
+	identifier?: string;
+	pages?: number;
+	description?: string;
 	cover?: string;
 	filesize?: number;
 	language?: string;

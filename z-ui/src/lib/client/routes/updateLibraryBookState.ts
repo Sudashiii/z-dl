@@ -9,11 +9,14 @@ export interface UpdateLibraryBookStateResponse {
 	readAt: string | null;
 	progressPercent: number | null;
 	excludeFromNewBooks: boolean;
+	isArchived: boolean;
+	archivedAt: string | null;
 }
 
 interface UpdateLibraryBookStateRequest {
 	isRead?: boolean;
 	excludeFromNewBooks?: boolean;
+	archived?: boolean;
 }
 
 export async function updateLibraryBookState(
