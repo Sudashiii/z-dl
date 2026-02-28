@@ -2,7 +2,7 @@ local _ = require("gettext")
 return {
     name = "sake",
     fullname = _("Sake"),
-    description = _([[Svelte and Koreader Ecosystem - Syncs your books (maybe).]]),
+    description = _([[Svelte and Koreader Ecosystem - Syncs your books and progress.]]),
     author = "Sascha Lorenz",
-    version = "0.4.5",
+    version = "0.4.6",
 }

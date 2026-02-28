@@ -28,7 +28,12 @@
 	<div class="sidebar-header">
 		{#if !collapsed}
 			<div class="logo">
-				<span class="logo-icon">ZD</span>
+				<span class="logo-icon" aria-hidden="true">
+					<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+						<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+					</svg>
+				</span>
 				<span class="logo-text">Z-DL</span>
 			</div>
 		{/if}
@@ -75,6 +80,26 @@
 									<path d="M3 8V3h5"></path>
 									<path d="M3 3l6 6"></path>
 								</svg>
+							{:else if item.icon === 'stats'}
+								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<line x1="12" y1="20" x2="12" y2="10"></line>
+									<line x1="18" y1="20" x2="18" y2="4"></line>
+									<line x1="6" y1="20" x2="6" y2="16"></line>
+								</svg>
+							{:else if item.icon === 'archive'}
+								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<polyline points="21 8 21 21 3 21 3 8"></polyline>
+									<rect x="1" y="3" width="22" height="5"></rect>
+									<line x1="10" y1="12" x2="14" y2="12"></line>
+								</svg>
+							{:else if item.icon === 'trash'}
+								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<polyline points="3 6 5 6 21 6"></polyline>
+									<path d="M19 6l-1 14H6L5 6"></path>
+									<path d="M10 11v6"></path>
+									<path d="M14 11v6"></path>
+									<path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+								</svg>
 							{:else if item.icon === 'book'}
 								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 									<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
@@ -117,192 +142,162 @@
 	.sidebar {
 		display: flex;
 		flex-direction: column;
-		width: var(--sidebar-width, 248px);
+		width: var(--sidebar-width);
 		height: 100vh;
-		background:
-			linear-gradient(180deg, rgba(7, 17, 30, 0.98) 0%, rgba(5, 13, 24, 0.98) 100%),
-			radial-gradient(circle at 12% 0%, rgba(61, 162, 255, 0.24), transparent 45%);
-		border-right: 1px solid rgba(160, 194, 226, 0.18);
-		transition: width 0.2s ease;
 		position: fixed;
 		left: 0;
 		top: 0;
 		z-index: 100;
-		box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
+		background: var(--color-sidebar);
+		border-right: 1px solid rgba(255, 255, 255, 0.06);
+		transition: width 0.2s ease;
 	}
 
 	.sidebar.collapsed {
-		width: var(--sidebar-collapsed-width, 72px);
+		width: var(--sidebar-collapsed-width);
 	}
 
 	.sidebar-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 1.25rem 1rem;
-		border-bottom: 1px solid rgba(160, 194, 226, 0.16);
-		min-height: 64px;
+		height: 4rem;
+		padding: 0 0.75rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 	}
 
 	.logo {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
-		gap: 0.6rem;
+		gap: 0.55rem;
+		min-width: 0;
 	}
 
 	.logo-icon {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 1.95rem;
-		height: 1.95rem;
+		width: 1.9rem;
+		height: 1.9rem;
 		border-radius: 0.58rem;
-		background: linear-gradient(145deg, rgba(61, 162, 255, 0.4), rgba(29, 109, 184, 0.33));
-		border: 1px solid rgba(119, 189, 255, 0.45);
-		font-size: 0.74rem;
+		background: rgba(201, 169, 98, 0.16);
+		color: var(--color-primary);
+		font-size: 0.72rem;
 		font-weight: 700;
-		letter-spacing: 0.05em;
-		color: #def0ff;
+		letter-spacing: 0.04em;
+		border: 1px solid rgba(201, 169, 98, 0.28);
 	}
 
 	.logo-text {
-		font-size: 1.1rem;
-		font-weight: 700;
-		background: linear-gradient(135deg, #f7fbff, #b7d7f6);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
+		font-size: 1rem;
+		font-weight: 600;
+		color: var(--color-text-primary);
 		white-space: nowrap;
 	}
 
 	.toggle-btn {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 32px;
-		height: 32px;
-		background: rgba(17, 37, 58, 0.75);
-		border: 1px solid rgba(160, 194, 226, 0.2);
-		border-radius: 8px;
-		color: rgba(228, 239, 255, 0.62);
+		width: 1.9rem;
+		height: 1.9rem;
+		border-radius: 0.52rem;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: #1a1d27;
+		color: var(--color-text-muted);
 		cursor: pointer;
-		transition: all 0.2s ease;
-		flex-shrink: 0;
 	}
 
 	.toggle-btn:hover {
-		background: rgba(25, 53, 81, 0.9);
-		color: #fff;
-		border-color: rgba(169, 205, 237, 0.35);
+		color: var(--color-text-primary);
+		border-color: rgba(255, 255, 255, 0.16);
 	}
 
 	.sidebar.collapsed .sidebar-header {
 		justify-content: center;
-		padding: 1.25rem 0.5rem;
+		padding: 0 0.35rem;
 	}
 
 	.sidebar-nav {
 		flex: 1;
-		padding: 1rem 0;
 		overflow-y: auto;
+		padding: 0.8rem 0.5rem;
 	}
 
 	.sidebar-nav ul {
-		list-style: none;
 		margin: 0;
 		padding: 0;
-	}
-
-	.sidebar-nav li {
-		margin: 0.3rem 0;
+		list-style: none;
+		display: grid;
+		gap: 0.2rem;
 	}
 
 	.sidebar-nav a {
 		display: flex;
 		align-items: center;
-		gap: 0.875rem;
-		padding: 0.75rem 1rem;
-		color: rgba(228, 239, 255, 0.66);
-		text-decoration: none;
-		border-radius: 12px;
-		margin: 0 0.5rem;
-		transition: all 0.2s ease;
-		position: relative;
+		gap: 0.65rem;
+		padding: 0.62rem 0.68rem;
+		border-radius: 0.58rem;
 		border: 1px solid transparent;
+		text-decoration: none;
+		color: var(--color-text-secondary);
+		font-size: 0.85rem;
+		font-weight: 500;
+		transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
 	}
 
 	.sidebar-nav a:hover {
-		background: rgba(24, 49, 74, 0.84);
-		color: #fff;
-		border-color: rgba(155, 197, 234, 0.22);
+		background: rgba(255, 255, 255, 0.03);
+		color: var(--color-text-primary);
 	}
 
 	.sidebar-nav a.active {
-		background: linear-gradient(145deg, rgba(61, 162, 255, 0.22), rgba(33, 93, 151, 0.2));
-		color: #9bd4ff;
-		border-color: rgba(121, 192, 255, 0.3);
-	}
-
-	.sidebar-nav a.active::before {
-		content: '';
-		position: absolute;
-		left: 0;
-		top: 50%;
-		transform: translateY(-50%);
-		width: 3px;
-		height: 62%;
-		background: linear-gradient(180deg, #78c4ff 0%, #3798f4 100%);
-		border-radius: 0 2px 2px 0;
+		background: #1a1d27;
+		color: var(--color-text-primary);
+		border-color: rgba(255, 255, 255, 0.06);
 	}
 
 	.sidebar.collapsed .sidebar-nav a {
 		justify-content: center;
-		padding: 0.75rem;
-		margin: 0 0.375rem;
-	}
-
-	.sidebar.collapsed .sidebar-nav a.active::before {
-		display: none;
+		padding: 0.62rem;
+		gap: 0;
 	}
 
 	.icon {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		width: 1.1rem;
+		height: 1.1rem;
 		flex-shrink: 0;
 	}
 
 	.label {
-		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		font-size: 0.88rem;
-		font-weight: 600;
+		white-space: nowrap;
 	}
 
 	.sidebar-footer {
-		padding: 1rem;
-		border-top: 1px solid rgba(160, 194, 226, 0.16);
-		text-align: center;
+		height: 2.8rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		padding: 0 0.6rem;
 	}
 
 	.version {
-		font-size: 0.73rem;
-		color: rgba(207, 224, 247, 0.46);
-	}
-
-	.sidebar.collapsed .sidebar-footer {
-		padding: 0.75rem 0.5rem;
+		font-size: 0.7rem;
+		color: var(--color-text-muted);
 	}
 
 	@media (max-width: 900px) {
 		.sidebar {
 			width: min(84vw, 300px);
 			transform: translateX(-105%);
-			transition:
-				transform 0.25s ease,
-				width 0.25s ease;
-			z-index: 160;
+			transition: transform 0.25s ease;
+			z-index: 130;
 		}
 
 		.sidebar.mobile-open {
@@ -314,7 +309,7 @@
 		}
 
 		.sidebar.collapsed .logo {
-			display: flex;
+			display: inline-flex;
 		}
 
 		.sidebar.collapsed .label {
@@ -323,8 +318,11 @@
 
 		.sidebar.collapsed .sidebar-nav a {
 			justify-content: flex-start;
-			padding: 0.75rem 1rem;
-			margin: 0 0.5rem;
+			gap: 0.65rem;
+		}
+
+		.toggle-btn {
+			display: none;
 		}
 	}
 </style>

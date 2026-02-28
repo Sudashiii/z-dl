@@ -11,6 +11,9 @@
 
 	type LibrarySort = "dateAdded" | "titleAsc" | "progressRecent";
 	type LibraryView = "library" | "archived" | "trash";
+	type LibraryStatusFilter = "all" | "unread" | "reading" | "read";
+	type LibraryVisualMode = "grid" | "list";
+	type DetailTab = "overview" | "progress" | "metadata" | "devices";
 	type MetadataDraft = {
 		title: string;
 		author: string;
@@ -38,12 +41,18 @@
 	let error = $state<ApiError | null>(null);
 	let sortBy = $state<LibrarySort>("dateAdded");
 	let currentView = $state<LibraryView>("library");
+	let searchQuery = $state("");
+	let statusFilter = $state<LibraryStatusFilter>("all");
+	let visualMode = $state<LibraryVisualMode>("grid");
+	let showFilters = $state(false);
+	let showSortMenu = $state(false);
 
 	let showConfirmModal = $state(false);
 	let bookToReset = $state<LibraryBook | null>(null);
 	let showDetailModal = $state(false);
 	let selectedBook = $state<LibraryBook | null>(null);
 	let selectedBookDetail = $state<LibraryBookDetail | null>(null);
+	let activeDetailTab = $state<DetailTab>("overview");
 	let isDetailLoading = $state(false);
 	let isRefetchingMetadata = $state(false);
 	let isProgressHistoryLoading = $state(false);
@@ -88,6 +97,29 @@
 	let archivedBooks = $derived(books.filter((book) => Boolean(book.archived_at)));
 	let sortedBooks = $derived(sortBooks(activeLibraryBooks, sortBy));
 	let sortedArchivedBooks = $derived(sortBooks(archivedBooks, sortBy));
+	let filteredLibraryBooks = $derived(
+		sortedBooks.filter(
+			(book) => matchesBookQuery(book, searchQuery) && matchesBookStatus(book, statusFilter)
+		)
+	);
+	let filteredArchivedBooks = $derived(
+		sortedArchivedBooks.filter((book) => matchesBookQuery(book, searchQuery))
+	);
+	let libraryStats = $derived({
+		total: sortedBooks.length,
+		reading: sortedBooks.filter((book) => getBookStatus(book) === "reading").length,
+		unread: sortedBooks.filter((book) => getBookStatus(book) === "unread").length,
+		read: sortedBooks.filter((book) => getBookStatus(book) === "read").length
+	});
+	const DETAIL_PROGRESS_PREVIEW_COUNT = 5;
+	let hasMoreProgressHistory = $derived(
+		progressHistory.length > DETAIL_PROGRESS_PREVIEW_COUNT
+	);
+	let visibleProgressHistory = $derived(
+		showProgressHistory
+			? progressHistory
+			: progressHistory.slice(0, DETAIL_PROGRESS_PREVIEW_COUNT)
+	);
 
 	onMount(() => {
 		(async () => {
@@ -97,7 +129,37 @@
 					sortBy = stored;
 				}
 			}
+
+			const params = new URLSearchParams(window.location.search);
+			const requestedView = params.get("view");
+			const openBookIdParam = params.get("openBookId");
+			const openBookId = openBookIdParam ? Number.parseInt(openBookIdParam, 10) : NaN;
+
+			if (
+				requestedView === "library" ||
+				requestedView === "archived" ||
+				requestedView === "trash"
+			) {
+				currentView = requestedView;
+			}
+
+			if (currentView === "trash") {
+				await loadTrash();
+				return;
+			}
+
 			await loadLibrary();
+
+			if (!Number.isNaN(openBookId)) {
+				const candidate = books.find(
+					(book) =>
+						book.id === openBookId &&
+						(currentView !== "archived" || Boolean(book.archived_at))
+				);
+				if (candidate) {
+					await openDetailModal(candidate);
+				}
+			}
 		})();
 	});
 
@@ -145,10 +207,12 @@
 	async function openDetailModal(book: LibraryBook) {
 		selectedBook = book;
 		selectedBookDetail = null;
+		activeDetailTab = "overview";
 		detailError = null;
 		progressHistoryError = null;
 		progressHistory = [];
 		showProgressHistory = false;
+		isEditingMetadata = false;
 		showDetailModal = true;
 		isDetailLoading = true;
 
@@ -188,6 +252,7 @@
 		progressHistoryError = null;
 		progressHistory = [];
 		showProgressHistory = false;
+		activeDetailTab = "overview";
 	}
 
 	async function loadProgressHistory(bookId: number): Promise<void> {
@@ -496,13 +561,12 @@
 		toastStore.add(result.value.isRead ? "Marked as read" : "Marked as unread", "success");
 	}
 
-	async function handleExcludeFromNewBooksToggle(event: Event): Promise<void> {
+	async function handleToggleExcludeFromNewBooks(): Promise<void> {
 		if (!selectedBook || !selectedBookDetail || isUpdatingNewBooksExclusion) {
 			return;
 		}
 
-		const target = event.target as HTMLInputElement;
-		const nextValue = target.checked;
+		const nextValue = !selectedBookDetail.excludeFromNewBooks;
 		isUpdatingNewBooksExclusion = true;
 		const result = await ZUI.updateLibraryBookState(selectedBook.id, {
 			excludeFromNewBooks: nextValue
@@ -510,7 +574,6 @@
 		isUpdatingNewBooksExclusion = false;
 
 		if (!result.ok) {
-			target.checked = selectedBookDetail.excludeFromNewBooks;
 			toastStore.add(`Failed to update new-books exclusion: ${result.error.message}`, "error");
 			return;
 		}
@@ -784,12 +847,90 @@
 		});
 	}
 
+	function normalizeText(value: string | null | undefined): string {
+		return (value ?? "").toLowerCase();
+	}
 
-	function handleCardKeyDown(event: KeyboardEvent, book: LibraryBook) {
-		if (event.key === "Enter" || event.key === " ") {
-			event.preventDefault();
-			openDetailModal(book);
+	function matchesBookQuery(book: LibraryBook, query: string): boolean {
+		const q = query.trim().toLowerCase();
+		if (!q) {
+			return true;
 		}
+
+		return (
+			normalizeText(book.title).includes(q) ||
+			normalizeText(book.author).includes(q) ||
+			normalizeText(book.publisher).includes(q)
+		);
+	}
+
+	function getProgressPercent(book: LibraryBook): number {
+		if (typeof book.progressPercent !== "number") {
+			return 0;
+		}
+
+		return Math.max(0, Math.min(100, book.progressPercent));
+	}
+
+	function getBookStatus(book: LibraryBook): Exclude<LibraryStatusFilter, "all"> {
+		const progress = getProgressPercent(book);
+		if (book.read_at || progress >= 99.9) {
+			return "read";
+		}
+		if (progress > 0.1) {
+			return "reading";
+		}
+		return "unread";
+	}
+
+	function matchesBookStatus(book: LibraryBook, filter: LibraryStatusFilter): boolean {
+		return filter === "all" ? true : getBookStatus(book) === filter;
+	}
+
+	function getDetailStatusLabel(detail: LibraryBookDetail): "Unread" | "Reading" | "Read" {
+		if (detail.isRead || (detail.progressPercent ?? 0) >= 99.9) {
+			return "Read";
+		}
+		if ((detail.progressPercent ?? 0) > 0.1) {
+			return "Reading";
+		}
+		return "Unread";
+	}
+
+	function getDetailStatusClass(detail: LibraryBookDetail): "read" | "reading" | "unread" {
+		const status = getDetailStatusLabel(detail);
+		if (status === "Read") {
+			return "read";
+		}
+		if (status === "Reading") {
+			return "reading";
+		}
+		return "unread";
+	}
+
+	function clampProgress(value: number | null): number {
+		if (typeof value !== "number") {
+			return 0;
+		}
+		return Math.max(0, Math.min(100, value));
+	}
+
+	function getFormatBadgeClass(extension: string | null): string {
+		const format = (extension ?? "").trim().toLowerCase();
+		if (format === "pdf") {
+			return "pdf";
+		}
+		if (format === "mobi") {
+			return "mobi";
+		}
+		return "epub";
+	}
+
+	function getRoundedRating(rating: number | null | undefined): number {
+		if (typeof rating !== "number" || Number.isNaN(rating)) {
+			return 0;
+		}
+		return Math.max(0, Math.min(5, Math.round(rating)));
 	}
 
 	function formatProgress(percent: number | null): string {
@@ -845,17 +986,64 @@
 		return `Page ${startPage} -> ${endPage}`;
 	}
 
-	function handleSortChange(event: Event): void {
-		const target = event.target as HTMLSelectElement;
-		const value = target.value as LibrarySort;
-		if (value !== "dateAdded" && value !== "titleAsc" && value !== "progressRecent") {
-			return;
-		}
-
+	function setSortBy(value: LibrarySort): void {
 		sortBy = value;
 		if (typeof localStorage !== "undefined") {
 			localStorage.setItem(LIBRARY_SORT_KEY, value);
 		}
+	}
+
+	function getSortLabel(value: LibrarySort): string {
+		if (value === "titleAsc") {
+			return "Title A-Z";
+		}
+		if (value === "progressRecent") {
+			return "Recent Progress";
+		}
+		return "Date Added";
+	}
+
+	function getFilterLabel(): string {
+		if (currentView === "archived") {
+			return "Archived";
+		}
+		if (currentView === "trash") {
+			return "Trash";
+		}
+		if (statusFilter === "all") {
+			return "All";
+		}
+		if (statusFilter === "read") {
+			return "Read";
+		}
+		if (statusFilter === "reading") {
+			return "Reading";
+		}
+		return "Unread";
+	}
+
+	async function selectFilterOption(
+		option: LibraryStatusFilter | "archivedView" | "trashView"
+	): Promise<void> {
+		showFilters = false;
+
+		if (option === "archivedView") {
+			statusFilter = "all";
+			await switchView("archived");
+			return;
+		}
+
+		if (option === "trashView") {
+			statusFilter = "all";
+			await switchView("trash");
+			return;
+		}
+
+		if (currentView !== "library") {
+			await switchView("library");
+		}
+
+		statusFilter = option;
 	}
 
 	function sortBooks(list: LibraryBook[], mode: LibrarySort): LibraryBook[] {
@@ -884,6 +1072,8 @@
 			return;
 		}
 
+		showSortMenu = false;
+		showFilters = false;
 		currentView = nextView;
 		if (nextView === "library" || nextView === "archived") {
 			await loadLibrary();
@@ -894,84 +1084,8 @@
 	}
 </script>
 
-<div class="library-page">
+<div class={`library-page ${currentView}-view`}>
 	<Loading bind:show={isLoading} />
-
-	<header class="page-header">
-		<div class="header-content">
-			<h1>{currentView === "library" ? "My Library" : currentView === "archived" ? "Archived" : "Trash"}</h1>
-			<p>
-				{currentView === "library"
-					? "Your saved and downloaded books"
-					: currentView === "archived"
-						? "Archived books stay stored but are excluded from New Books API"
-						: "Books in trash are permanently deleted after 30 days"}
-			</p>
-		</div>
-		<div class="header-controls">
-			<div class="view-toggle" role="group" aria-label="Library view">
-				<button
-					type="button"
-					class:active={currentView === "library"}
-					aria-pressed={currentView === "library"}
-					onclick={() => switchView("library")}
-				>
-					Library
-				</button>
-				<button
-					type="button"
-					class:active={currentView === "trash"}
-					aria-pressed={currentView === "trash"}
-					onclick={() => switchView("trash")}
-				>
-					Trash
-				</button>
-				<button
-					type="button"
-					class:active={currentView === "archived"}
-					aria-pressed={currentView === "archived"}
-					onclick={() => switchView("archived")}
-				>
-					Archived
-				</button>
-			</div>
-			{#if currentView === "library" || currentView === "archived"}
-				<div class="sort-group">
-					<label for="library-sort">Sort</label>
-					<select id="library-sort" value={sortBy} onchange={handleSortChange}>
-						<option value="titleAsc">A-Z</option>
-						<option value="dateAdded">Date added</option>
-						<option value="progressRecent">Most recent reading progress</option>
-					</select>
-				</div>
-			{/if}
-			{#if currentView === "library"}
-				<button
-					type="button"
-					class="upload-btn"
-					onclick={openLibraryUploadPicker}
-					disabled={isUploadingLibraryFile}
-				>
-					{isUploadingLibraryFile ? "Uploading..." : "Upload file"}
-				</button>
-				<input
-					class="upload-input"
-					type="file"
-					bind:this={uploadInputEl}
-					onchange={handleLibraryUploadChange}
-				/>
-			{/if}
-			<div class="stat-badge">
-				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-					<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-				</svg>
-				<span
-					>{(currentView === "library" ? sortedBooks.length : currentView === "archived" ? sortedArchivedBooks.length : trashBooks.length)} book{(currentView === "library" ? sortedBooks.length : currentView === "archived" ? sortedArchivedBooks.length : trashBooks.length) !== 1 ? "s" : ""}</span
-				>
-			</div>
-		</div>
-	</header>
 
 	{#if error}
 		<div class="error">
@@ -985,125 +1099,267 @@
 		</div>
 	{/if}
 
-	<div class="book-grid">
-		{#if (currentView === "library" && sortedBooks.length > 0) || (currentView === "archived" && sortedArchivedBooks.length > 0)}
-			{#each (currentView === "library" ? sortedBooks : sortedArchivedBooks) as book (book.id)}
-				<div
-					class="book-card clickable"
-					role="button"
-					tabindex="0"
-					aria-label={`Show details for ${book.title}`}
-					onclick={() => openDetailModal(book)}
-					onkeydown={(event) => handleCardKeyDown(event, book)}
+	{#if currentView === "library"}
+		<section class="stats-grid">
+			<div class="stat-card">
+				<p>Total Books</p>
+				<h2>{libraryStats.total}</h2>
+			</div>
+			<div class="stat-card">
+				<p>Reading</p>
+				<h2 class="accent-reading">{libraryStats.reading}</h2>
+			</div>
+			<div class="stat-card">
+				<p>Unread</p>
+				<h2 class="accent-unread">{libraryStats.unread}</h2>
+			</div>
+			<div class="stat-card">
+				<p>Completed</p>
+				<h2 class="accent-read">{libraryStats.read}</h2>
+			</div>
+		</section>
+	{/if}
+
+	<section class="toolbar-row">
+		<label class="search-wrap" for="library-search">
+			<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<circle cx="11" cy="11" r="8"></circle>
+				<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+			</svg>
+			<input
+				id="library-search"
+				type="text"
+				bind:value={searchQuery}
+				placeholder={
+					currentView === "library"
+						? "Search your library..."
+						: currentView === "archived"
+							? "Search archived books..."
+							: "Search trash..."
+				}
+			/>
+		</label>
+
+		<div class="toolbar-actions">
+			{#if currentView === "library"}
+				<button
+					type="button"
+					class="import-btn"
+					onclick={openLibraryUploadPicker}
+					disabled={isUploadingLibraryFile}
 				>
-					<div class="book-cover">
-						{#if book.cover}
-							<img src={book.cover} alt={book.title} loading="lazy" />
-						{:else}
-							<div class="no-cover">
-								<span class="extension"
-									>{book.extension?.toUpperCase() ||
-										"?"}</span
-								>
-							</div>
-						{/if}
-					</div>
-					<div class="book-info">
-						<h3 title={book.title}>{book.title}</h3>
-						{#if book.author}
-							<p class="author">by {book.author}</p>
-						{/if}
-						<div class="meta">
-							{#if book.progressPercent !== null && book.progressPercent !== undefined}
-								<span class="status-badge progress" title="Reading progress">
-									{book.progressPercent.toFixed(1)}%
-								</span>
-							{/if}
-							{#if book.archived_at}
-								<span class="status-badge archived" title="Archived">Archived</span>
-							{/if}
-							{#if book.isDownloaded}
-								<span
-									class="status-badge downloaded"
-									title="Downloaded to device"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-										<polyline points="20 6 9 17 4 12"></polyline>
-									</svg>
-									Downloaded
-								</span>
-							{/if}
-							{#if book.extension}
-								<span class="tag format"
-									>{book.extension.toUpperCase()}</span
-								>
-							{/if}
-							{#if book.language}
-								<span class="tag">{book.language}</span>
-							{/if}
-							{#if book.year}
-								<span class="tag">{book.year}</span>
-							{/if}
+					<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M12 3v12"></path>
+						<path d="m7 8 5-5 5 5"></path>
+						<path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"></path>
+					</svg>
+					<span>{isUploadingLibraryFile ? "Importing..." : "Import"}</span>
+				</button>
+				<input class="upload-input" type="file" bind:this={uploadInputEl} onchange={handleLibraryUploadChange} />
+			{/if}
+
+			{#if currentView !== "trash"}
+				<div class="menu-wrap">
+					<button
+						type="button"
+						class="control-btn"
+						onclick={() => {
+							showSortMenu = !showSortMenu;
+							showFilters = false;
+						}}
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+							<path d="m3 16 4 4 4-4"></path>
+							<path d="M7 20V4"></path>
+							<path d="m21 8-4-4-4 4"></path>
+							<path d="M17 4v16"></path>
+						</svg>
+						<span>{getSortLabel(sortBy)}</span>
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+							<polyline points="6 9 12 15 18 9"></polyline>
+						</svg>
+					</button>
+					{#if showSortMenu}
+						<button type="button" class="menu-backdrop" aria-label="Close sort menu" onclick={() => (showSortMenu = false)}></button>
+						<div class="menu-popover">
+							<button type="button" class:active={sortBy === "dateAdded"} onclick={() => { setSortBy("dateAdded"); showSortMenu = false; }}>Date Added</button>
+							<button type="button" class:active={sortBy === "titleAsc"} onclick={() => { setSortBy("titleAsc"); showSortMenu = false; }}>Title A-Z</button>
+							<button type="button" class:active={sortBy === "progressRecent"} onclick={() => { setSortBy("progressRecent"); showSortMenu = false; }}>Recent Progress</button>
 						</div>
-						<div class="details">
-							<span class="filesize">{formatFileSize(book.filesize)}</span>
-							<div class="right-details">
-								<span class="date">Added {formatDate(book.createdAt)}</span>
-							</div>
-						</div>
-					</div>
+					{/if}
 				</div>
-			{/each}
-		{:else if currentView === "trash" && trashBooks.length > 0}
-			{#each trashBooks as book (book.id)}
-				<div class="book-card trash-card">
-					<div class="book-cover">
-						{#if book.cover}
-							<img src={book.cover} alt={book.title} loading="lazy" />
-						{:else}
-							<div class="no-cover">
-								<span class="extension">{book.extension?.toUpperCase() || "?"}</span>
-							</div>
-						{/if}
+			{/if}
+
+			<div class="menu-wrap">
+				<button
+					type="button"
+					class="control-btn"
+					onclick={() => {
+						showFilters = !showFilters;
+						showSortMenu = false;
+					}}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M3 6h18"></path>
+						<path d="M7 12h10"></path>
+						<path d="M10 18h4"></path>
+					</svg>
+					<span>{getFilterLabel()}</span>
+					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+						<polyline points="6 9 12 15 18 9"></polyline>
+					</svg>
+				</button>
+				{#if showFilters}
+					<button type="button" class="menu-backdrop" aria-label="Close filter menu" onclick={() => (showFilters = false)}></button>
+					<div class="menu-popover filter-popover">
+						<button type="button" class:active={currentView === "library" && statusFilter === "all"} onclick={() => selectFilterOption("all")}>All</button>
+						<button type="button" class:active={currentView === "library" && statusFilter === "unread"} onclick={() => selectFilterOption("unread")}>Unread</button>
+						<button type="button" class:active={currentView === "library" && statusFilter === "reading"} onclick={() => selectFilterOption("reading")}>Reading</button>
+						<button type="button" class:active={currentView === "library" && statusFilter === "read"} onclick={() => selectFilterOption("read")}>Read</button>
+						<div class="menu-separator"></div>
+						<button type="button" class:active={currentView === "archived"} onclick={() => selectFilterOption("archivedView")}>Archived</button>
+						<button type="button" class:active={currentView === "trash"} onclick={() => selectFilterOption("trashView")}>Trash</button>
 					</div>
-					<div class="book-info">
-						<h3 title={book.title}>{book.title}</h3>
-						{#if book.author}
-							<p class="author">by {book.author}</p>
-						{/if}
-						<div class="meta">
-							{#if book.progressPercent !== null && book.progressPercent !== undefined}
-								<span class="status-badge progress" title="Reading progress">
-									{book.progressPercent.toFixed(1)}%
-								</span>
-							{/if}
-							{#if book.extension}
-								<span class="tag format">{book.extension.toUpperCase()}</span>
+				{/if}
+			</div>
+
+			{#if currentView !== "trash"}
+				<div class="mode-toggle" role="group" aria-label="Display mode">
+					<button type="button" aria-label="Grid view" class:active={visualMode === "grid"} aria-pressed={visualMode === "grid"} onclick={() => (visualMode = "grid")}>
+						<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+							<rect x="3" y="3" width="7" height="7"></rect>
+							<rect x="14" y="3" width="7" height="7"></rect>
+							<rect x="14" y="14" width="7" height="7"></rect>
+							<rect x="3" y="14" width="7" height="7"></rect>
+						</svg>
+					</button>
+					<button type="button" aria-label="List view" class:active={visualMode === "list"} aria-pressed={visualMode === "list"} onclick={() => (visualMode = "list")}>
+						<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="8" y1="6" x2="21" y2="6"></line>
+							<line x1="8" y1="12" x2="21" y2="12"></line>
+							<line x1="8" y1="18" x2="21" y2="18"></line>
+							<line x1="3" y1="6" x2="3.01" y2="6"></line>
+							<line x1="3" y1="12" x2="3.01" y2="12"></line>
+							<line x1="3" y1="18" x2="3.01" y2="18"></line>
+						</svg>
+					</button>
+				</div>
+			{/if}
+		</div>
+	</section>
+
+	{#if currentView === "trash"}
+		{#if trashBooks.filter((book) => matchesBookQuery(book, searchQuery)).length > 0}
+			<div class="trash-list">
+				{#each trashBooks.filter((book) => matchesBookQuery(book, searchQuery)) as book (book.id)}
+					<div class="trash-card">
+						<div class="trash-cover">
+							{#if book.cover}
+								<img src={book.cover} alt={book.title} loading="lazy" />
+							{:else}
+								<div class="no-cover">
+									<span class="extension">{book.extension?.toUpperCase() || "?"}</span>
+								</div>
 							{/if}
 						</div>
-						<div class="details">
-							<span class="date">Deleted {formatDate(book.deleted_at ?? null)}</span>
-							<span class="date">Auto-delete {formatDate(book.trash_expires_at ?? null)}</span>
+						<div class="trash-main">
+							<h3 title={book.title}>{book.title}</h3>
+							<p>{book.author || "Unknown author"}</p>
+							<div class="trash-meta">
+								<span>Deleted {formatDate(book.deleted_at ?? null)}</span>
+								<span>Auto-delete {formatDate(book.trash_expires_at ?? null)}</span>
+							</div>
 						</div>
 						<div class="trash-actions">
-							<button
-								class="detail-refetch-btn"
-								onclick={() => handleRestoreBook(book)}
-								disabled={restoringBookId !== null || deletingTrashBookId !== null}
-							>
+							<button class="detail-refetch-btn" onclick={() => handleRestoreBook(book)} disabled={restoringBookId !== null || deletingTrashBookId !== null}>
 								{restoringBookId === book.id ? "Restoring..." : "Restore"}
 							</button>
-							<button
-								class="detail-remove-btn"
-								onclick={() => handleDeleteTrashedBook(book)}
-								disabled={restoringBookId !== null || deletingTrashBookId !== null}
-							>
-								{deletingTrashBookId === book.id ? "Deleting..." : "Delete Permanently"}
+							<button class="detail-remove-btn" onclick={() => handleDeleteTrashedBook(book)} disabled={restoringBookId !== null || deletingTrashBookId !== null}>
+								{deletingTrashBookId === book.id ? "Deleting..." : "Delete"}
 							</button>
 						</div>
 					</div>
+				{/each}
+			</div>
+		{:else if !isLoading}
+			<div class="empty-state">
+				<div class="empty-icon">
+					<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+						<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+					</svg>
 				</div>
-			{/each}
+				<h3>Trash is empty</h3>
+				<p>Books moved to trash will appear here for 30 days.</p>
+			</div>
+		{/if}
+	{:else}
+		{#if (currentView === "library" ? filteredLibraryBooks.length : filteredArchivedBooks.length) > 0}
+			{#if visualMode === "grid"}
+				<div class="book-grid">
+					{#each (currentView === "library" ? filteredLibraryBooks : filteredArchivedBooks) as book (book.id)}
+						<button type="button" class="book-tile" aria-label={`Show details for ${book.title}`} onclick={() => openDetailModal(book)}>
+							<div class="book-tile-cover">
+								{#if book.cover}
+									<img src={book.cover} alt={book.title} loading="lazy" />
+								{:else}
+									<div class="no-cover">
+										<span class="extension">{book.extension?.toUpperCase() || "?"}</span>
+									</div>
+								{/if}
+								{#if book.extension}
+									<span class={`tile-format ${getFormatBadgeClass(book.extension)}`}>{book.extension.toUpperCase()}</span>
+								{/if}
+								{#if getProgressPercent(book) > 0 && getProgressPercent(book) < 100}
+									<div class="tile-progress-track">
+										<div class="tile-progress-fill" style={`width: ${getProgressPercent(book)}%`}></div>
+									</div>
+								{/if}
+							</div>
+							<div class="book-tile-meta">
+								<p class="tile-title" title={book.title}>{book.title}</p>
+								<p class="tile-author">{book.author || "Unknown author"}</p>
+								<div class="tile-rating">
+									{#each [1, 2, 3, 4, 5] as star}
+										<span class:active={star <= getRoundedRating(book.rating)}>★</span>
+									{/each}
+								</div>
+							</div>
+						</button>
+					{/each}
+				</div>
+			{:else}
+				<div class="book-list">
+					{#each (currentView === "library" ? filteredLibraryBooks : filteredArchivedBooks) as book (book.id)}
+						<button type="button" class="book-list-item" aria-label={`Show details for ${book.title}`} onclick={() => openDetailModal(book)}>
+							<div class="book-list-cover">
+								{#if book.cover}
+									<img src={book.cover} alt={book.title} loading="lazy" />
+								{:else}
+									<div class="no-cover">
+										<span class="extension">{book.extension?.toUpperCase() || "?"}</span>
+									</div>
+								{/if}
+							</div>
+							<div class="book-list-main">
+								<p class="tile-title" title={book.title}>{book.title}</p>
+								<p class="tile-author">{book.author || "Unknown author"}</p>
+							</div>
+							<div class="book-list-meta">
+								<div class="tile-rating">
+									{#each [1, 2, 3, 4, 5] as star}
+										<span class:active={star <= getRoundedRating(book.rating)}>★</span>
+									{/each}
+								</div>
+								{#if book.extension}
+									<span class={`list-format ${getFormatBadgeClass(book.extension)}`}>{book.extension.toUpperCase()}</span>
+								{/if}
+								<span class="list-progress-chip">{getProgressPercent(book).toFixed(1)}%</span>
+							</div>
+						</button>
+					{/each}
+				</div>
+			{/if}
 		{:else if !isLoading}
 			<div class="empty-state">
 				<div class="empty-icon">
@@ -1114,7 +1370,7 @@
 				</div>
 				{#if currentView === "library"}
 					<h3>Your library is empty</h3>
-					<p>Search and download books from Z-Library to build your collection</p>
+					<p>Search and download books from Z-Library to build your collection.</p>
 					<a href="/search" class="link-btn">
 						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 							<circle cx="11" cy="11" r="8"></circle>
@@ -1122,16 +1378,13 @@
 						</svg>
 						Go to Search
 					</a>
-				{:else if currentView === "archived"}
+				{:else}
 					<h3>No archived books</h3>
 					<p>Archive books from the detail view to keep them out of New Books downloads.</p>
-				{:else}
-					<h3>Trash is empty</h3>
-					<p>Books moved to trash will appear here for 30 days.</p>
 				{/if}
 			</div>
 		{/if}
-	</div>
+	{/if}
 </div>
 
 {#if showDetailModal && selectedBook}
@@ -1144,7 +1397,7 @@
 		onkeydown={(event) => event.key === "Escape" && closeDetailModal()}
 	>
 		<div
-			class="detail-modal-content"
+			class="detail-modal-content detail-v2-shell"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="book-detail-title"
@@ -1152,280 +1405,378 @@
 			onclick={(event) => event.stopPropagation()}
 			onkeydown={(event) => event.stopPropagation()}
 		>
-			<div class="detail-header">
-				<h3 id="book-detail-title">{selectedBook.title}</h3>
-				<button class="detail-close-btn" onclick={closeDetailModal} aria-label="Close details">
-					✕
-				</button>
-			</div>
-
-			{#if selectedBook.author}
-				<p class="detail-author">by {selectedBook.author}</p>
-			{/if}
-
-			{#if isDetailLoading}
-				<p class="detail-loading">Loading details...</p>
-			{:else if detailError}
-				<div class="detail-error">{detailError}</div>
-			{:else if selectedBookDetail}
-				<section class="detail-section">
-					<div class="metadata-header">
-						<h4>Metadata</h4>
-						{#if isEditingMetadata}
-							<div class="metadata-edit-actions">
-								<button type="button" class="detail-refetch-btn" onclick={cancelMetadataEdit} disabled={isSavingMetadata}>Cancel</button>
-								<button type="button" class="detail-download-btn" onclick={saveMetadataEdit} disabled={isSavingMetadata}>
-									{isSavingMetadata ? "Saving..." : "Save"}
-								</button>
-							</div>
-						{:else}
-							<button type="button" class="detail-refetch-btn" onclick={startMetadataEdit}>Edit</button>
-						{/if}
-					</div>
-					{#if isEditingMetadata}
-						<div class="metadata-edit-grid">
-							<label><span>Title</span><input bind:value={metadataDraft.title} /></label>
-							<label><span>Author</span><input bind:value={metadataDraft.author} /></label>
-							<label><span>Publisher</span><input bind:value={metadataDraft.publisher} /></label>
-							<label><span>Series</span><input bind:value={metadataDraft.series} /></label>
-							<label><span>Volume</span><input bind:value={metadataDraft.volume} /></label>
-							<label><span>Edition</span><input bind:value={metadataDraft.edition} /></label>
-							<label><span>Identifier</span><input bind:value={metadataDraft.identifier} /></label>
-							<label><span>Pages</span><input bind:value={metadataDraft.pages} /></label>
-							<label><span>Cover URL</span><input bind:value={metadataDraft.cover} /></label>
-							<label><span>Language</span><input bind:value={metadataDraft.language} /></label>
-							<label><span>Year</span><input bind:value={metadataDraft.year} /></label>
-							<label><span>Google Books ID</span><input bind:value={metadataDraft.googleBooksId} /></label>
-							<label><span>Open Library Key</span><input bind:value={metadataDraft.openLibraryKey} /></label>
-							<label><span>Amazon ASIN</span><input bind:value={metadataDraft.amazonAsin} /></label>
-							<label><span>External Rating</span><input bind:value={metadataDraft.externalRating} /></label>
-							<label><span>External Rating Count</span><input bind:value={metadataDraft.externalRatingCount} /></label>
-							<label class="metadata-edit-full"><span>Description</span><textarea rows="4" bind:value={metadataDraft.description}></textarea></label>
-						</div>
-					{:else}
-						<div class="metadata-grid">
-							<div class="metadata-item"><span>Title</span><strong>{selectedBookDetail.title}</strong></div>
-							{#if selectedBookDetail.author}
-								<div class="metadata-item"><span>Author</span><strong>{selectedBookDetail.author}</strong></div>
-							{/if}
-							{#if selectedBookDetail.publisher}
-								<div class="metadata-item"><span>Publisher</span><strong>{selectedBookDetail.publisher}</strong></div>
-							{/if}
-							{#if selectedBookDetail.series}
-								<div class="metadata-item"><span>Series</span><strong>{selectedBookDetail.series}</strong></div>
-							{/if}
-							{#if selectedBookDetail.volume}
-								<div class="metadata-item"><span>Volume</span><strong>{selectedBookDetail.volume}</strong></div>
-							{/if}
-							{#if selectedBookDetail.edition}
-								<div class="metadata-item"><span>Edition</span><strong>{selectedBookDetail.edition}</strong></div>
-							{/if}
-							{#if selectedBookDetail.identifier}
-								<div class="metadata-item"><span>Identifier</span><strong>{selectedBookDetail.identifier}</strong></div>
-							{/if}
-							{#if selectedBookDetail.pages}
-								<div class="metadata-item"><span>Pages</span><strong>{selectedBookDetail.pages}</strong></div>
-							{/if}
-							{#if selectedBookDetail.externalRating !== null}
-								<div class="metadata-item"><span>External Rating</span><strong>{selectedBookDetail.externalRating.toFixed(1)} ({selectedBookDetail.externalRatingCount ?? 0})</strong></div>
-							{/if}
-							{#if selectedBookDetail.googleBooksId}
-								<div class="metadata-item"><span>Google Books</span><strong>{selectedBookDetail.googleBooksId}</strong></div>
-							{/if}
-							{#if selectedBookDetail.openLibraryKey}
-								<div class="metadata-item"><span>Open Library</span><strong>{selectedBookDetail.openLibraryKey}</strong></div>
-							{/if}
-							{#if selectedBookDetail.amazonAsin}
-								<div class="metadata-item"><span>Amazon ASIN</span><strong>{selectedBookDetail.amazonAsin}</strong></div>
-							{/if}
-						</div>
-						{#if selectedBookDetail.description}
-							<p class="metadata-description">{selectedBookDetail.description}</p>
-						{/if}
-					{/if}
-				</section>
-
-				<section class="detail-section">
-					<h4>Reading Progress</h4>
-					<div class="progress-row">
-						<div class="progress-track">
-							<div
-								class="progress-fill"
-								style={`width: ${selectedBookDetail.progressPercent ?? 0}%`}
-							></div>
-						</div>
-						<span class="progress-value">{formatProgress(selectedBookDetail.progressPercent)}</span>
-					</div>
-					{#if getCurrentPage(selectedBookDetail.progressPercent, selectedBookDetail.pages) !== null}
-						<p class="detail-muted">
-							Current page: {getCurrentPage(selectedBookDetail.progressPercent, selectedBookDetail.pages)} / {selectedBookDetail.pages}
-						</p>
-					{/if}
-					<div class="history-header">
-						<button
-							type="button"
-							class="detail-refetch-btn"
-							onclick={() => (showProgressHistory = !showProgressHistory)}
-						>
-							{showProgressHistory ? "Hide Progress History" : "View Progress History"}
-						</button>
-					</div>
-					{#if showProgressHistory}
-						{#if isProgressHistoryLoading}
-							<p class="detail-muted">Loading progress history...</p>
-						{:else if progressHistoryError}
-							<p class="detail-error">{progressHistoryError}</p>
-						{:else if progressHistory.length === 0}
-							<p class="detail-muted">No progress history available yet.</p>
-						{:else}
-							<ul class="progress-history-list">
-								{#each progressHistory as entry, index (`${entry.recordedAt}-${entry.progressPercent}-${index}`)}
-									<li>
-										<div class="progress-history-main">
-											<span class="progress-history-percent">{entry.progressPercent.toFixed(1)}%</span>
-											<span class="progress-history-time">{formatDateTime(entry.recordedAt)}</span>
-										</div>
-										{#if getProgressHistoryPageRange(progressHistory, index, selectedBookDetail.pages)}
-											<span class="progress-history-range">
-												{getProgressHistoryPageRange(progressHistory, index, selectedBookDetail.pages)}
-											</span>
-										{/if}
-									</li>
-								{/each}
-							</ul>
-						{/if}
-					{/if}
-					<div class="read-state-row">
-						<button
-							type="button"
-							class="detail-refetch-btn"
-							onclick={handleToggleReadState}
-							disabled={isUpdatingReadState}
-						>
-							{#if isUpdatingReadState}
-								Saving...
-							{:else if selectedBookDetail.isRead}
-								Mark As Unread
-							{:else}
-								Mark As Read
-							{/if}
-						</button>
-						{#if selectedBookDetail.isRead}
-							<span class="read-state-label">
-								Read{selectedBookDetail.readAt ? ` on ${formatDate(selectedBookDetail.readAt)}` : ""}
-							</span>
-						{:else}
-							<span class="read-state-label">Unread</span>
-						{/if}
-					</div>
-					{#if selectedBookDetail.isArchived}
-						<p class="detail-muted">Archived{selectedBookDetail.archivedAt ? ` on ${formatDate(selectedBookDetail.archivedAt)}` : ""}. Archived books are always excluded from New Books API.</p>
-					{/if}
-
-					<label class="exclude-new-books-row">
-						<input
-							type="checkbox"
-							checked={selectedBookDetail.excludeFromNewBooks}
-							onchange={handleExcludeFromNewBooksToggle}
-							disabled={isUpdatingNewBooksExclusion || selectedBookDetail.isArchived}
-						/>
-						<span>Exclude this book from the New Books API</span>
-					</label>
-				</section>
-
-				<section class="detail-section">
-					<h4>Rating</h4>
-					<div class="rating-row" role="group" aria-label="Book rating">
-						{#each [1, 2, 3, 4, 5] as star}
-							<button
-								type="button"
-								class="rating-star"
-								class:active={star <= (selectedBookDetail.rating ?? 0)}
-								aria-label={`Set rating to ${star} star${star === 1 ? "" : "s"}`}
-								onclick={() => handleSetRating(star)}
-								disabled={isUpdatingRating}
-							>
-								★
-							</button>
-						{/each}
-						<button
-							type="button"
-							class="rating-clear"
-							onclick={() => handleSetRating(null)}
-							disabled={isUpdatingRating}
-						>
-							{isUpdatingRating ? "Saving..." : "Clear"}
-						</button>
-					</div>
-				</section>
-
-				<section class="detail-section">
-					<h4>Downloaded On Devices</h4>
-					{#if selectedBookDetail.downloadedDevices.length > 0}
-						<ul class="device-list">
-							{#each selectedBookDetail.downloadedDevices as device}
-								<li>
-									<span>{device}</span>
-									<button
-										class="device-remove-btn"
-										onclick={() => handleRemoveDeviceDownload(device)}
-										disabled={removingDeviceId !== null}
-									>
-										{removingDeviceId === device ? "Removing..." : "Remove"}
-									</button>
-								</li>
-							{/each}
-						</ul>
-					{:else}
-						<p class="detail-muted">Not downloaded on any device yet.</p>
-					{/if}
-				</section>
-
-				<section class="detail-section detail-actions">
+			<div class="detail-v2-header">
+				<h2 id="book-detail-title">Book Details</h2>
+				<div class="detail-v2-header-actions">
 					<button
-						class="detail-download-btn"
-						onclick={handleDownloadFromLibrary}
-						disabled={isDownloadingLibraryFile}
-					>
-						{isDownloadingLibraryFile ? "Downloading..." : "Download From Library"}
-					</button>
-					<button
-						class="detail-refetch-btn"
+						type="button"
+						class="detail-v2-btn detail-v2-btn-secondary"
 						onclick={handleRefetchMetadata}
 						disabled={isRefetchingMetadata}
 					>
-						{isRefetchingMetadata ? "Refetching..." : "Refetch Metadata"}
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M3 2v6h6"></path>
+							<path d="M21 12A9 9 0 0 0 6 5.3L3 8"></path>
+							<path d="M21 22v-6h-6"></path>
+							<path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"></path>
+						</svg>
+						<span>{isRefetchingMetadata ? "Refetching..." : "Refetch"}</span>
 					</button>
-					<button
-						class="detail-refetch-btn"
-						onclick={handleToggleArchiveState}
-						disabled={isUpdatingArchiveState}
-					>
-						{#if isUpdatingArchiveState}
-							Saving...
-						{:else if selectedBookDetail.isArchived}
-							Unarchive
-						{:else}
-							Archive
-						{/if}
-					</button>
-					{#if selectedBook.isDownloaded}
+					{#if isEditingMetadata}
 						<button
-							class="detail-reset-btn"
-							onclick={openResetFromDetail}
+							type="button"
+							class="detail-v2-btn detail-v2-btn-primary"
+							onclick={saveMetadataEdit}
+							disabled={isSavingMetadata}
 						>
-							Reset Download Status
+							{isSavingMetadata ? "Saving..." : "Save"}
+						</button>
+					{:else}
+						<button
+							type="button"
+							class="detail-v2-btn detail-v2-btn-secondary"
+							onclick={startMetadataEdit}
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M12 20h9"></path>
+								<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+							</svg>
+							<span>Edit</span>
 						</button>
 					{/if}
-					<button
-						class="detail-remove-btn"
-						onclick={handleMoveToTrash}
-						disabled={isMovingToTrash}
-					>
-						{isMovingToTrash ? "Moving..." : "Move To Trash"}
+					<button class="detail-v2-close-btn" onclick={closeDetailModal} aria-label="Close details">
+						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="18" y1="6" x2="6" y2="18"></line>
+							<line x1="6" y1="6" x2="18" y2="18"></line>
+						</svg>
 					</button>
-				</section>
-			{/if}
+				</div>
+			</div>
+
+			<div class="detail-v2-tabs" role="tablist" aria-label="Book detail sections">
+				<button
+					type="button"
+					role="tab"
+					class:active={activeDetailTab === "overview"}
+					aria-selected={activeDetailTab === "overview"}
+					onclick={() => (activeDetailTab = "overview")}
+				>
+					Overview
+				</button>
+				<button
+					type="button"
+					role="tab"
+					class:active={activeDetailTab === "progress"}
+					aria-selected={activeDetailTab === "progress"}
+					onclick={() => (activeDetailTab = "progress")}
+				>
+					Progress
+				</button>
+				<button
+					type="button"
+					role="tab"
+					class:active={activeDetailTab === "metadata"}
+					aria-selected={activeDetailTab === "metadata"}
+					onclick={() => (activeDetailTab = "metadata")}
+				>
+					Metadata
+				</button>
+				<button
+					type="button"
+					role="tab"
+					class:active={activeDetailTab === "devices"}
+					aria-selected={activeDetailTab === "devices"}
+					onclick={() => (activeDetailTab = "devices")}
+				>
+					Devices ({selectedBookDetail?.downloadedDevices.length ?? 0})
+				</button>
+			</div>
+
+			<div class="detail-v2-body">
+				{#if isDetailLoading}
+					<p class="detail-loading">Loading details...</p>
+				{:else if detailError}
+					<div class="detail-error">{detailError}</div>
+				{:else if selectedBookDetail}
+					{#if activeDetailTab === "overview"}
+						<div class="detail-v2-overview">
+							<div class="detail-v2-overview-main">
+								<div class="detail-v2-cover">
+									{#if metadataDraft.cover || selectedBook.cover}
+										<img src={metadataDraft.cover || selectedBook.cover || ""} alt={selectedBookDetail.title} loading="lazy" />
+									{:else}
+										<div class="no-cover">
+											<span class="extension">{selectedBook.extension?.toUpperCase() || "?"}</span>
+										</div>
+									{/if}
+								</div>
+								<div class="detail-v2-info">
+									{#if isEditingMetadata}
+										<input class="detail-v2-input detail-v2-title-input" bind:value={metadataDraft.title} />
+									{:else}
+										<h1>{selectedBookDetail.title}</h1>
+									{/if}
+
+									{#if isEditingMetadata}
+										<input class="detail-v2-input" bind:value={metadataDraft.author} />
+									{:else}
+										<p class="detail-v2-author">{selectedBookDetail.author || "Unknown author"}</p>
+									{/if}
+
+									<div class="detail-v2-chip-row">
+										{#if selectedBook.extension}
+											<span class={`detail-v2-format-badge ${getFormatBadgeClass(selectedBook.extension)}`}>
+												{selectedBook.extension.toUpperCase()}
+											</span>
+										{/if}
+										<span class={`detail-v2-status-badge ${getDetailStatusClass(selectedBookDetail)}`}>
+											{getDetailStatusLabel(selectedBookDetail)}
+										</span>
+										<span class="detail-v2-size">{formatFileSize(selectedBook.filesize)}</span>
+									</div>
+
+									<div class="detail-v2-rating">
+										<p class="detail-v2-caption">Rating</p>
+										<div class="rating-row" role="group" aria-label="Book rating">
+											{#each [1, 2, 3, 4, 5] as star}
+												<button
+													type="button"
+													class="rating-star"
+													class:active={star <= (selectedBookDetail.rating ?? 0)}
+													aria-label={`Set rating to ${star} star${star === 1 ? "" : "s"}`}
+													onclick={() => handleSetRating(star)}
+													disabled={isUpdatingRating}
+												>
+													★
+												</button>
+											{/each}
+											{#if (selectedBookDetail.rating ?? 0) > 0}
+												<button
+													type="button"
+													class="rating-clear-btn"
+													aria-label="Clear rating"
+													onclick={() => handleSetRating(null)}
+													disabled={isUpdatingRating}
+												>
+													Clear
+												</button>
+											{/if}
+										</div>
+									</div>
+
+									<div class="detail-v2-progress">
+										<div class="detail-v2-progress-head">
+											<p class="detail-v2-caption">Reading Progress</p>
+											<span>{clampProgress(selectedBookDetail.progressPercent).toFixed(0)}%</span>
+										</div>
+										<div class="detail-v2-progress-track">
+											<div
+												class="detail-v2-progress-fill"
+												style={`width: ${clampProgress(selectedBookDetail.progressPercent)}%`}
+											></div>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<div class="detail-v2-description">
+								<p class="detail-v2-caption">Description</p>
+								{#if isEditingMetadata}
+									<textarea rows="3" class="detail-v2-textarea" bind:value={metadataDraft.description}></textarea>
+								{:else}
+									<p>{selectedBookDetail.description || "No description available."}</p>
+								{/if}
+							</div>
+
+							<div class="detail-v2-quick-meta">
+								<div>
+									<p class="detail-v2-caption">Year</p>
+									<strong>{metadataDraft.year || selectedBook.year || "—"}</strong>
+								</div>
+								<div>
+									<p class="detail-v2-caption">Pages</p>
+									<strong>{metadataDraft.pages || selectedBookDetail.pages || "—"}</strong>
+								</div>
+								<div>
+									<p class="detail-v2-caption">Language</p>
+									<strong>{metadataDraft.language || selectedBook.language || "—"}</strong>
+								</div>
+							</div>
+
+							{#if selectedBookDetail.externalRating !== null}
+								<div class="detail-v2-external-rating">
+									<span class="detail-v2-star">★</span>
+									<span>{selectedBookDetail.externalRating.toFixed(2)}/5</span>
+									<span>({(selectedBookDetail.externalRatingCount ?? 0).toLocaleString()} ratings)</span>
+								</div>
+							{/if}
+
+							<div class="detail-v2-actions">
+								<button class="detail-v2-btn detail-v2-btn-secondary" onclick={handleDownloadFromLibrary} disabled={isDownloadingLibraryFile}>
+									{isDownloadingLibraryFile ? "Downloading..." : "Download"}
+								</button>
+								<button class="detail-v2-btn detail-v2-btn-secondary" onclick={handleToggleArchiveState} disabled={isUpdatingArchiveState}>
+									{isUpdatingArchiveState ? "Saving..." : selectedBookDetail.isArchived ? "Unarchive" : "Archive"}
+								</button>
+								<button class="detail-v2-btn detail-v2-btn-secondary" onclick={handleToggleExcludeFromNewBooks} disabled={isUpdatingNewBooksExclusion || selectedBookDetail.isArchived}>
+									{isUpdatingNewBooksExclusion ? "Saving..." : selectedBookDetail.excludeFromNewBooks ? "Include In New" : "Exclude From New"}
+								</button>
+								<button class="detail-v2-btn detail-v2-btn-secondary" onclick={handleToggleReadState} disabled={isUpdatingReadState}>
+									{isUpdatingReadState ? "Saving..." : selectedBookDetail.isRead ? "Mark Unread" : "Mark Read"}
+								</button>
+								{#if selectedBook.isDownloaded}
+									<button class="detail-v2-btn detail-v2-btn-secondary" onclick={openResetFromDetail}>
+										Reset Download
+									</button>
+								{/if}
+								<button class="detail-v2-btn detail-v2-btn-danger" onclick={handleMoveToTrash} disabled={isMovingToTrash}>
+									{isMovingToTrash ? "Moving..." : "Move To Trash"}
+								</button>
+							</div>
+						</div>
+					{:else if activeDetailTab === "progress"}
+						<div class="detail-v2-progress-tab">
+							<div class="detail-v2-current-progress">
+								<div class="detail-v2-progress-summary">
+									<h3>Current Progress</h3>
+									<span>{clampProgress(selectedBookDetail.progressPercent).toFixed(0)}%</span>
+								</div>
+								<div class="detail-v2-progress-track">
+									<div
+										class="detail-v2-progress-fill"
+										style={`width: ${clampProgress(selectedBookDetail.progressPercent)}%`}
+									></div>
+								</div>
+								{#if getCurrentPage(selectedBookDetail.progressPercent, selectedBookDetail.pages) !== null}
+									<p class="detail-muted">
+										~{getCurrentPage(selectedBookDetail.progressPercent, selectedBookDetail.pages)} of {selectedBookDetail.pages} pages read
+									</p>
+								{/if}
+							</div>
+
+							<div class="detail-v2-history">
+								<div class="detail-v2-history-head">
+									<p class="detail-v2-caption">Progress History ({progressHistory.length} entries)</p>
+									{#if hasMoreProgressHistory}
+										<button type="button" onclick={() => (showProgressHistory = !showProgressHistory)}>
+											{showProgressHistory ? "Show Less" : `Show All (${progressHistory.length})`}
+										</button>
+									{/if}
+								</div>
+
+								{#if isProgressHistoryLoading}
+									<p class="detail-muted">Loading progress history...</p>
+								{:else if progressHistoryError}
+									<p class="detail-error">{progressHistoryError}</p>
+								{:else if progressHistory.length === 0}
+									<p class="detail-muted">No progress history yet.</p>
+								{:else}
+									<ul class="detail-v2-history-list">
+										{#each visibleProgressHistory as entry, index (`${entry.recordedAt}-${entry.progressPercent}-${index}`)}
+											<li>
+												<div class="detail-v2-history-dot"></div>
+												<div class="detail-v2-history-card">
+													<div class="detail-v2-history-row">
+														<span>{formatDateTime(entry.recordedAt)}</span>
+														<span>{clampProgress(entry.progressPercent).toFixed(1)}%</span>
+													</div>
+													<div class="detail-v2-progress-track">
+														<div
+															class="detail-v2-progress-fill"
+															style={`width: ${clampProgress(entry.progressPercent)}%`}
+														></div>
+													</div>
+													{#if getProgressHistoryPageRange(progressHistory, index, selectedBookDetail.pages)}
+														<span class="detail-v2-history-range">
+															{getProgressHistoryPageRange(progressHistory, index, selectedBookDetail.pages)}
+														</span>
+													{/if}
+												</div>
+											</li>
+										{/each}
+									</ul>
+								{/if}
+							</div>
+						</div>
+					{:else if activeDetailTab === "metadata"}
+						<div class="detail-v2-metadata-tab">
+							<div class="detail-v2-metadata-cover">
+								<p class="detail-v2-caption">Cover</p>
+								<div>
+									{#if metadataDraft.cover || selectedBook.cover}
+										<img src={metadataDraft.cover || selectedBook.cover || ""} alt={selectedBookDetail.title} />
+									{:else}
+										<div class="no-cover"><span class="extension">?</span></div>
+									{/if}
+									<span>{metadataDraft.cover || selectedBook.cover || "No cover URL"}</span>
+								</div>
+							</div>
+
+							<div class="detail-v2-metadata-description">
+								<p class="detail-v2-caption">Description</p>
+								{#if isEditingMetadata}
+									<textarea rows="4" class="detail-v2-textarea" bind:value={metadataDraft.description}></textarea>
+								{:else}
+									<p>{selectedBookDetail.description || "No description available."}</p>
+								{/if}
+							</div>
+
+							<div class="detail-v2-metadata-grid">
+								<div><p class="detail-v2-caption">Title</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.title} />{:else}<p>{selectedBookDetail.title}</p>{/if}</div>
+								<div><p class="detail-v2-caption">Author</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.author} />{:else}<p>{selectedBookDetail.author || "—"}</p>{/if}</div>
+								<div><p class="detail-v2-caption">Publisher</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.publisher} />{:else}<p>{selectedBookDetail.publisher || "—"}</p>{/if}</div>
+								<div><p class="detail-v2-caption">Series</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.series} />{:else}<p>{selectedBookDetail.series || "—"}</p>{/if}</div>
+								<div><p class="detail-v2-caption">Volume</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.volume} />{:else}<p>{selectedBookDetail.volume || "—"}</p>{/if}</div>
+								<div><p class="detail-v2-caption">Edition</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.edition} />{:else}<p>{selectedBookDetail.edition || "—"}</p>{/if}</div>
+								<div><p class="detail-v2-caption">Identifier</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.identifier} />{:else}<p>{selectedBookDetail.identifier || "—"}</p>{/if}</div>
+								<div><p class="detail-v2-caption">Year</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.year} />{:else}<p>{selectedBook.year || "—"}</p>{/if}</div>
+								<div><p class="detail-v2-caption">Pages</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.pages} />{:else}<p>{selectedBookDetail.pages || "—"}</p>{/if}</div>
+								<div><p class="detail-v2-caption">Language</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.language} />{:else}<p>{selectedBook.language || "—"}</p>{/if}</div>
+								<div><p class="detail-v2-caption">Google Books ID</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.googleBooksId} />{:else}<p>{selectedBookDetail.googleBooksId || "—"}</p>{/if}</div>
+								<div><p class="detail-v2-caption">Open Library Key</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.openLibraryKey} />{:else}<p>{selectedBookDetail.openLibraryKey || "—"}</p>{/if}</div>
+								<div><p class="detail-v2-caption">Amazon ASIN</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.amazonAsin} />{:else}<p>{selectedBookDetail.amazonAsin || "—"}</p>{/if}</div>
+								<div><p class="detail-v2-caption">External Rating</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.externalRating} />{:else}<p>{selectedBookDetail.externalRating !== null ? `${selectedBookDetail.externalRating}/5` : "—"}</p>{/if}</div>
+								<div><p class="detail-v2-caption">Rating Count</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.externalRatingCount} />{:else}<p>{selectedBookDetail.externalRatingCount ? selectedBookDetail.externalRatingCount.toLocaleString() : "—"}</p>{/if}</div>
+							</div>
+						</div>
+					{:else}
+						<div class="detail-v2-devices-tab">
+							<div class="detail-v2-devices-head">
+								<h3>Downloaded Devices</h3>
+								<span>{selectedBookDetail.downloadedDevices.length} device{selectedBookDetail.downloadedDevices.length !== 1 ? "s" : ""}</span>
+							</div>
+							{#if selectedBookDetail.downloadedDevices.length === 0}
+								<p class="detail-muted">No device downloads tracked.</p>
+							{:else}
+								<div class="detail-v2-device-list">
+									{#each selectedBookDetail.downloadedDevices as device}
+										<div class="detail-v2-device-row">
+											<div class="detail-v2-device-icon">
+												<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+													<rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+													<line x1="12" y1="18" x2="12.01" y2="18"></line>
+												</svg>
+											</div>
+											<div class="detail-v2-device-text">
+												<p>{device}</p>
+												<span>Downloaded device</span>
+											</div>
+											<button
+												type="button"
+												class="detail-v2-device-remove"
+												onclick={() => handleRemoveDeviceDownload(device)}
+												disabled={removingDeviceId !== null}
+											>
+												{removingDeviceId === device ? "Removing..." : "Remove"}
+											</button>
+										</div>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					{/if}
+				{/if}
+			</div>
 		</div>
 	</div>
 {/if}
@@ -1465,339 +1816,592 @@
 
 <style>
 	.library-page {
-		padding: 2rem 0;
+		padding: 1rem 0 1.4rem;
+		display: grid;
+		gap: 1.5rem;
 		color: var(--color-text-primary);
 	}
 
-	.page-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		margin-bottom: 2rem;
-		flex-wrap: wrap;
-		gap: 1rem;
+	.stats-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.75rem;
 	}
 
-	.header-content h1 {
-		margin: 0 0 0.5rem 0;
-		font-size: 1.9rem;
-		font-weight: 600;
+	.stat-card {
+		background: #161921;
+		border: 1px solid var(--color-border);
+		border-radius: 0.75rem;
+		padding: 1rem;
+		display: grid;
+		gap: 0.25rem;
 	}
 
-	.header-content p {
+	.stat-card p {
 		margin: 0;
+		font-size: 0.75rem;
 		color: var(--color-text-muted);
-		font-size: 0.98rem;
 	}
 
-	.header-controls {
+	.stat-card h2 {
+		margin: 0;
+		font-size: 1.5rem;
+		font-weight: 500;
+		line-height: 1.25;
+		color: var(--color-text-primary);
+	}
+
+	.stat-card h2.accent-reading {
+		color: #c9a962;
+	}
+
+	.stat-card h2.accent-unread {
+		color: #60a5fa;
+	}
+
+	.stat-card h2.accent-read {
+		color: #4ade80;
+	}
+
+	.toolbar-row {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.search-wrap {
+		width: 100%;
+		flex: 1;
 		display: flex;
 		align-items: center;
-		gap: 0.7rem;
-		flex-wrap: wrap;
-		justify-content: flex-end;
+		gap: 0.65rem;
+		padding: 0.625rem 0.875rem;
+		background: #1a1d27;
+		border: 1px solid var(--color-border);
+		border-radius: 0.5rem;
+		color: var(--color-text-muted);
 	}
 
-	.view-toggle {
+	.search-wrap input {
+		flex: 1;
+		background: transparent;
+		border: none;
+		color: var(--color-text-primary);
+		font-size: 0.875rem;
+		font-family: inherit;
+	}
+
+	.search-wrap input::placeholder {
+		color: color-mix(in oklab, var(--color-text-muted), transparent 45%);
+	}
+
+	.search-wrap input:focus {
+		outline: none;
+	}
+
+	.toolbar-actions {
+		display: flex;
+		width: 100%;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.import-btn {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.3rem;
-		padding: 0.25rem;
-		background: rgba(15, 32, 50, 0.92);
-		border: 1px solid rgba(117, 191, 255, 0.24);
-		border-radius: 0.8rem;
-	}
-
-	.view-toggle button {
-		border: none;
-		border-radius: 0.6rem;
-		padding: 0.35rem 0.7rem;
-		background: transparent;
-		color: rgba(205, 226, 247, 0.88);
-		font-size: 0.78rem;
+		gap: 0.5rem;
+		padding: 0.625rem 0.875rem;
+		border-radius: 0.5rem;
+		border: 0;
+		background: #c9a962;
+		color: #0d0f14;
+		font-size: 0.875rem;
 		font-weight: 600;
 		cursor: pointer;
+		transition: opacity 0.2s ease;
 	}
 
-	.view-toggle button.active {
-		background: rgba(61, 162, 255, 0.2);
-		color: rgba(236, 245, 255, 0.95);
+	.import-btn:hover {
+		opacity: 0.9;
 	}
 
-	.sort-group {
-		display: flex;
-		align-items: center;
-		gap: 0.45rem;
-		padding: 0.38rem 0.55rem;
-		background: rgba(61, 162, 255, 0.1);
-		border: 1px solid rgba(117, 191, 255, 0.24);
-		border-radius: 0.75rem;
-	}
-
-	.sort-group label {
-		font-size: 0.78rem;
-		font-weight: 600;
-		color: rgba(222, 237, 255, 0.8);
-	}
-
-	.sort-group select {
-		background: rgba(11, 25, 40, 0.92);
-		border: 1px solid rgba(117, 191, 255, 0.28);
-		color: rgba(234, 245, 255, 0.95);
-		border-radius: 0.55rem;
-		font-size: 0.8rem;
-		padding: 0.32rem 0.5rem;
-	}
-
-	.upload-btn {
-		border: 1px solid rgba(123, 193, 255, 0.36);
-		background: linear-gradient(135deg, rgba(34, 88, 136, 0.72), rgba(25, 65, 104, 0.72));
-		color: rgba(236, 246, 255, 0.95);
-		border-radius: 0.75rem;
-		padding: 0.5rem 0.85rem;
-		font-size: 0.8rem;
-		font-weight: 600;
-		cursor: pointer;
-		transition: all 0.2s ease;
-	}
-
-	.upload-btn:hover {
-		border-color: rgba(150, 214, 255, 0.5);
-		background: linear-gradient(135deg, rgba(40, 101, 156, 0.78), rgba(29, 76, 122, 0.78));
-	}
-
-	.upload-btn:disabled {
-		opacity: 0.65;
-		cursor: not-allowed;
+	.import-btn:disabled {
+		opacity: 0.6;
+		cursor: wait;
 	}
 
 	.upload-input {
 		display: none;
 	}
 
-	.stat-badge {
-		display: flex;
+	.menu-wrap {
+		position: relative;
+	}
+
+	.control-btn {
+		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
-		padding: 0.5rem 1rem;
-		background: rgba(61, 162, 255, 0.16);
-		border: 1px solid rgba(117, 191, 255, 0.32);
-		border-radius: 2rem;
-		color: #9dd6ff;
-		font-size: 0.9rem;
-		font-weight: 600;
+		padding: 0.625rem 0.875rem;
+		border-radius: 0.5rem;
+		border: 1px solid var(--color-border);
+		background: #1e2230;
+		color: #c4c1bb;
+		font-size: 0.875rem;
+		font-family: inherit;
+		cursor: pointer;
+		transition: background 0.2s ease;
 	}
 
+	.control-btn:hover {
+		background: #252a3b;
+	}
 
-	.book-grid {
+	.mode-toggle {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.125rem;
+		background: #1e2230;
+		border-radius: 0.5rem;
+		border: 1px solid var(--color-border);
+		gap: 0.125rem;
+	}
+
+	.mode-toggle button {
+		width: 2.125rem;
+		height: 2.125rem;
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-		gap: 1.25rem;
+		place-items: center;
+		border-radius: 0.375rem;
+		border: 1px solid transparent;
+		background: transparent;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		transition: background 0.2s ease, color 0.2s ease;
 	}
 
-	.book-card {
-		display: flex;
-		gap: 1rem;
-		background: linear-gradient(160deg, rgba(17, 37, 58, 0.82), rgba(12, 27, 44, 0.78));
-		border: 1px solid rgba(160, 194, 226, 0.2);
-		border-radius: 1.1rem;
-		padding: 1.25rem;
-		transition: all 0.2s ease;
-		box-shadow: inset 0 1px 0 rgba(210, 230, 252, 0.04);
+	.mode-toggle button.active {
+		background: #161921;
+		color: var(--color-text-primary);
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 	}
 
-	.book-card:hover {
-		border-color: rgba(160, 209, 252, 0.34);
-		background: linear-gradient(160deg, rgba(20, 43, 68, 0.9), rgba(14, 31, 50, 0.87));
-		transform: translateY(-2px);
-		box-shadow: 0 18px 26px -22px rgba(60, 145, 221, 0.65);
+	.menu-backdrop {
+		position: fixed;
+		inset: 0;
+		background: transparent;
+		border: 0;
+		padding: 0;
+		margin: 0;
+		z-index: 30;
 	}
 
-	.book-card.clickable {
+	.menu-popover {
+		position: absolute;
+		top: calc(100% + 0.35rem);
+		right: 0;
+		min-width: 10.5rem;
+		padding: 0.25rem;
+		border-radius: 0.5rem;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		box-shadow: 0 18px 36px rgba(0, 0, 0, 0.4);
+		z-index: 40;
+		display: grid;
+		gap: 0.1rem;
+	}
+
+	.menu-popover button {
+		text-align: left;
+		padding: 0.5rem 0.625rem;
+		border-radius: 0.375rem;
+		border: 1px solid transparent;
+		background: transparent;
+		color: var(--color-text-secondary);
+		font-size: 0.8125rem;
 		cursor: pointer;
 	}
 
-	.book-card.clickable:focus-visible {
-		outline: 2px solid rgba(132, 201, 255, 0.9);
-		outline-offset: 2px;
+	.menu-popover button:hover {
+		background: color-mix(in oklab, var(--color-secondary), transparent 20%);
+		color: var(--color-text-primary);
 	}
 
-	.trash-card {
-		cursor: default;
+	.menu-popover button.active {
+		color: var(--color-primary);
+		background: color-mix(in oklab, var(--color-primary), transparent 90%);
 	}
 
-	.book-cover {
-		flex-shrink: 0;
-		width: 80px;
-		height: 120px;
-		border-radius: 0.7rem;
+	.menu-separator {
+		height: 1px;
+		background: var(--color-border);
+		margin: 0.2rem 0.25rem;
+	}
+
+	.filter-popover {
+		min-width: 8.8rem;
+	}
+
+	.book-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 1rem;
+	}
+
+	.book-tile {
+		background: #161921;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 0.75rem;
+		text-align: left;
+		padding: 0;
+		color: inherit;
+		cursor: pointer;
 		overflow: hidden;
-		box-shadow: 0 16px 22px -20px rgba(0, 0, 0, 0.9);
+		transition: border-color 0.22s ease, transform 0.22s ease;
 	}
 
-	.book-cover img {
+	.book-tile:hover {
+		border-color: color-mix(in oklab, var(--color-primary), transparent 70%);
+		transform: translateY(-1px);
+	}
+
+	.book-tile-cover {
+		position: relative;
+		aspect-ratio: 3 / 4;
+		overflow: hidden;
+		background: color-mix(in oklab, var(--color-surface), black 8%);
+	}
+
+	.book-tile-cover img {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+		transition: transform 0.5s ease;
+	}
+
+	.book-tile:hover .book-tile-cover img {
+		transform: scale(1.05);
 	}
 
 	.no-cover {
 		width: 100%;
 		height: 100%;
-		background: linear-gradient(145deg, rgba(37, 67, 98, 0.7) 0%, rgba(16, 29, 43, 0.9) 100%);
-		display: flex;
-		align-items: center;
-		justify-content: center;
+		display: grid;
+		place-items: center;
+		background: #242a37;
 	}
 
 	.no-cover .extension {
-		font-size: 0.9rem;
+		font-size: 0.72rem;
 		font-weight: 700;
-		color: rgba(216, 233, 250, 0.55);
+		color: var(--color-text-muted);
 	}
 
-	.book-info {
+	.tile-format {
+		position: absolute;
+		top: 0.5rem;
+		right: 0.5rem;
+		display: inline-flex;
+		align-items: center;
+		padding: 0.22rem 0.5rem;
+		border-radius: 0.45rem;
+		font-size: 0.625rem;
+		font-weight: 700;
+		letter-spacing: 0.03em;
+		text-transform: uppercase;
+		line-height: 1.2;
+		border: none;
+	}
+
+	.tile-format.epub {
+		background: #1a2a3a;
+		color: #60a5fa;
+	}
+
+	.tile-format.pdf {
+		background: #2a1a2a;
+		color: #c084fc;
+	}
+
+	.tile-format.mobi {
+		background: #2a2518;
+		color: #c9a962;
+	}
+
+	.tile-progress-track {
+		position: absolute;
+		left: 0.625rem;
+		right: 0.625rem;
+		bottom: 0.625rem;
+		height: 0.5rem;
+		border-radius: 999px;
+		background: #1e2230;
+		overflow: hidden;
+	}
+
+	.tile-progress-fill {
+		height: 100%;
+		border-radius: 999px;
+		background: linear-gradient(90deg, #c9a962, #e0c878);
+	}
+
+	.book-tile-meta {
+		padding: 0.75rem;
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.tile-title {
+		margin: 0;
+		font-size: 0.875rem;
+		color: var(--color-text-primary);
+		line-height: 1.25;
+		font-weight: 500;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.tile-author {
+		margin: 0;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.tile-rating {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.1rem;
+	}
+
+	.tile-rating span {
+		font-size: 0.8rem;
+		color: #3a3d4a;
+	}
+
+	.tile-rating span.active {
+		color: #c9a962;
+	}
+
+	.book-list {
+		display: grid;
+		gap: 0.62rem;
+	}
+
+	.book-list-item {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.75rem;
+		border-radius: 0.75rem;
+		border: 1px solid var(--color-border);
+		background: #161921;
+		color: inherit;
+		text-align: left;
+		cursor: pointer;
+		transition: border-color 0.2s ease, transform 0.2s ease;
+	}
+
+	.book-list-item:hover {
+		border-color: color-mix(in oklab, var(--color-primary), transparent 70%);
+		transform: translateY(-1px);
+	}
+
+	.book-list-cover {
+		width: 3rem;
+		height: 4rem;
+		border-radius: 0.5rem;
+		overflow: hidden;
+		background: color-mix(in oklab, var(--color-surface), black 8%);
+		flex-shrink: 0;
+	}
+
+	.book-list-cover img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.book-list-main {
 		flex: 1;
 		min-width: 0;
+		display: grid;
+		gap: 0.1rem;
+	}
+
+	.book-list-meta {
 		display: flex;
-		flex-direction: column;
+		align-items: center;
+		gap: 0.6rem;
+		flex-wrap: wrap;
+		margin-left: auto;
+	}
+
+	.list-format {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.15rem 0.45rem;
+		border-radius: 0.38rem;
+		font-size: 0.58rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+
+	.list-format.epub {
+		background: #1a2a3a;
+		color: #60a5fa;
+	}
+
+	.list-format.pdf {
+		background: #2a1a2a;
+		color: #c084fc;
+	}
+
+	.list-format.mobi {
+		background: #2a2518;
+		color: #c9a962;
+	}
+
+	.list-progress-chip {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.2rem 0.42rem;
+		border-radius: 999px;
+		font-size: 0.66rem;
+		font-weight: 700;
+		background: #2a2518;
+		color: #c9a962;
+		border: 1px solid rgba(201, 169, 98, 0.3);
+	}
+
+	.trash-list {
+		display: grid;
+		gap: 0.78rem;
+	}
+
+	.trash-card {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		border-radius: 0.75rem;
+		border: 1px solid rgba(196, 68, 58, 0.35);
+		background: rgba(196, 68, 58, 0.13);
+	}
+
+	.trash-cover {
+		width: 3.5rem;
+		height: 4.9rem;
+		flex-shrink: 0;
+		border-radius: 0.5rem;
+		overflow: hidden;
+		background: color-mix(in oklab, var(--color-surface), black 8%);
+	}
+
+	.trash-cover img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.trash-main {
+		flex: 1;
+		min-width: 0;
+		display: grid;
+		gap: 0.24rem;
+	}
+
+	.trash-main h3 {
+		margin: 0;
+		font-size: 0.9rem;
+		font-weight: 500;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.trash-main p {
+		margin: 0;
+		font-size: 0.75rem;
+		color: #d4a3a0;
+	}
+
+	.trash-meta {
+		display: inline-flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		font-size: 0.68rem;
+		color: #e8b7b2;
 	}
 
 	.trash-actions {
-		margin-top: 0.65rem;
-		display: flex;
-		justify-content: flex-end;
-		gap: 0.55rem;
-		flex-wrap: wrap;
-	}
-
-	.book-info h3 {
-		margin: 0 0 0.25rem 0;
-		font-size: 1rem;
-		font-weight: 600;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		line-height: 1.4;
-	}
-
-	.author {
-		margin: 0 0 0.5rem 0;
-		font-size: 0.85rem;
-		color: rgba(214, 232, 252, 0.68);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.4rem;
-		margin-bottom: auto;
-	}
-
-	.tag {
-		display: inline-block;
-		background: rgba(189, 220, 250, 0.1);
-		border: 1px solid rgba(173, 208, 241, 0.2);
-		padding: 0.2rem 0.5rem;
-		border-radius: 0.45rem;
-		font-size: 0.7rem;
-		font-weight: 600;
-		color: rgba(214, 232, 252, 0.75);
-		text-transform: uppercase;
-		letter-spacing: 0.025em;
-	}
-
-	.tag.format {
-		background: rgba(61, 162, 255, 0.2);
-		border-color: rgba(125, 195, 255, 0.32);
-		color: #9bd4ff;
-	}
-
-	.details {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		font-size: 0.75rem;
-		color: rgba(203, 222, 245, 0.56);
-		margin-top: 0.75rem;
-		padding-top: 0.75rem;
-		border-top: 1px solid rgba(160, 194, 226, 0.15);
+		display: grid;
+		gap: 0.34rem;
+		justify-items: end;
 	}
 
 	.empty-state {
-		grid-column: 1 / -1;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
+		display: grid;
+		justify-items: center;
 		text-align: center;
-		padding: 4rem 2rem;
-		background: rgba(11, 25, 40, 0.55);
-		border: 1px dashed rgba(160, 194, 226, 0.2);
-		border-radius: 1rem;
+		padding: 2rem 1rem;
+		border-radius: 0.75rem;
+		border: 1px dashed rgba(255, 255, 255, 0.18);
+		background: var(--color-surface);
 	}
 
 	.empty-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 100px;
-		height: 100px;
-		background: linear-gradient(145deg, rgba(61, 162, 255, 0.2), rgba(35, 92, 145, 0.18));
-		border-radius: 50%;
-		color: #97d3ff;
-		margin-bottom: 1.5rem;
+		width: 76px;
+		height: 76px;
+		display: grid;
+		place-items: center;
+		border-radius: 1rem;
+		background: #1b2131;
+		color: var(--color-text-muted);
+		margin-bottom: 0.72rem;
 	}
 
 	.empty-state h3 {
-		margin: 0 0 0.5rem 0;
-		font-size: 1.25rem;
-		color: rgba(255, 255, 255, 0.8);
+		margin: 0 0 0.26rem;
+		font-size: 1.08rem;
 	}
 
 	.empty-state p {
-		margin: 0 0 1.5rem 0;
-		color: rgba(255, 255, 255, 0.5);
-		font-size: 0.95rem;
-		max-width: 300px;
+		margin: 0 0 0.92rem;
+		font-size: 0.84rem;
+		color: var(--color-text-muted);
 	}
 
 	.link-btn {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.5rem;
-		background: linear-gradient(135deg, #2f8be9, #4ea7ff);
-		border: 1px solid rgba(124, 193, 255, 0.4);
-		color: #f6fbff;
-		padding: 0.75rem 1.5rem;
+		gap: 0.34rem;
+		padding: 0.46rem 0.72rem;
 		border-radius: 0.5rem;
+		border: 1px solid color-mix(in oklab, var(--color-primary), transparent 65%);
+		background: var(--color-primary);
+		color: var(--color-primary-foreground);
 		text-decoration: none;
-		font-weight: 500;
-		transition: all 0.2s ease;
-	}
-
-	.link-btn:hover {
-		background: linear-gradient(135deg, #3c96f2, #66b8ff);
-		transform: translateY(-1px);
-		box-shadow: 0 12px 20px -14px rgba(73, 170, 255, 0.9);
+		font-size: 0.78rem;
+		font-weight: 600;
 	}
 
 	.error {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
-		background: rgba(121, 38, 48, 0.44);
-		border: 1px solid rgba(239, 116, 126, 0.38);
-		border-radius: 0.75rem;
-		padding: 1rem 1.25rem;
-		margin-bottom: 1.5rem;
-		color: #ffb5be;
-	}
-
-	.error svg {
-		flex-shrink: 0;
+		gap: 0.6rem;
+		padding: 0.72rem 0.84rem;
+		border-radius: 0.7rem;
+		border: 1px solid rgba(196, 68, 58, 0.45);
+		background: rgba(196, 68, 58, 0.18);
+		font-size: 0.82rem;
+		color: #ffb4ad;
 	}
 
 	.error p {
@@ -1806,364 +2410,1044 @@
 	}
 
 	.error button {
-		background: rgba(132, 40, 51, 0.46);
-		border: none;
-		color: #ffb5be;
-		padding: 0.5rem 1rem;
-		border-radius: 0.375rem;
+		padding: 0.4rem 0.64rem;
+		border-radius: 0.52rem;
+		border: 1px solid rgba(196, 68, 58, 0.4);
+		background: rgba(196, 68, 58, 0.22);
+		color: #ffb4ad;
+		font-size: 0.74rem;
 		cursor: pointer;
+	}
+
+	@media (min-width: 640px) {
+		.toolbar-row {
+			flex-direction: row;
+		}
+
+		.toolbar-actions {
+			width: auto;
+		}
+
+		.book-grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+
+	@media (min-width: 920px) {
+		.book-grid {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+		}
+
+		.stats-grid {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+		}
+	}
+
+	@media (min-width: 1280px) {
+		.book-grid {
+			grid-template-columns: repeat(5, minmax(0, 1fr));
+		}
+	}
+
+	@media (max-width: 860px) {
+		.search-wrap {
+			min-width: 0;
+		}
+
+		.book-list-item,
+		.trash-card {
+			flex-wrap: wrap;
+		}
+
+		.book-list-meta {
+			margin-left: 0;
+		}
+	}
+
+	@media (max-width: 700px) {
+		.library-page {
+			padding-top: 0.75rem;
+			gap: 0.95rem;
+		}
+
+		.toolbar-actions {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			width: 100%;
+		}
+
+		.import-btn,
+		.control-btn,
+		.mode-toggle {
+			width: 100%;
+			justify-content: center;
+		}
+
+		.book-grid {
+			grid-template-columns: repeat(1, minmax(0, 1fr));
+		}
+
+		.trash-actions {
+			width: 100%;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			justify-items: stretch;
+		}
+
+		.error {
+			flex-direction: column;
+			align-items: stretch;
+		}
+	}
+
+	@media (max-width: 420px) {
+		.toolbar-actions {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.detail-modal-content.detail-v2-shell {
+		width: 100%;
+		max-width: 48rem;
+		max-height: 90vh;
+		padding: 0;
+		border-radius: 1rem;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+	}
+
+	.detail-v2-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1rem 1.5rem;
+		border-bottom: 1px solid var(--color-border);
+		flex-shrink: 0;
+	}
+
+	.detail-v2-header h2 {
+		margin: 0;
+		font-size: 1.25rem;
 		font-weight: 500;
-		transition: background 0.2s ease;
+		line-height: 1.5;
 	}
 
-	.error button:hover {
-		background: rgba(152, 50, 61, 0.54);
+	.detail-v2-header-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 
-	.status-badge {
+	.detail-v2-btn {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.35rem;
-		padding: 0.2rem 0.6rem;
-		border-radius: 1rem;
-		font-size: 0.7rem;
+		gap: 0.375rem;
+		padding: 0.375rem 0.75rem;
+		border-radius: 0.5rem;
+		border: 1px solid var(--color-border);
+		font-size: 0.875rem;
 		font-weight: 500;
+		line-height: 1.5;
+		font-family: inherit;
+		cursor: pointer;
+		transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
 	}
 
-	.status-badge.downloaded {
-		background: rgba(42, 159, 94, 0.2);
-		color: #91f3b8;
-		border: 1px solid rgba(95, 211, 145, 0.3);
+	.detail-v2-btn-secondary {
+		background: var(--color-secondary);
+		color: var(--color-text-secondary);
 	}
 
-	.status-badge.progress {
-		background: rgba(61, 162, 255, 0.2);
-		color: #9bd4ff;
-		border: 1px solid rgba(125, 195, 255, 0.32);
+	.detail-v2-btn-secondary:hover {
+		background: color-mix(in oklab, var(--color-secondary), white 8%);
 	}
 
-	.status-badge.archived {
-		background: rgba(182, 152, 72, 0.2);
-		color: #f2d89a;
-		border: 1px solid rgba(225, 189, 98, 0.3);
+	.detail-v2-btn-primary {
+		background: var(--color-primary);
+		color: var(--color-primary-foreground);
+		border-color: transparent;
 	}
 
-	.right-details {
+	.detail-v2-btn-danger {
+		background: rgba(196, 68, 58, 0.16);
+		border-color: rgba(196, 68, 58, 0.38);
+		color: #ffb4ad;
+	}
+
+	.detail-v2-btn:disabled {
+		opacity: 0.6;
+		cursor: wait;
+	}
+
+	.detail-v2-close-btn {
+		padding: 0.375rem;
+		width: auto;
+		height: auto;
+		display: grid;
+		place-items: center;
+		border-radius: 0.5rem;
+		border: 1px solid transparent;
+		background: transparent;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		transition: background 0.2s ease, color 0.2s ease;
+	}
+
+	.detail-v2-close-btn:hover {
+		background: var(--color-secondary);
+		color: var(--color-text-primary);
+	}
+
+	.detail-v2-tabs {
+		display: flex;
+		gap: 0.25rem;
+		padding: 0 1.5rem;
+		border-bottom: 1px solid var(--color-border);
+		overflow-x: auto;
+		flex-shrink: 0;
+	}
+
+	.detail-v2-tabs button {
+		padding: 0.625rem 0.75rem;
+		border: none;
+		border-bottom: 2px solid transparent;
+		background: transparent;
+		color: var(--color-text-muted);
+		font-size: 0.875rem;
+		font-weight: 500;
+		line-height: 1.5;
+		font-family: inherit;
+		white-space: nowrap;
+		cursor: pointer;
+		transition: border-color 0.2s ease, color 0.2s ease;
+	}
+
+	.detail-v2-tabs button.active {
+		border-bottom-color: var(--color-primary);
+		color: var(--color-text-primary);
+	}
+
+	.detail-v2-body {
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow: auto;
+		padding: 1.5rem;
+	}
+
+	.detail-v2-overview,
+	.detail-v2-progress-tab,
+	.detail-v2-metadata-tab,
+	.detail-v2-devices-tab {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
+
+	.detail-v2-overview-main {
+		display: flex;
+		gap: 1.5rem;
+	}
+
+	.detail-v2-cover {
+		width: 10rem;
+		height: 14rem;
+		border-radius: 0.75rem;
+		overflow: hidden;
+		background: var(--color-input-background);
+		box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+		flex-shrink: 0;
+	}
+
+	.detail-v2-cover img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.detail-v2-info {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.detail-v2-info h1 {
+		margin: 0;
+		font-size: 1.5rem;
+		font-weight: 500;
+		line-height: 1.5;
+	}
+
+	.detail-v2-author {
+		margin: 0;
+		font-size: 1rem;
+		color: var(--color-text-muted);
+	}
+
+	.detail-v2-chip-row {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
+		flex-wrap: wrap;
 	}
 
-	.detail-modal-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(1, 6, 14, 0.72);
-		backdrop-filter: blur(8px);
+	.detail-v2-format-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.125rem 0.5rem;
+		border-radius: 0.25rem;
+		font-size: 10px;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		line-height: 1.2;
+	}
+
+	.detail-v2-format-badge.epub {
+		background: #1a2a3a;
+		color: #60a5fa;
+	}
+
+	.detail-v2-format-badge.pdf {
+		background: #2a1a2a;
+		color: #c084fc;
+	}
+
+	.detail-v2-format-badge.mobi {
+		background: #2a2518;
+		color: #c9a962;
+	}
+
+	.detail-v2-status-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.125rem 0.625rem;
+		border-radius: 999px;
+		font-size: 0.75rem;
+		letter-spacing: 0.01em;
+		text-transform: capitalize;
+	}
+
+	.detail-v2-status-badge.reading {
+		background: #2a2518;
+		color: #c9a962;
+	}
+
+	.detail-v2-status-badge.read {
+		background: #1a2a1a;
+		color: #4ade80;
+	}
+
+	.detail-v2-status-badge.unread {
+		background: #2a2d3a;
+		color: #a0aec0;
+	}
+
+	.detail-v2-size {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	.detail-v2-caption {
+		margin: 0;
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: var(--color-text-muted);
+	}
+
+	.detail-v2-rating .detail-v2-caption,
+	.detail-v2-progress .detail-v2-caption {
+		margin-bottom: 0.25rem;
+		display: block;
+	}
+
+	.detail-v2-shell .rating-row {
+		display: flex;
+		gap: 0.125rem;
+		align-items: center;
+	}
+
+	.detail-v2-shell .rating-star {
+		width: auto;
+		height: auto;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: #3a3d4a;
+		font-size: 1.25rem;
+		line-height: 1;
+		cursor: pointer;
+		transition: color 0.15s ease;
+	}
+
+	.detail-v2-shell .rating-star.active {
+		color: #c9a962;
+		border: 0;
+	}
+
+	.detail-v2-shell .rating-clear-btn {
+		margin-left: 0.4rem;
+		padding: 0.14rem 0.5rem;
+		border-radius: 999px;
+		border: 1px solid var(--color-border);
+		background: #1e2230;
+		color: var(--color-text-muted);
+		font-size: 0.68rem;
+		font-weight: 500;
+		font-family: inherit;
+		cursor: pointer;
+		transition: background 0.15s ease, color 0.15s ease;
+	}
+
+	.detail-v2-shell .rating-clear-btn:hover:not(:disabled) {
+		background: #252a3b;
+		color: var(--color-text-primary);
+	}
+
+	.detail-v2-shell .rating-clear-btn:disabled {
+		opacity: 0.7;
+		cursor: default;
+	}
+
+	.detail-v2-progress-head {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		padding: clamp(0.75rem, 3vh, 2rem);
-		overflow-y: auto;
-		z-index: 1100;
+		justify-content: space-between;
+		margin-bottom: 0.25rem;
+	}
+
+	.detail-v2-progress-head span {
+		font-size: 0.75rem;
+		color: var(--color-text-primary);
+		font-weight: 500;
+	}
+
+	.detail-v2-progress-track {
+		height: 0.375rem;
+		border-radius: 999px;
+		overflow: hidden;
+		background: #1e2230;
+	}
+
+	.detail-v2-progress-fill {
+		height: 100%;
+		border-radius: 999px;
+		background: linear-gradient(90deg, #c9a962, #e0c878);
+	}
+
+	.detail-v2-description p,
+	.detail-v2-metadata-description p {
+		margin: 0;
+		font-size: 0.875rem;
+		line-height: 1.52;
+		color: var(--color-text-secondary);
+	}
+
+	.detail-v2-quick-meta {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 0.75rem;
+	}
+
+	.detail-v2-quick-meta > div {
+		padding: 0.75rem;
+		border-radius: 0.5rem;
+		background: rgba(30, 34, 48, 0.5);
+		display: grid;
+		gap: 0.16rem;
+	}
+
+	.detail-v2-quick-meta strong {
+		font-size: 1.125rem;
+		font-weight: 500;
+		color: var(--color-text-primary);
+	}
+
+	.detail-v2-external-rating {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		border-radius: 0.5rem;
+		background: rgba(30, 34, 48, 0.3);
+	}
+
+	.detail-v2-star {
+		color: #c9a962;
+	}
+
+	.detail-v2-external-rating span:nth-child(2) {
+		font-size: 0.875rem;
+		font-weight: 500;
+	}
+
+	.detail-v2-external-rating span:nth-child(3) {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	.detail-v2-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.detail-v2-current-progress {
+		padding: 1rem;
+		border-radius: 0.75rem;
+		background: rgba(30, 34, 48, 0.3);
+		display: grid;
+		gap: 0.45rem;
+	}
+
+	.detail-v2-progress-summary {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.detail-v2-progress-summary h3,
+	.detail-v2-devices-head h3 {
+		margin: 0;
+		font-size: 1rem;
+		font-weight: 500;
+	}
+
+	.detail-v2-progress-summary span {
+		font-size: 1.5rem;
+		font-weight: 500;
+		color: #c9a962;
+	}
+
+	.detail-v2-history-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.6rem;
+	}
+
+	.detail-v2-history-head button {
+		border: none;
+		background: transparent;
+		color: #c9a962;
+		font-size: 0.75rem;
+		cursor: pointer;
+	}
+
+	.detail-v2-history-list {
+		list-style: none;
+		margin: 0;
+		padding: 0 0 0 1.1rem;
+		display: grid;
+		gap: 0.75rem;
+		position: relative;
+	}
+
+	.detail-v2-history-list::before {
+		content: "";
+		position: absolute;
+		left: 0.35rem;
+		top: 0.6rem;
+		bottom: 0.6rem;
+		width: 1px;
+		background: var(--color-border);
+	}
+
+	.detail-v2-history-list li {
+		position: relative;
+	}
+
+	.detail-v2-history-dot {
+		position: absolute;
+		left: -0.78rem;
+		top: 0.98rem;
+		width: 0.5rem;
+		height: 0.5rem;
+		border-radius: 999px;
+		background: var(--color-surface);
+		border: 2px solid rgba(122, 120, 114, 0.35);
+	}
+
+	.detail-v2-history-card {
+		padding: 0.75rem;
+		border-radius: 0.5rem;
+		background: rgba(30, 34, 48, 0.3);
+		display: grid;
+		gap: 0.34rem;
+	}
+
+	.detail-v2-history-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	.detail-v2-history-row span:last-child {
+		color: var(--color-text-primary);
+		font-weight: 600;
+	}
+
+	.detail-v2-history-range {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	.detail-v2-metadata-cover > div {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		border-radius: 0.5rem;
+		background: rgba(30, 34, 48, 0.3);
+	}
+
+	.detail-v2-metadata-cover img {
+		width: 3rem;
+		height: 4rem;
+		border-radius: 0.44rem;
+		object-fit: cover;
+	}
+
+	.detail-v2-metadata-cover span {
+		min-width: 0;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		word-break: break-all;
+	}
+
+	.detail-v2-metadata-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.75rem;
+	}
+
+	.detail-v2-metadata-grid > div {
+		padding: 0.75rem;
+		border-radius: 0.5rem;
+		background: rgba(30, 34, 48, 0.3);
+		display: grid;
+		gap: 0.18rem;
+	}
+
+	.detail-v2-metadata-grid p {
+		margin: 0;
+		font-size: 0.875rem;
+		color: var(--color-text-primary);
+		line-height: 1.45;
+	}
+
+	.detail-v2-devices-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.detail-v2-devices-head span {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	.detail-v2-device-list {
+		display: grid;
+		gap: 0.52rem;
+	}
+
+	.detail-v2-device-row {
+		display: flex;
+		align-items: center;
+		gap: 0.7rem;
+		padding: 0.75rem;
+		border-radius: 0.5rem;
+		background: rgba(30, 34, 48, 0.3);
+	}
+
+	.detail-v2-device-icon {
+		width: 2.2rem;
+		height: 2.2rem;
+		display: grid;
+		place-items: center;
+		border-radius: 0.6rem;
+		background: #232838;
+		color: var(--color-text-muted);
+	}
+
+	.detail-v2-device-text {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.detail-v2-device-text p {
+		margin: 0 0 0.12rem;
+		font-size: 0.875rem;
+		color: var(--color-text-primary);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.detail-v2-device-text span {
+		font-size: 0.74rem;
+		color: var(--color-text-muted);
+	}
+
+	.detail-v2-device-remove {
+		padding: 0.38rem 0.62rem;
+		border-radius: 0.55rem;
+		border: 1px solid rgba(196, 68, 58, 0.38);
+		background: rgba(196, 68, 58, 0.16);
+		color: #ffb4ad;
+		font-size: 0.74rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.detail-v2-input,
+	.detail-v2-textarea {
+		width: 100%;
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.5rem;
+		border: 1px solid var(--color-border);
+		background: var(--color-input-background);
+		color: var(--color-text-primary);
+		font-family: inherit;
+		font-size: 0.875rem;
+	}
+
+	.detail-v2-input:focus,
+	.detail-v2-textarea:focus {
+		outline: none;
+		border-color: rgba(201, 169, 98, 0.56);
+		box-shadow: 0 0 0 2px rgba(201, 169, 98, 0.12);
+	}
+
+	.detail-v2-title-input {
+		font-size: 1.5rem;
+		font-weight: 500;
+		line-height: 1.5;
+	}
+
+	@media (max-width: 900px) {
+		.detail-modal-content.detail-v2-shell {
+			max-height: calc(100dvh - 1rem);
+		}
+
+		.detail-v2-header {
+			padding: 0.875rem 1rem;
+		}
+
+		.detail-v2-header h2 {
+			font-size: 1.125rem;
+		}
+
+		.detail-v2-body {
+			padding: 1rem;
+		}
+
+		.detail-v2-overview-main {
+			flex-direction: column;
+		}
+
+		.detail-v2-cover {
+			width: 10rem;
+			height: 14rem;
+		}
+
+		.detail-v2-quick-meta {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.detail-v2-metadata-grid {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	@media (max-width: 640px) {
+		.detail-v2-header {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.detail-v2-header-actions {
+			justify-content: flex-end;
+			flex-wrap: wrap;
+		}
+
+		.detail-v2-btn {
+			padding: 0.375rem 0.625rem;
+			font-size: 0.8125rem;
+		}
+
+		.detail-v2-actions {
+			flex-direction: column;
+		}
+
+		.detail-v2-actions .detail-v2-btn {
+			width: 100%;
+			justify-content: center;
+		}
+
+		.detail-v2-device-row {
+			flex-wrap: wrap;
+		}
+	}
+
+	.detail-modal-overlay,
+	.modal-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.72);
+		backdrop-filter: blur(4px);
+		display: grid;
+		place-items: center;
+		padding: 0.85rem;
+		z-index: 1200;
 	}
 
 	.detail-modal-content {
-		width: min(560px, 94vw);
-		max-height: calc(100dvh - clamp(1.5rem, 6vh, 4rem));
-		background: linear-gradient(160deg, rgba(17, 37, 58, 0.95), rgba(11, 25, 40, 0.95));
-		border: 1px solid rgba(160, 194, 226, 0.24);
-		border-radius: 1rem;
-		padding: 1.25rem;
-		box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
+		width: min(960px, 100%);
+		max-height: calc(100dvh - 1.6rem);
 		overflow-y: auto;
-		overscroll-behavior: contain;
+		border-radius: 0.9rem;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		padding: 0.9rem;
+		display: grid;
+		gap: 0.58rem;
 	}
 
 	.detail-header {
 		display: flex;
-		align-items: flex-start;
 		justify-content: space-between;
-		gap: 1rem;
-		position: sticky;
-		top: -1.25rem;
-		background: linear-gradient(160deg, rgba(17, 37, 58, 0.98), rgba(11, 25, 40, 0.98));
-		padding: 1rem 0 0.65rem;
-		margin: -1rem 0 0;
-		z-index: 2;
-		border-bottom: 1px solid rgba(160, 194, 226, 0.14);
+		align-items: start;
+		gap: 0.6rem;
+		padding-bottom: 0.52rem;
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.detail-header h3 {
 		margin: 0;
-		font-size: 1.3rem;
-		color: rgba(236, 245, 255, 0.95);
+		font-size: 1.06rem;
+		font-weight: 600;
 	}
 
 	.detail-close-btn {
-		background: rgba(12, 28, 44, 0.8);
-		border: 1px solid rgba(167, 203, 237, 0.28);
-		color: rgba(228, 240, 255, 0.85);
-		border-radius: 0.45rem;
-		width: 30px;
-		height: 30px;
+		width: 1.9rem;
+		height: 1.9rem;
+		border-radius: 0.5rem;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface-2);
+		color: var(--color-text-secondary);
 		cursor: pointer;
 	}
 
 	.detail-author {
-		margin: 0.5rem 0 1rem;
-		color: rgba(214, 232, 252, 0.72);
+		margin: 0;
+		font-size: 0.84rem;
+		color: var(--color-text-muted);
 	}
 
 	.detail-loading,
 	.detail-muted {
 		margin: 0;
-		color: rgba(214, 232, 252, 0.72);
+		font-size: 0.8rem;
+		color: var(--color-text-muted);
 	}
 
 	.detail-error {
-		background: rgba(121, 38, 48, 0.44);
-		border: 1px solid rgba(239, 116, 126, 0.38);
-		border-radius: 0.7rem;
-		color: #ffb5be;
-		padding: 0.75rem 0.9rem;
+		padding: 0.54rem 0.62rem;
+		border-radius: 0.54rem;
+		border: 1px solid rgba(196, 68, 58, 0.45);
+		background: rgba(196, 68, 58, 0.16);
+		font-size: 0.78rem;
+		color: #ffb4ad;
 	}
 
 	.detail-section {
-		margin-top: 1rem;
+		padding: 0.68rem;
+		border-radius: 0.66rem;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface-2);
+		display: grid;
+		gap: 0.45rem;
 	}
 
-	.detail-section h4 {
-		margin: 0 0 0.5rem;
-		font-size: 0.95rem;
-		color: rgba(228, 240, 255, 0.85);
+
+	.metadata-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.metadata-edit-actions {
+		display: inline-flex;
+		gap: 0.3rem;
 	}
 
 	.metadata-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.55rem 0.9rem;
+		gap: 0.35rem;
 	}
 
-	.metadata-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.7rem;
-		margin-bottom: 0.45rem;
+	.metadata-item {
+		padding: 0.4rem 0.45rem;
+		border-radius: 0.45rem;
+		border: 1px solid rgba(255, 255, 255, 0.06);
+		background: #202431;
+		display: grid;
+		gap: 0.14rem;
 	}
 
-	.metadata-header h4 {
+	.metadata-item span {
+		font-size: 0.62rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-muted);
+	}
+
+
+	.metadata-description {
 		margin: 0;
-	}
-
-	.metadata-edit-actions {
-		display: flex;
-		gap: 0.5rem;
+		font-size: 0.78rem;
+		line-height: 1.45;
+		color: var(--color-text-secondary);
+		white-space: pre-wrap;
 	}
 
 	.metadata-edit-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.55rem 0.8rem;
+		gap: 0.35rem;
 	}
 
 	.metadata-edit-grid label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.2rem;
-	}
-
-	.metadata-edit-grid label span {
-		font-size: 0.72rem;
-		color: rgba(190, 211, 235, 0.86);
-	}
-
-	.metadata-edit-grid input,
-	.metadata-edit-grid textarea {
-		background: rgba(9, 22, 35, 0.78);
-		border: 1px solid rgba(103, 158, 214, 0.32);
-		border-radius: 0.5rem;
-		padding: 0.45rem 0.55rem;
-		color: rgba(232, 244, 255, 0.95);
-		font-size: 0.8rem;
+		display: grid;
+		gap: 0.15rem;
 	}
 
 	.metadata-edit-full {
 		grid-column: 1 / -1;
 	}
 
-	.metadata-item {
-		display: flex;
-		flex-direction: column;
-		gap: 0.15rem;
-	}
-
-	.metadata-item span {
-		font-size: 0.72rem;
-		color: rgba(190, 211, 235, 0.7);
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
-	}
-
-	.metadata-item strong {
-		font-size: 0.84rem;
-		color: rgba(236, 245, 255, 0.94);
-		font-weight: 600;
-		word-break: break-word;
-	}
-
-	.metadata-description {
-		margin: 0.7rem 0 0;
-		font-size: 0.82rem;
-		line-height: 1.5;
-		color: rgba(214, 232, 252, 0.8);
-		white-space: pre-wrap;
-	}
-
 	.progress-row {
 		display: flex;
 		align-items: center;
-		gap: 0.8rem;
+		gap: 0.55rem;
 	}
 
 	.progress-track {
 		flex: 1;
-		height: 10px;
-		background: rgba(12, 28, 44, 0.8);
-		border: 1px solid rgba(167, 203, 237, 0.2);
+		height: 8px;
 		border-radius: 999px;
 		overflow: hidden;
+		background: #232834;
+		border: 1px solid rgba(255, 255, 255, 0.06);
 	}
 
 	.progress-fill {
 		height: 100%;
-		background: linear-gradient(135deg, #2f8be9, #4ea7ff);
+		background: linear-gradient(90deg, #c9a962, #e0c878);
 	}
 
 	.progress-value {
-		font-size: 0.85rem;
-		color: rgba(228, 240, 255, 0.88);
-		min-width: 5rem;
+		font-size: 0.74rem;
+		font-weight: 600;
+		color: var(--color-text-secondary);
+		min-width: 3.8rem;
 		text-align: right;
 	}
 
 	.history-header {
-		margin-top: 0.65rem;
+		margin: 0;
 	}
 
 	.progress-history-list {
 		list-style: none;
-		margin: 0.75rem 0 0;
+		margin: 0;
 		padding: 0;
 		display: grid;
-		gap: 0.45rem;
+		gap: 0.26rem;
 	}
 
-	.progress-history-list li {
-		background: rgba(9, 21, 34, 0.52);
-		border: 1px solid rgba(95, 139, 184, 0.2);
-		border-radius: 0.55rem;
-		padding: 0.55rem 0.65rem;
-		display: grid;
-		gap: 0.2rem;
-	}
 
 	.progress-history-main {
 		display: flex;
-		align-items: center;
 		justify-content: space-between;
-		gap: 0.55rem;
+		align-items: center;
+		gap: 0.4rem;
 	}
 
 	.progress-history-percent {
-		font-size: 0.82rem;
-		font-weight: 600;
-		color: rgba(236, 245, 255, 0.9);
-	}
-
-	.progress-history-time {
 		font-size: 0.74rem;
-		color: rgba(190, 211, 235, 0.7);
+		font-weight: 600;
 	}
 
+	.progress-history-time,
 	.progress-history-range {
-		font-size: 0.76rem;
-		color: rgba(155, 212, 255, 0.9);
-	}
-
-	.rating-row {
-		display: flex;
-		align-items: center;
-		gap: 0.35rem;
-	}
-
-	.rating-star {
-		width: 2rem;
-		height: 2rem;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 1.1rem;
-		line-height: 1;
-		border-radius: 0.45rem;
-		border: 1px solid rgba(167, 203, 237, 0.24);
-		background: rgba(12, 28, 44, 0.8);
-		color: rgba(214, 232, 252, 0.45);
-		cursor: pointer;
-	}
-
-	.rating-star.active {
-		color: #ffd561;
-		border-color: rgba(255, 213, 97, 0.45);
-		background: rgba(89, 68, 12, 0.35);
-	}
-
-	.rating-star:disabled {
-		opacity: 0.65;
-		cursor: wait;
-	}
-
-	.rating-clear {
-		margin-left: 0.45rem;
-		padding: 0.35rem 0.6rem;
-		background: rgba(12, 28, 44, 0.8);
-		border: 1px solid rgba(167, 203, 237, 0.24);
-		border-radius: 0.45rem;
-		color: rgba(214, 232, 252, 0.82);
-		font-size: 0.78rem;
-		cursor: pointer;
-	}
-
-	.rating-clear:disabled {
-		opacity: 0.65;
-		cursor: wait;
+		font-size: 0.68rem;
+		color: var(--color-text-muted);
 	}
 
 	.read-state-row {
 		display: flex;
 		align-items: center;
-		gap: 0.7rem;
+		gap: 0.46rem;
 		flex-wrap: wrap;
 	}
 
 	.read-state-label {
-		font-size: 0.82rem;
-		color: rgba(214, 232, 252, 0.78);
+		font-size: 0.74rem;
+		color: var(--color-text-muted);
 	}
 
 	.exclude-new-books-row {
-		margin-top: 0.7rem;
 		display: inline-flex;
 		align-items: center;
-		gap: 0.5rem;
-		font-size: 0.82rem;
-		color: rgba(214, 232, 252, 0.82);
+		gap: 0.36rem;
+		font-size: 0.74rem;
+		color: var(--color-text-secondary);
 	}
 
-	.exclude-new-books-row input[type="checkbox"] {
-		width: 0.95rem;
-		height: 0.95rem;
-		accent-color: #4ea7ff;
+
+	.rating-row {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.2rem;
+		flex-wrap: wrap;
+	}
+
+	.rating-star {
+		width: 1.7rem;
+		height: 1.7rem;
+		border-radius: 0.44rem;
+		border: 1px solid var(--color-border);
+		background: #202431;
+		color: #545e6e;
+		font-size: 0.95rem;
+		cursor: pointer;
+	}
+
+	.rating-star.active {
+		color: #c9a962;
+		border-color: rgba(201, 169, 98, 0.35);
+	}
+
+	.rating-clear {
+		padding: 0.3rem 0.46rem;
+		border-radius: 0.44rem;
+		border: 1px solid var(--color-border);
+		background: #202431;
+		color: var(--color-text-secondary);
+		font-size: 0.7rem;
+		cursor: pointer;
 	}
 
 	.device-list {
@@ -2172,327 +3456,149 @@
 		padding: 0;
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.45rem;
+		gap: 0.26rem;
 	}
 
-	.device-list li {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.45rem;
-		padding: 0.3rem 0.55rem;
-		background: rgba(189, 220, 250, 0.1);
-		border: 1px solid rgba(173, 208, 241, 0.2);
-		border-radius: 0.45rem;
-		font-size: 0.8rem;
-		color: rgba(214, 232, 252, 0.82);
-	}
 
 	.device-remove-btn {
-		background: rgba(132, 40, 51, 0.46);
-		border: 1px solid rgba(239, 116, 126, 0.34);
-		color: #ffb5be;
-		border-radius: 0.4rem;
-		font-size: 0.72rem;
-		padding: 0.18rem 0.42rem;
+		padding: 0.12rem 0.28rem;
+		border-radius: 0.36rem;
+		border: 1px solid rgba(196, 68, 58, 0.42);
+		background: rgba(196, 68, 58, 0.2);
+		color: #ffb4ad;
+		font-size: 0.62rem;
 		cursor: pointer;
-	}
-
-	.device-remove-btn:disabled {
-		opacity: 0.65;
-		cursor: wait;
 	}
 
 	.detail-actions {
 		display: flex;
-		gap: 0.6rem;
 		justify-content: flex-end;
-		position: sticky;
-		bottom: -1.25rem;
-		background: linear-gradient(160deg, rgba(17, 37, 58, 0.98), rgba(11, 25, 40, 0.98));
-		padding: 0.85rem 0 0.2rem;
-		margin-bottom: -0.2rem;
-		border-top: 1px solid rgba(160, 194, 226, 0.14);
+		gap: 0.3rem;
+		flex-wrap: wrap;
+	}
+
+	.detail-download-btn,
+	.detail-refetch-btn,
+	.detail-reset-btn,
+	.detail-remove-btn,
+	.modal-btn {
+		padding: 0.38rem 0.58rem;
+		border-radius: 0.48rem;
+		border: 1px solid var(--color-border);
+		font-size: 0.7rem;
+		font-weight: 600;
+		cursor: pointer;
 	}
 
 	.detail-download-btn {
-		padding: 0.55rem 0.9rem;
-		background: rgba(45, 119, 199, 0.35);
-		border: 1px solid rgba(129, 189, 255, 0.45);
-		border-radius: 0.55rem;
-		color: rgba(233, 244, 255, 0.95);
-		cursor: pointer;
-		font-size: 0.83rem;
-		font-weight: 600;
-	}
-
-	.detail-download-btn:disabled {
-		opacity: 0.65;
-		cursor: wait;
+		background: var(--color-primary);
+		color: var(--color-primary-foreground);
 	}
 
 	.detail-refetch-btn {
-		padding: 0.55rem 0.9rem;
-		background: rgba(12, 28, 44, 0.8);
-		border: 1px solid rgba(167, 203, 237, 0.28);
-		border-radius: 0.55rem;
-		color: rgba(228, 240, 255, 0.9);
-		cursor: pointer;
-		font-size: 0.83rem;
-		font-weight: 600;
-	}
-
-	.detail-refetch-btn:disabled {
-		opacity: 0.65;
-		cursor: wait;
+		background: #232834;
+		color: var(--color-text-secondary);
 	}
 
 	.detail-reset-btn {
-		padding: 0.55rem 0.9rem;
-		background: rgba(132, 40, 51, 0.46);
-		border: 1px solid rgba(239, 116, 126, 0.38);
-		border-radius: 0.55rem;
-		color: #ffb5be;
-		cursor: pointer;
-		font-size: 0.83rem;
-		font-weight: 600;
+		background: rgba(196, 68, 58, 0.18);
+		border-color: rgba(196, 68, 58, 0.38);
+		color: #ffb4ad;
 	}
 
 	.detail-remove-btn {
-		padding: 0.55rem 0.9rem;
-		background: rgba(126, 52, 17, 0.48);
-		border: 1px solid rgba(245, 166, 104, 0.42);
-		border-radius: 0.55rem;
-		color: #ffd3b0;
-		cursor: pointer;
-		font-size: 0.83rem;
-		font-weight: 600;
+		background: rgba(196, 68, 58, 0.18);
+		border-color: rgba(196, 68, 58, 0.38);
+		color: #ffb4ad;
 	}
 
-	/* Confirmation Modal */
-	.modal-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(1, 6, 14, 0.72);
-		backdrop-filter: blur(8px);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-		animation: fadeIn 0.2s ease;
-	}
-
-	@keyframes fadeIn {
-		from { opacity: 0; }
-		to { opacity: 1; }
+	.detail-download-btn:disabled,
+	.detail-refetch-btn:disabled,
+	.detail-reset-btn:disabled,
+	.detail-remove-btn:disabled,
+	.rating-star:disabled,
+	.rating-clear:disabled,
+	.device-remove-btn:disabled,
+	.modal-btn:disabled {
+		opacity: 0.55;
+		cursor: wait;
 	}
 
 	.modal-content {
-		background: linear-gradient(160deg, rgba(17, 37, 58, 0.95), rgba(11, 25, 40, 0.95));
-		border: 1px solid rgba(160, 194, 226, 0.2);
-		border-radius: 1rem;
-		padding: 2rem;
-		max-width: 420px;
-		width: 90%;
+		width: min(430px, 100%);
+		border-radius: 0.86rem;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		padding: 1rem;
 		text-align: center;
-		box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
-		animation: slideUp 0.25s ease;
-	}
-
-	@keyframes slideUp {
-		from { 
-			opacity: 0; 
-			transform: translateY(20px) scale(0.95);
-		}
-		to { 
-			opacity: 1; 
-			transform: translateY(0) scale(1);
-		}
 	}
 
 	.modal-icon {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 64px;
-		height: 64px;
-		background: rgba(251, 191, 36, 0.2);
+		width: 52px;
+		height: 52px;
+		display: inline-grid;
+		place-items: center;
 		border-radius: 50%;
-		color: #fbbf24;
-		margin-bottom: 1.25rem;
+		background: rgba(201, 169, 98, 0.18);
+		color: var(--color-primary);
+		margin-bottom: 0.6rem;
 	}
 
 	.modal-content h3 {
-		margin: 0 0 0.75rem 0;
-		font-size: 1.25rem;
-		font-weight: 600;
-		color: #fff;
+		margin: 0 0 0.3rem;
+		font-size: 1rem;
 	}
 
 	.modal-description {
-		margin: 0 0 1.5rem 0;
-		color: rgba(214, 232, 252, 0.72);
-		font-size: 0.95rem;
-		line-height: 1.6;
+		margin: 0;
+		font-size: 0.8rem;
+		line-height: 1.45;
+		color: var(--color-text-muted);
 	}
 
 	.modal-description strong {
-		color: rgba(236, 245, 255, 0.95);
-		font-weight: 500;
+		color: var(--color-text-primary);
 	}
 
 	.modal-actions {
 		display: flex;
-		gap: 0.75rem;
 		justify-content: center;
-	}
-
-	.modal-btn {
-		padding: 0.75rem 1.5rem;
-		border-radius: 0.5rem;
-		font-size: 0.9rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: all 0.2s ease;
-		border: none;
+		gap: 0.4rem;
+		margin-top: 0.75rem;
 	}
 
 	.modal-btn.cancel {
-		background: rgba(12, 28, 44, 0.76);
-		color: rgba(228, 240, 255, 0.85);
-		border: 1px solid rgba(167, 203, 237, 0.26);
-	}
-
-	.modal-btn.cancel:hover {
-		background: rgba(19, 40, 63, 0.9);
-		color: #fff;
+		background: #232834;
+		color: var(--color-text-secondary);
 	}
 
 	.modal-btn.confirm {
-		background: linear-gradient(135deg, #fbbf24, #f59e0b);
-		color: #1a1a2e;
+		background: var(--color-primary);
+		color: var(--color-primary-foreground);
 	}
 
-	.modal-btn.confirm:hover {
-		background: linear-gradient(135deg, #fcd34d, #fbbf24);
-		transform: translateY(-1px);
-		box-shadow: 0 4px 12px -4px rgba(251, 191, 36, 0.4);
-	}
-
-	@media (max-width: 900px) {
-		.library-page {
-			padding: 1.25rem 0 1.5rem;
-		}
-
-		.book-grid {
-			grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-		}
-	}
-
-	@media (max-width: 640px) {
-		.detail-modal-overlay {
-			align-items: center;
-			padding: 0.75rem;
-		}
-
+	@media (max-width: 700px) {
 		.detail-modal-content {
-			width: 100%;
-			max-height: calc(100dvh - 1.5rem);
-			border-radius: 0.8rem;
-			padding: 1rem;
+			padding: 0.72rem;
+			max-height: calc(100dvh - 1rem);
 		}
 
-		.detail-header {
-			top: -1rem;
-			padding-top: 0.85rem;
-		}
-
-		.detail-actions {
-			bottom: -1rem;
-		}
-
-		.page-header {
-			margin-bottom: 1.25rem;
-			gap: 0.8rem;
-		}
-
-		.header-controls {
-			width: 100%;
-			justify-content: space-between;
-		}
-
-		.sort-group {
-			flex: 1;
-			justify-content: space-between;
-		}
-
-		.upload-btn {
-			flex: 1;
-			text-align: center;
-		}
-
-		.header-content h1 {
-			font-size: 1.45rem;
-		}
-
-		.book-grid {
-			grid-template-columns: minmax(0, 1fr);
-			gap: 0.9rem;
-		}
-
-		.book-card {
-			padding: 0.9rem;
-			gap: 0.8rem;
-		}
-
-		.book-cover {
-			width: 64px;
-			height: 96px;
-		}
-
-		.book-info h3,
-		.author {
-			white-space: normal;
-			overflow: visible;
-		}
-
-		.details {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 0.55rem;
-		}
-
-		.metadata-grid {
-			grid-template-columns: minmax(0, 1fr);
-		}
-
+		.metadata-grid,
 		.metadata-edit-grid {
 			grid-template-columns: minmax(0, 1fr);
 		}
 
-		.right-details {
-			width: 100%;
-			justify-content: space-between;
-		}
-
-		.error {
-			flex-wrap: wrap;
-		}
-
-		.error button {
-			width: 100%;
-		}
-
-		.modal-content {
-			width: min(94vw, 420px);
-			padding: 1.25rem;
-		}
-
-		.modal-actions {
-			flex-direction: column;
-		}
-
+		.detail-download-btn,
+		.detail-refetch-btn,
+		.detail-reset-btn,
+		.detail-remove-btn,
 		.modal-btn {
 			width: 100%;
+		}
+
+		.detail-actions,
+		.modal-actions {
+			justify-content: stretch;
 		}
 	}
 </style>

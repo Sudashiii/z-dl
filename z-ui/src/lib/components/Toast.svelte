@@ -50,79 +50,74 @@
 </div>
 
 <style>
-    .toast {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        min-width: 320px;
-        max-width: 420px;
-        padding: 1rem 1.25rem;
-        border-radius: 0.75rem;
-        box-shadow:
-            0 10px 25px -5px rgba(0, 0, 0, 0.3),
-            0 8px 10px -6px rgba(0, 0, 0, 0.2);
-        color: #fff;
-        font-size: 0.9rem;
-        pointer-events: auto;
-        backdrop-filter: blur(8px);
-    }
+	.toast {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		min-width: 260px;
+		max-width: 380px;
+		padding: 0.7rem 0.78rem;
+		border-radius: 0.62rem;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		color: var(--color-text-secondary);
+		font-size: 0.79rem;
+		pointer-events: auto;
+	}
 
-    .toast.info {
-        background: rgba(28, 38, 50, 0.95);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
+	.toast.info {
+		border-color: rgba(96, 165, 250, 0.4);
+	}
 
-    .toast.info .icon {
-        color: #1e90ff;
-    }
+	.toast.info .icon {
+		color: #60a5fa;
+	}
 
-    .toast.success {
-        background: rgba(22, 101, 52, 0.95);
-        border: 1px solid rgba(34, 197, 94, 0.3);
-    }
+	.toast.success {
+		border-color: rgba(74, 222, 128, 0.4);
+	}
 
-    .toast.success .icon {
-        color: #4ade80;
-    }
+	.toast.success .icon {
+		color: #4ade80;
+	}
 
-    .toast.error {
-        background: rgba(127, 29, 29, 0.95);
-        border: 1px solid rgba(239, 68, 68, 0.3);
-    }
+	.toast.error {
+		border-color: rgba(196, 68, 58, 0.5);
+		color: #ffb4ad;
+	}
 
-    .toast.error .icon {
-        color: #fca5a5;
-    }
+	.toast.error .icon {
+		color: #ff8d84;
+	}
 
-    .icon {
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
+	.icon {
+		flex-shrink: 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
 
-    .message {
-        flex: 1;
-        line-height: 1.4;
-    }
+	.message {
+		flex: 1;
+		line-height: 1.35;
+	}
 
-    .close-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: transparent;
-        border: none;
-        color: currentColor;
-        cursor: pointer;
-        opacity: 0.6;
-        padding: 0.25rem;
-        border-radius: 0.25rem;
-        transition: all 0.2s ease;
-        flex-shrink: 0;
-    }
+	.close-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.55rem;
+		height: 1.55rem;
+		border-radius: 0.42rem;
+		border: 0;
+		background: transparent;
+		color: currentColor;
+		opacity: 0.62;
+		cursor: pointer;
+	}
 
-    .close-btn:hover {
-        opacity: 1;
-        background: rgba(255, 255, 255, 0.1);
-    }
+	.close-btn:hover {
+		opacity: 1;
+		background: rgba(255, 255, 255, 0.06);
+	}
 </style>
