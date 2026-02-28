@@ -304,7 +304,7 @@ function Sake:handleResume()
         self.bg_error_messages = {}
     end
 
-    local retry_delays = { 6.0 }
+    local retry_delays = { 6.0, 15.0 }
     local max_attempts = #retry_delays
 
     local function attemptProgressSync(attempt)

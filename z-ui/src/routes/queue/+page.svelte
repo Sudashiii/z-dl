@@ -22,6 +22,8 @@
 	let queuePendingCount = $state(0);
 	let queueProcessingCount = $state(0);
 	let queuePollTimer: ReturnType<typeof setInterval> | null = null;
+	let isRefreshing = false;
+	let refreshQueued = false;
 
 	onMount(() => {
 		void refreshQueueStatus(true);
@@ -37,24 +39,35 @@
 	});
 
 	async function refreshQueueStatus(showLoader: boolean): Promise<void> {
-		if (showLoader) {
-			isLoading = true;
-		}
-		const result = await ZUI.getQueueStatus();
-		if (!result.ok) {
-			error = result.error;
-			if (showLoader) {
-				isLoading = false;
-			}
+		if (isRefreshing) {
+			refreshQueued = true;
 			return;
 		}
 
-		error = null;
-		queuePendingCount = result.value.queueStatus.pending;
-		queueProcessingCount = result.value.queueStatus.processing;
-		queueJobs = result.value.jobs;
+		isRefreshing = true;
 		if (showLoader) {
-			isLoading = false;
+			isLoading = true;
+		}
+		try {
+			const result = await ZUI.getQueueStatus();
+			if (!result.ok) {
+				error = result.error;
+				return;
+			}
+
+			error = null;
+			queuePendingCount = result.value.queueStatus.pending;
+			queueProcessingCount = result.value.queueStatus.processing;
+			queueJobs = result.value.jobs;
+		} finally {
+			if (showLoader) {
+				isLoading = false;
+			}
+			isRefreshing = false;
+			if (refreshQueued) {
+				refreshQueued = false;
+				void refreshQueueStatus(false);
+			}
 		}
 	}
 

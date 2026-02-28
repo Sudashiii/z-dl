@@ -4,9 +4,5 @@ auth {
 
 auth:basic {
   username: {{env.BASIC_AUTH_USERNAME}}
-  password: shi
-}
-
-vars:pre-request {
-  env.BASIC_AUTH_USERNAME: suda
+  password: {{env.BASIC_AUTH_PASSWORD}}
 }

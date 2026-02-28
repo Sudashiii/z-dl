@@ -324,8 +324,7 @@
 				edition: result.value.book.edition,
 				identifier: result.value.book.identifier,
 				pages: result.value.book.pages,
-				description: result.value.book.description
-				,
+				description: result.value.book.description,
 				googleBooksId: result.value.book.googleBooksId,
 				openLibraryKey: result.value.book.openLibraryKey,
 				amazonAsin: result.value.book.amazonAsin,
