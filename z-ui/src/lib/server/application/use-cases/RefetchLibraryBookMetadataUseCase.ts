@@ -73,7 +73,8 @@ export class RefetchLibraryBookMetadataUseCase {
 		const enriched = await this.externalMetadataService.lookup({
 			title: existingBook.title,
 			author: existingBook.author ?? null,
-			identifier: existingBook.identifier ?? null
+			identifier: existingBook.identifier ?? null,
+			language: existingBook.language ?? null
 		});
 
 		const updated = await this.bookRepository.updateMetadata(existingBook.id, {

@@ -949,6 +949,15 @@
 		});
 	}
 
+	function toGoogleBooksUrl(googleBooksId: string): string {
+		return `https://books.google.com/books?id=${encodeURIComponent(googleBooksId)}`;
+	}
+
+	function toOpenLibraryUrl(openLibraryKey: string): string {
+		const normalized = openLibraryKey.startsWith("/") ? openLibraryKey : `/${openLibraryKey}`;
+		return `https://openlibrary.org${normalized}`;
+	}
+
 	function getCurrentPage(progressPercent: number | null, pages: number | null): number | null {
 		if (progressPercent === null || pages === null || pages <= 0) {
 			return null;
@@ -1732,8 +1741,34 @@
 								<div><p class="detail-v2-caption">Year</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.year} />{:else}<p>{selectedBook.year || "—"}</p>{/if}</div>
 								<div><p class="detail-v2-caption">Pages</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.pages} />{:else}<p>{selectedBookDetail.pages || "—"}</p>{/if}</div>
 								<div><p class="detail-v2-caption">Language</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.language} />{:else}<p>{selectedBook.language || "—"}</p>{/if}</div>
-								<div><p class="detail-v2-caption">Google Books ID</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.googleBooksId} />{:else}<p>{selectedBookDetail.googleBooksId || "—"}</p>{/if}</div>
-								<div><p class="detail-v2-caption">Open Library Key</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.openLibraryKey} />{:else}<p>{selectedBookDetail.openLibraryKey || "—"}</p>{/if}</div>
+								<div>
+									<p class="detail-v2-caption">Google Books ID</p>
+									{#if isEditingMetadata}
+										<input class="detail-v2-input" bind:value={metadataDraft.googleBooksId} />
+									{:else if selectedBookDetail.googleBooksId}
+										<p>
+											<a class="detail-v2-meta-link" href={toGoogleBooksUrl(selectedBookDetail.googleBooksId)} target="_blank" rel="noopener noreferrer">
+												{selectedBookDetail.googleBooksId}
+											</a>
+										</p>
+									{:else}
+										<p>—</p>
+									{/if}
+								</div>
+								<div>
+									<p class="detail-v2-caption">Open Library Key</p>
+									{#if isEditingMetadata}
+										<input class="detail-v2-input" bind:value={metadataDraft.openLibraryKey} />
+									{:else if selectedBookDetail.openLibraryKey}
+										<p>
+											<a class="detail-v2-meta-link" href={toOpenLibraryUrl(selectedBookDetail.openLibraryKey)} target="_blank" rel="noopener noreferrer">
+												{selectedBookDetail.openLibraryKey}
+											</a>
+										</p>
+									{:else}
+										<p>—</p>
+									{/if}
+								</div>
 								<div><p class="detail-v2-caption">Amazon ASIN</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.amazonAsin} />{:else}<p>{selectedBookDetail.amazonAsin || "—"}</p>{/if}</div>
 								<div><p class="detail-v2-caption">External Rating</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.externalRating} />{:else}<p>{selectedBookDetail.externalRating !== null ? `${selectedBookDetail.externalRating}/5` : "—"}</p>{/if}</div>
 								<div><p class="detail-v2-caption">Rating Count</p>{#if isEditingMetadata}<input class="detail-v2-input" bind:value={metadataDraft.externalRatingCount} />{:else}<p>{selectedBookDetail.externalRatingCount ? selectedBookDetail.externalRatingCount.toLocaleString() : "—"}</p>{/if}</div>
@@ -3041,6 +3076,17 @@
 		font-size: 0.875rem;
 		color: var(--color-text-primary);
 		line-height: 1.45;
+	}
+
+	.detail-v2-meta-link {
+		color: #c9a962;
+		text-decoration: underline;
+		text-underline-offset: 0.16rem;
+		word-break: break-word;
+	}
+
+	.detail-v2-meta-link:hover {
+		color: #e5c987;
 	}
 
 	.detail-v2-devices-head {

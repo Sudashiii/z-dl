@@ -20,6 +20,7 @@ interface LookupInput {
 	title: string;
 	author: string | null;
 	identifier: string | null;
+	language?: string | null;
 }
 
 function asString(value: unknown): string | null {
@@ -47,6 +48,87 @@ function normalizeForMatch(value: string | null | undefined): string {
 	return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+function languageTokens(input: string | null | undefined): string[] {
+	if (!input) {
+		return [];
+	}
+
+	const normalized = input.trim().toLowerCase();
+	if (!normalized) {
+		return [];
+	}
+
+	const mapped = new Set<string>();
+	const add = (token: string) => mapped.add(token.toLowerCase());
+
+	const mapByName: Record<string, string[]> = {
+		english: ['en', 'eng'],
+		german: ['de', 'deu', 'ger'],
+		deutsch: ['de', 'deu', 'ger'],
+		french: ['fr', 'fra', 'fre'],
+		spanish: ['es', 'spa'],
+		italian: ['it', 'ita'],
+		portuguese: ['pt', 'por'],
+		dutch: ['nl', 'nld', 'dut'],
+		polish: ['pl', 'pol'],
+		russian: ['ru', 'rus'],
+		japanese: ['ja', 'jpn'],
+		chinese: ['zh', 'zho', 'chi']
+	};
+
+	add(normalized);
+	for (const token of normalized.split(/[^a-z0-9]+/g)) {
+		if (token) {
+			add(token);
+		}
+	}
+	for (const token of mapByName[normalized] ?? []) {
+		add(token);
+	}
+
+	return [...mapped];
+}
+
+function normalizeLanguageToken(value: string | null | undefined): string {
+	if (!value) {
+		return '';
+	}
+
+	const lower = value.toLowerCase().trim();
+	if (!lower) {
+		return '';
+	}
+
+	const parts = lower.split('/').filter(Boolean);
+	return parts[parts.length - 1] ?? lower;
+}
+
+function languageScore(targetLanguageTokens: string[], candidateLanguages: Array<string | null | undefined>): number {
+	if (targetLanguageTokens.length === 0) {
+		return 0;
+	}
+
+	const normalizedCandidates = candidateLanguages
+		.map((value) => normalizeLanguageToken(value))
+		.filter((token) => token.length > 0);
+
+	if (normalizedCandidates.length === 0) {
+		return 0;
+	}
+
+	const matched = normalizedCandidates.some((token) => {
+		if (targetLanguageTokens.includes(token)) {
+			return true;
+		}
+		if (token.length >= 2 && targetLanguageTokens.includes(token.slice(0, 2))) {
+			return true;
+		}
+		return false;
+	});
+
+	return matched ? 4 : -4;
+}
+
 export class ExternalBookMetadataService {
 	async lookup(input: LookupInput): Promise<ExternalBookMetadata> {
 		const [google, openLibrary] = await Promise.all([
@@ -54,8 +136,6 @@ export class ExternalBookMetadataService {
 			this.lookupOpenLibrary(input)
 		]);
 
-		// Amazon Product Advertising API is optional and requires signed requests + eligible account.
-		// Keep this as a placeholder source id for manual edits/imports.
 		const amazonAsin = this.extractAmazonAsin(input.identifier);
 
 		return {
@@ -96,8 +176,10 @@ export class ExternalBookMetadataService {
 			queryParts.push(`isbn:${input.identifier}`);
 		}
 		const query = encodeURIComponent(queryParts.join(' '));
+		const langRestrict = languageTokens(input.language).find((token) => token.length === 2) ?? '';
+		const langPart = langRestrict ? `&langRestrict=${encodeURIComponent(langRestrict)}` : '';
 		const keyPart = env.GOOGLE_BOOKS_API_KEY ? `&key=${encodeURIComponent(env.GOOGLE_BOOKS_API_KEY)}` : '';
-		const url = `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=5${keyPart}`;
+		const url = `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=5${langPart}${keyPart}`;
 
 		try {
 			const response = await fetch(url);
@@ -112,6 +194,7 @@ export class ExternalBookMetadataService {
 						title?: string;
 						subtitle?: string;
 						authors?: string[];
+						language?: string;
 						publisher?: string;
 						description?: string;
 						pageCount?: number;
@@ -130,6 +213,7 @@ export class ExternalBookMetadataService {
 
 			const normalizedTitle = normalizeForMatch(input.title);
 			const normalizedAuthor = normalizeForMatch(input.author);
+			const targetLanguages = languageTokens(input.language);
 			const scoreGoogleItem = (item: (typeof items)[number]): number => {
 				const title = normalizeForMatch(item.volumeInfo?.title);
 				const authors = item.volumeInfo?.authors ?? [];
@@ -138,7 +222,8 @@ export class ExternalBookMetadataService {
 					normalizedAuthor.length > 0 &&
 					authors.some((author) => normalizeForMatch(author).includes(normalizedAuthor));
 				const pages = asNumber(item.volumeInfo?.pageCount);
-				return (hasTitleMatch ? 5 : 0) + (hasAuthorMatch ? 3 : 0) + (pages ? 2 : 0);
+				const langScore = languageScore(targetLanguages, [item.volumeInfo?.language]);
+				return (hasTitleMatch ? 5 : 0) + (hasAuthorMatch ? 3 : 0) + (pages ? 2 : 0) + langScore;
 			};
 
 			const best = [...items].sort((a, b) => scoreGoogleItem(b) - scoreGoogleItem(a))[0] ?? items[0];
@@ -196,9 +281,17 @@ export class ExternalBookMetadataService {
 		externalRating: number | null;
 		externalRatingCount: number | null;
 	}> {
-		const query = encodeURIComponent(`${input.title}${input.author ? ` ${input.author}` : ''}`.trim());
+		const targetLanguages = languageTokens(input.language);
+		const preferredLanguage =
+			targetLanguages.find((token) => token.length === 3) ??
+			targetLanguages.find((token) => token.length === 2) ??
+			'';
+		const queryBase = `${input.title}${input.author ? ` ${input.author}` : ''}`.trim();
+		const query = encodeURIComponent(
+			preferredLanguage ? `${queryBase} language:${preferredLanguage}` : queryBase
+		);
 		const url =
-			`https://openlibrary.org/search.json?q=${query}&limit=5&fields=key,title,author_name,cover_i,isbn,publisher,first_sentence,ratings_average,ratings_count,number_of_pages_median`;
+			`https://openlibrary.org/search.json?q=${query}&limit=5&fields=key,title,author_name,language,cover_i,isbn,publisher,first_sentence,ratings_average,ratings_count,number_of_pages_median`;
 		try {
 			const response = await fetch(url);
 			if (!response.ok) {
@@ -210,6 +303,7 @@ export class ExternalBookMetadataService {
 					key?: string;
 					title?: string;
 					author_name?: string[];
+					language?: string[];
 					cover_i?: number;
 					isbn?: string[];
 					publisher?: string[];
@@ -234,7 +328,8 @@ export class ExternalBookMetadataService {
 					normalizedAuthor.length > 0 &&
 					authors.some((author) => normalizeForMatch(author).includes(normalizedAuthor));
 				const pages = asNumber(doc.number_of_pages_median);
-				return (hasTitleMatch ? 5 : 0) + (hasAuthorMatch ? 3 : 0) + (pages ? 2 : 0);
+				const langScore = languageScore(targetLanguages, doc.language ?? []);
+				return (hasTitleMatch ? 5 : 0) + (hasAuthorMatch ? 3 : 0) + (pages ? 2 : 0) + langScore;
 			};
 
 			const best = [...docs].sort((a, b) => scoreOpenLibraryDoc(b) - scoreOpenLibraryDoc(a))[0] ?? docs[0];
@@ -247,9 +342,7 @@ export class ExternalBookMetadataService {
 
 			return {
 				key: asString(best.key),
-				cover: typeof best.cover_i === 'number'
-					? `https://covers.openlibrary.org/b/id/${best.cover_i}-L.jpg`
-					: null,
+				cover: typeof best.cover_i === 'number' ? `https://covers.openlibrary.org/b/id/${best.cover_i}-L.jpg` : null,
 				description: asString(firstSentence),
 				publisher: asString(best.publisher?.[0]),
 				series: null,
@@ -287,10 +380,10 @@ export class ExternalBookMetadataService {
 		}
 
 		const trimmed = identifier.trim();
-		// Basic ASIN shape fallback for manual metadata pipelines.
 		if (/^[A-Z0-9]{10}$/i.test(trimmed)) {
 			return trimmed.toUpperCase();
 		}
 		return null;
 	}
 }
+

@@ -1,9 +1,10 @@
 import type { BookRepositoryPort } from '$lib/server/application/ports/BookRepositoryPort';
 import type { ZLibraryCredentials, ZLibraryPort } from '$lib/server/application/ports/ZLibraryPort';
 import { EpubMetadataService } from '$lib/server/application/services/EpubMetadataService';
+import { ExternalBookMetadataService } from '$lib/server/application/services/ExternalBookMetadataService';
 import { buildSanitizedBookFileName } from '$lib/server/domain/value-objects/StorageKeySanitizer';
 import { apiOk, type ApiResult } from '$lib/server/http/api';
-import { createChildLogger } from '$lib/server/infrastructure/logging/logger';
+import { createChildLogger, toLogError } from '$lib/server/infrastructure/logging/logger';
 import type { ZDownloadBookRequest } from '$lib/types/ZLibrary/Requests/ZDownloadBookRequest';
 
 interface UploadService {
@@ -19,6 +20,26 @@ interface DownloadBookUseCaseResult {
 	success: true;
 	fileData?: ArrayBuffer;
 	responseHeaders?: Headers;
+}
+
+function pickText(primary: string | null | undefined, fallback: string | null | undefined): string | null {
+	const normalizedPrimary = typeof primary === 'string' ? primary.trim() : null;
+	if (normalizedPrimary && normalizedPrimary.length > 0) {
+		return normalizedPrimary;
+	}
+	const normalizedFallback = typeof fallback === 'string' ? fallback.trim() : null;
+	return normalizedFallback && normalizedFallback.length > 0 ? normalizedFallback : null;
+}
+
+function pickNumber(primary: number | null | undefined, fallback: number | null | undefined): number | null {
+	const normalizedPrimary =
+		typeof primary === 'number' && Number.isFinite(primary) && primary > 0 ? primary : null;
+	if (normalizedPrimary !== null) {
+		return normalizedPrimary;
+	}
+	const normalizedFallback =
+		typeof fallback === 'number' && Number.isFinite(fallback) && fallback > 0 ? fallback : null;
+	return normalizedFallback;
 }
 
 function toArrayBuffer(data: Uint8Array): ArrayBuffer {
@@ -58,7 +79,8 @@ export class DownloadBookUseCase {
 		private readonly zlibrary: ZLibraryPort,
 		private readonly bookRepository: BookRepositoryPort,
 		private readonly uploadServiceFactory: () => UploadService,
-		private readonly epubMetadataService = new EpubMetadataService()
+		private readonly epubMetadataService = new EpubMetadataService(),
+		private readonly externalMetadataService = new ExternalBookMetadataService()
 	) {}
 
 	async execute(input: DownloadBookUseCaseInput): Promise<ApiResult<DownloadBookUseCaseResult>> {
@@ -109,31 +131,61 @@ export class DownloadBookUseCase {
 				'Uploaded book to library storage'
 			);
 
+			let externalMetadata: Awaited<ReturnType<ExternalBookMetadataService['lookup']>> | null = null;
+			try {
+				externalMetadata = await this.externalMetadataService.lookup({
+					title: request.title,
+					author: request.author ?? null,
+					identifier: request.identifier ?? null,
+					language: request.language ?? null
+				});
+			} catch (err: unknown) {
+				this.useCaseLogger.warn(
+					{
+						event: 'library.metadata.lookup.failed',
+						bookId: request.bookId,
+						storageKey: key,
+						error: toLogError(err)
+					},
+					'Metadata lookup failed during Z-Library add, continuing with source metadata only'
+				);
+			}
+
 			await this.bookRepository.create({
 				zLibId: request.bookId,
 				s3_storage_key: key,
 				title: request.title,
-				author: request.author ?? null,
-				publisher: request.publisher ?? null,
-				series: request.series ?? null,
-				volume: request.volume ?? null,
-				edition: request.edition ?? null,
-				identifier: request.identifier ?? null,
-				pages: request.pages ?? null,
-				description: request.description ?? null,
-				google_books_id: null,
-				open_library_key: null,
-				amazon_asin: null,
-				external_rating: null,
-				external_rating_count: null,
-				cover: request.cover ?? null,
-				extension: request.extension ?? null,
-				filesize: request.filesize ?? null,
-				language: request.language ?? null,
-				year: request.year ?? null
+				author: pickText(request.author, null),
+				publisher: pickText(request.publisher, externalMetadata?.publisher),
+				series: pickText(request.series, externalMetadata?.series),
+				volume: pickText(request.volume, externalMetadata?.volume),
+				edition: pickText(request.edition, externalMetadata?.edition),
+				identifier: pickText(request.identifier, externalMetadata?.identifier),
+				pages: pickNumber(request.pages, externalMetadata?.pages),
+				description: pickText(request.description, externalMetadata?.description),
+				google_books_id: pickText(null, externalMetadata?.googleBooksId),
+				open_library_key: pickText(null, externalMetadata?.openLibraryKey),
+				amazon_asin: pickText(null, externalMetadata?.amazonAsin),
+				external_rating: pickNumber(null, externalMetadata?.externalRating),
+				external_rating_count:
+					typeof externalMetadata?.externalRatingCount === 'number' &&
+					Number.isFinite(externalMetadata.externalRatingCount) &&
+					externalMetadata.externalRatingCount >= 0
+						? externalMetadata.externalRatingCount
+						: null,
+				cover: pickText(request.cover, externalMetadata?.cover),
+				extension: pickText(request.extension, null),
+				filesize: pickNumber(request.filesize, null),
+				language: pickText(request.language, null),
+				year: pickNumber(request.year, null)
 			});
 			this.useCaseLogger.info(
-				{ event: 'library.book.created', bookId: request.bookId, storageKey: key },
+				{
+					event: 'library.book.created',
+					bookId: request.bookId,
+					storageKey: key,
+					metadataFound: Boolean(externalMetadata)
+				},
 				'Created library book record'
 			);
 		}

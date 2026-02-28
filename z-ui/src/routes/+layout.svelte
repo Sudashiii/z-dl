@@ -348,7 +348,7 @@
 		--color-text-muted: #7a7872;
 
 		--color-primary: #c9a962;
-		--color-primary-foreground: #0d0f14;
+		--color-primary-foreground: #0d1013;
 		--color-accent: #c9a962;
 		--color-accent-strong: #d9be82;
 		--color-success: #4ade80;
