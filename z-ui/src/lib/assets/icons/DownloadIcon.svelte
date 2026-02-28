@@ -1,5 +1,5 @@
 <script>
-export let stroke = 'white';
+export let stroke = 'currentColor';
 </script>
 
 <svg

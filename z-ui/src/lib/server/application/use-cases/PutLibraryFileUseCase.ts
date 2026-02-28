@@ -1,7 +1,9 @@
 import type { BookRepositoryPort } from '$lib/server/application/ports/BookRepositoryPort';
 import type { StoragePort } from '$lib/server/application/ports/StoragePort';
+import { ExternalBookMetadataService } from '$lib/server/application/services/ExternalBookMetadataService';
 import { sanitizeLibraryStorageKey } from '$lib/server/domain/value-objects/StorageKeySanitizer';
 import { apiError, apiOk, type ApiResult } from '$lib/server/http/api';
+import type { ExternalBookMetadata } from '$lib/server/application/services/ExternalBookMetadataService';
 import { createChildLogger } from '$lib/server/infrastructure/logging/logger';
 
 interface PutLibraryFileResult {
@@ -31,7 +33,8 @@ export class PutLibraryFileUseCase {
 
 	constructor(
 		private readonly storage: StoragePort,
-		private readonly bookRepository: BookRepositoryPort
+		private readonly bookRepository: BookRepositoryPort,
+		private readonly externalMetadataService = new ExternalBookMetadataService()
 	) {}
 
 	async execute(title: string, body: ArrayBuffer): Promise<ApiResult<PutLibraryFileResult>> {
@@ -62,24 +65,45 @@ export class PutLibraryFileUseCase {
 		);
 		const extension = extensionFromFileName(sanitizedKey);
 		const displayTitle = stripExtension(title).trim() || stripExtension(sanitizedKey);
+
+		let metadata: ExternalBookMetadata | null = null;
+		try {
+			metadata = await this.externalMetadataService.lookup({
+				title: displayTitle,
+				author: null,
+				identifier: null,
+				language: null
+			});
+		} catch {
+			this.useCaseLogger.warn(
+				{
+					event: 'library.metadata.lookup.failed',
+					originalStorageKey: title,
+					storageKey: sanitizedKey,
+					lookupTitle: displayTitle
+				},
+				'Metadata lookup failed during manual upload, continuing with empty metadata'
+			);
+		}
+
 		await this.bookRepository.create({
 			s3_storage_key: sanitizedKey,
 			title: displayTitle,
 			zLibId: null,
 			author: null,
-			publisher: null,
-			series: null,
-			volume: null,
-			edition: null,
-			identifier: null,
-			pages: null,
-			description: null,
-			google_books_id: null,
-			open_library_key: null,
-			amazon_asin: null,
-			external_rating: null,
-			external_rating_count: null,
-			cover: null,
+			publisher: metadata?.publisher ?? null,
+			series: metadata?.series ?? null,
+			volume: metadata?.volume ?? null,
+			edition: metadata?.edition ?? null,
+			identifier: metadata?.identifier ?? null,
+			pages: metadata?.pages ?? null,
+			description: metadata?.description ?? null,
+			google_books_id: metadata?.googleBooksId ?? null,
+			open_library_key: metadata?.openLibraryKey ?? null,
+			amazon_asin: metadata?.amazonAsin ?? null,
+			external_rating: metadata?.externalRating ?? null,
+			external_rating_count: metadata?.externalRatingCount ?? null,
+			cover: metadata?.cover ?? null,
 			extension,
 			filesize: body.byteLength,
 			language: null,
@@ -91,6 +115,7 @@ export class PutLibraryFileUseCase {
 				originalStorageKey: title,
 				storageKey: sanitizedKey,
 				title: displayTitle,
+				metadataFound: Boolean(metadata),
 				extension,
 				filesize: body.byteLength
 			},
