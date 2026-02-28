@@ -1,4 +1,5 @@
 import type { BookRepositoryPort } from '$lib/server/application/ports/BookRepositoryPort';
+import type { BookProgressHistoryRepositoryPort } from '$lib/server/application/ports/BookProgressHistoryRepositoryPort';
 import type { DeviceProgressDownloadRepositoryPort } from '$lib/server/application/ports/DeviceProgressDownloadRepositoryPort';
 import type { StoragePort } from '$lib/server/application/ports/StoragePort';
 import {
@@ -19,11 +20,21 @@ interface PutProgressResult {
 	progressKey: string;
 }
 
+function isMissingProgressHistoryTableError(cause: unknown): boolean {
+	if (!(cause instanceof Error)) {
+		return false;
+	}
+
+	const message = cause.message.toLowerCase();
+	return message.includes('bookprogresshistory') && message.includes('no such table');
+}
+
 export class PutProgressUseCase {
 	private readonly useCaseLogger = createChildLogger({ useCase: 'PutProgressUseCase' });
 
 	constructor(
 		private readonly bookRepository: BookRepositoryPort,
+		private readonly bookProgressHistoryRepository: BookProgressHistoryRepositoryPort,
 		private readonly storage: StoragePort,
 		private readonly deviceProgressDownloadRepository: DeviceProgressDownloadRepositoryPort
 	) {}
@@ -80,14 +91,46 @@ export class PutProgressUseCase {
 
 		const uploadKey = `library/${progressKey}`;
 		await this.storage.put(uploadKey, Buffer.from(input.fileData), 'application/x-lua');
-		await this.bookRepository.updateProgress(book.id, progressKey, input.percentFinished);
+		const normalizedPercent = Math.max(0, Math.min(1, input.percentFinished));
+		const previousPercent = typeof book.progress_percent === 'number' ? book.progress_percent : null;
+		await this.bookRepository.updateProgress(book.id, progressKey, normalizedPercent);
+		if (previousPercent === null || normalizedPercent > previousPercent) {
+			try {
+				await this.bookProgressHistoryRepository.appendSnapshot({
+					bookId: book.id,
+					progressPercent: normalizedPercent
+				});
+			} catch (cause: unknown) {
+				if (isMissingProgressHistoryTableError(cause)) {
+					this.useCaseLogger.warn(
+						{
+							event: 'progress.history.migration_missing',
+							bookId: book.id
+						},
+						'Progress history table not available yet; skipping history snapshot'
+					);
+				} else {
+					throw cause;
+				}
+			}
+		} else {
+			this.useCaseLogger.info(
+				{
+					event: 'progress.history.skipped.no_increase',
+					bookId: book.id,
+					previousPercent,
+					newPercent: normalizedPercent
+				},
+				'Skipped progress history snapshot because progress did not increase'
+			);
+		}
 		this.useCaseLogger.info(
 			{
 				event: 'progress.uploaded',
 				bookId: book.id,
 				progressKey,
 				deviceId: input.deviceId ?? null,
-				percentFinished: input.percentFinished
+				percentFinished: normalizedPercent
 			},
 			'Progress uploaded and book updated'
 		);

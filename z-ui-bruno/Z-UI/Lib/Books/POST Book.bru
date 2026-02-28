@@ -1,22 +1,22 @@
 meta {
-  name: POST Book
+  name: PUT Upload Book File
   type: http
   seq: 4
 }
 
 put {
-  url: {{base_url}}/api/library/hp2.epub
+  url: {{base_url}}/api/library/{{file_name}}
   body: file
   auth: inherit
 }
 
-body:multipart-form {
-  etlogo2.png: @file(C:\Users\Sascha\Pictures\etlogo2.png) @contentType(image/png)
+vars:pre-request {
+  base_url: http://localhost:5173
+  file_name: sample.epub
 }
 
 body:file {
-  file: @file(/Users/sascha/Downloads/Harry Potter & the Goblet of Fire.epub) @contentType(application/epub+zip)
-  ~file: @file(C:\Users\Sascha\Downloads\harry_potter_stein_der_weisen.epub) @contentType(application/epub+zip)
+  file: @file(/Users/sascha/Downloads/sample.epub) @contentType(application/epub+zip)
 }
 
 settings {

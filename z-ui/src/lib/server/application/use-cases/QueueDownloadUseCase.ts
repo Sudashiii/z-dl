@@ -7,6 +7,13 @@ interface QueueTask {
 	title: string;
 	extension: string;
 	author: string | null;
+	publisher: string | null;
+	series: string | null;
+	volume: string | null;
+	edition: string | null;
+	identifier: string | null;
+	pages: number | null;
+	description: string | null;
 	cover: string | null;
 	filesize: number | null;
 	language: string | null;
@@ -46,6 +53,13 @@ export class QueueDownloadUseCase {
 			title: request.title,
 			extension: request.extension ?? 'epub',
 			author: request.author ?? null,
+			publisher: request.publisher ?? null,
+			series: request.series ?? null,
+			volume: request.volume ?? null,
+			edition: request.edition ?? null,
+			identifier: request.identifier ?? null,
+			pages: request.pages ?? null,
+			description: request.description ?? null,
 			cover: request.cover ?? null,
 			filesize: request.filesize ?? null,
 			language: request.language ?? null,

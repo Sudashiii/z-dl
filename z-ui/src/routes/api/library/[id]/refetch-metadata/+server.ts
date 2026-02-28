@@ -13,18 +13,9 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 		return errorResponse('Invalid book id', 400);
 	}
 
-	if (!locals.zuser) {
-		requestLogger.warn({ event: 'library.metadata.refetch.auth_missing', bookId: id }, 'Z-Library login is not valid');
-		return errorResponse('Z-Library login is not valid', 409);
-	}
-
 	try {
 		const result = await refetchLibraryBookMetadataUseCase.execute({
-			bookId: id,
-			credentials: {
-				userId: locals.zuser.userId,
-				userKey: locals.zuser.userKey
-			}
+			bookId: id
 		});
 		if (!result.ok) {
 			requestLogger.warn(

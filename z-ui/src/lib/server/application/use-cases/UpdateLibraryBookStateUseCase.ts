@@ -5,6 +5,7 @@ interface UpdateLibraryBookStateInput {
 	bookId: number;
 	isRead?: boolean;
 	excludeFromNewBooks?: boolean;
+	archived?: boolean;
 }
 
 interface UpdateLibraryBookStateResult {
@@ -14,14 +15,16 @@ interface UpdateLibraryBookStateResult {
 	readAt: string | null;
 	progressPercent: number | null;
 	excludeFromNewBooks: boolean;
+	isArchived: boolean;
+	archivedAt: string | null;
 }
 
 export class UpdateLibraryBookStateUseCase {
 	constructor(private readonly bookRepository: BookRepositoryPort) {}
 
 	async execute(input: UpdateLibraryBookStateInput): Promise<ApiResult<UpdateLibraryBookStateResult>> {
-		if (input.isRead === undefined && input.excludeFromNewBooks === undefined) {
-			return apiError('At least one field (isRead or excludeFromNewBooks) must be provided', 400);
+		if (input.isRead === undefined && input.excludeFromNewBooks === undefined && input.archived === undefined) {
+			return apiError('At least one field (isRead, excludeFromNewBooks, archived) must be provided', 400);
 		}
 
 		const book = await this.bookRepository.getById(input.bookId);
@@ -60,9 +63,18 @@ export class UpdateLibraryBookStateUseCase {
 			input.excludeFromNewBooks === undefined
 				? book.exclude_from_new_books
 				: input.excludeFromNewBooks;
+		const nextArchivedAt =
+			input.archived === undefined
+				? book.archived_at
+				: input.archived
+					? book.archived_at ?? new Date().toISOString()
+					: null;
+		const isArchived = nextArchivedAt !== null;
+		const effectiveExclude = nextExclude || isArchived;
 
 		await this.bookRepository.updateState(input.bookId, {
 			readAt: nextReadAt,
+			archivedAt: nextArchivedAt,
 			progressPercent: nextProgressPercent,
 			progressBeforeRead: nextProgressBeforeRead,
 			excludeFromNewBooks: nextExclude
@@ -74,7 +86,9 @@ export class UpdateLibraryBookStateUseCase {
 			isRead: nextReadAt !== null,
 			readAt: nextReadAt,
 			progressPercent: nextProgressPercent,
-			excludeFromNewBooks: nextExclude
+			excludeFromNewBooks: effectiveExclude,
+			isArchived,
+			archivedAt: nextArchivedAt
 		});
 	}
 }

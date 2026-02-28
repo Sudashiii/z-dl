@@ -9,10 +9,26 @@ interface GetLibraryBookDetailInput {
 export interface LibraryBookDetail {
 	success: true;
 	bookId: number;
+	title: string;
+	author: string | null;
+	publisher: string | null;
+	series: string | null;
+	volume: string | null;
+	edition: string | null;
+	identifier: string | null;
+	pages: number | null;
+	description: string | null;
+	googleBooksId: string | null;
+	openLibraryKey: string | null;
+	amazonAsin: string | null;
+	externalRating: number | null;
+	externalRatingCount: number | null;
 	progressPercent: number | null;
 	rating: number | null;
 	isRead: boolean;
 	readAt: string | null;
+	isArchived: boolean;
+	archivedAt: string | null;
 	excludeFromNewBooks: boolean;
 	downloadedDevices: string[];
 }
@@ -40,11 +56,27 @@ export class GetLibraryBookDetailUseCase {
 		return apiOk({
 			success: true,
 			bookId: input.bookId,
+			title: book.title,
+			author: book.author,
+			publisher: book.publisher,
+			series: book.series,
+			volume: book.volume,
+			edition: book.edition,
+			identifier: book.identifier,
+			pages: book.pages,
+			description: book.description,
+			googleBooksId: book.google_books_id,
+			openLibraryKey: book.open_library_key,
+			amazonAsin: book.amazon_asin,
+			externalRating: book.external_rating,
+			externalRatingCount: book.external_rating_count,
 			progressPercent,
 			rating: book.rating,
 			isRead: Boolean(book.read_at),
 			readAt: book.read_at,
-			excludeFromNewBooks: book.exclude_from_new_books,
+			isArchived: Boolean(book.archived_at),
+			archivedAt: book.archived_at,
+			excludeFromNewBooks: book.exclude_from_new_books || Boolean(book.archived_at),
 			downloadedDevices
 		});
 	}

@@ -22,6 +22,7 @@ export interface BookRepositoryPort {
 		bookId: number,
 		state: {
 			readAt?: string | null;
+			archivedAt?: string | null;
 			progressPercent?: number | null;
 			progressBeforeRead?: number | null;
 			excludeFromNewBooks?: boolean;

@@ -1,0 +1,31 @@
+meta {
+  name: PUT Update Library Metadata
+  type: http
+  seq: 31
+}
+
+put {
+  url: {{base_url}}/api/library/{{book_id}}/metadata
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "Updated Title",
+    "publisher": "Custom Publisher",
+    "description": "Custom description",
+    "externalRating": 4.5,
+    "externalRatingCount": 120
+  }
+}
+
+vars:pre-request {
+  base_url: http://localhost:5173
+  book_id: 1
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

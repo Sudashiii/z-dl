@@ -6,6 +6,19 @@ export const books = sqliteTable('Books', {
 	title: text('title').notNull(),
 	zLibId: text('zLibId'),
 	author: text('author'),
+	publisher: text('publisher'),
+	series: text('series'),
+	volume: text('volume'),
+	edition: text('edition'),
+	identifier: text('identifier'),
+	pages: integer('pages'),
+	description: text('description'),
+	googleBooksId: text('google_books_id'),
+	openLibraryKey: text('open_library_key'),
+	amazonAsin: text('amazon_asin'),
+	externalRating: real('external_rating'),
+	externalRatingCount: integer('external_rating_count'),
+	externalReviewsJson: text('external_reviews_json'),
 	cover: text('cover'),
 	extension: text('extension'),
 	filesize: integer('filesize'),
@@ -17,6 +30,7 @@ export const books = sqliteTable('Books', {
 	progressBeforeRead: real('progress_before_read'),
 	rating: integer('rating'),
 	readAt: text('read_at'),
+	archivedAt: text('archived_at'),
 	excludeFromNewBooks: integer('exclude_from_new_books', { mode: 'boolean' }).notNull().default(false),
 	createdAt: text('createdAt'),
 	deletedAt: text('deleted_at'),
@@ -59,4 +73,17 @@ export const deviceProgressDownloads = sqliteTable(
 	(table) => [
 		uniqueIndex('device_progress_downloads_device_book_unique').on(table.deviceId, table.bookId)
 	]
+);
+
+export const bookProgressHistory = sqliteTable(
+	'BookProgressHistory',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		bookId: integer('book_id')
+			.notNull()
+			.references(() => books.id, { onDelete: 'cascade' }),
+		progressPercent: real('progress_percent').notNull(),
+		recordedAt: text('recorded_at').notNull()
+	},
+	(table) => [uniqueIndex('book_progress_history_book_recorded_unique').on(table.bookId, table.recordedAt)]
 );

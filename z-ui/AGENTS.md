@@ -70,6 +70,13 @@ Before finishing a change:
 - No architectural regression (business logic drifting into routes/infrastructure glue).
 - Naming is consistent with current conventions (`*UseCase`, `*Client`, etc.).
 
+## Drizzle migration safety rules
+
+- Never leave a trailing `--> statement-breakpoint` as the last line of a migration file.
+- Every `--> statement-breakpoint` must separate two real SQL statements, not create an empty SQL segment.
+- For single-statement migrations, do not add a breakpoint at all.
+- Before handing off migration changes, run a quick file sanity pass to ensure no empty segments exist.
+
 ## Change memory and implementation plans
 
 - If a major project reality changes (DB stack, migration workflow, deployment workflow, architecture policy, or core technology), update `AGENTS.md` in the same change so future agents do not lose that context.

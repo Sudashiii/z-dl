@@ -1,0 +1,35 @@
+meta {
+  name: GET All Books
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{base_url}}/api/library/list
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  base_url: http://localhost:5173
+}
+
+script:post-response {
+  const body = res.body;
+
+  const books = Array.isArray(body) ? body : body?.books;
+  if (Array.isArray(books) && books.length > 0) {
+    const firstBook = books[0];
+    if (firstBook?.id != null) {
+      bru.setEnvVar('book_id', String(firstBook.id));
+      console.log(`Stored book_id=${firstBook.id}`);
+    }
+  } else {
+    console.warn('No books found in response body');
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

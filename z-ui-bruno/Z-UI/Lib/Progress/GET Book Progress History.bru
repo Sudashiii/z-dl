@@ -1,11 +1,11 @@
 meta {
-  name: POST Refetch Library Metadata
+  name: GET Book Progress History
   type: http
-  seq: 13
+  seq: 14
 }
 
-post {
-  url: {{base_url}}/api/library/{{book_id}}/refetch-metadata
+get {
+  url: {{base_url}}/api/library/{{book_id}}/progress-history
   body: none
   auth: inherit
 }

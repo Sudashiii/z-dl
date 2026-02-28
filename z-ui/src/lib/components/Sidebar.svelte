@@ -66,6 +66,15 @@
 									<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
 									<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
 								</svg>
+							{:else if item.icon === 'queue'}
+								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M16 3h5v5"></path>
+									<path d="M4 20l17-17"></path>
+									<path d="M21 16v5h-5"></path>
+									<path d="M15 21l6-6"></path>
+									<path d="M3 8V3h5"></path>
+									<path d="M3 3l6 6"></path>
+								</svg>
 							{:else if item.icon === 'book'}
 								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 									<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
