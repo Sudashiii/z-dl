@@ -19,40 +19,36 @@
 	.overlay {
 		position: fixed;
 		inset: 0;
-		background: rgba(15, 20, 25, 0.85);
-		display: flex;
-		align-items: center;
-		justify-content: center;
+		background: rgba(0, 0, 0, 0.7);
+		backdrop-filter: blur(4px);
+		display: grid;
+		place-items: center;
 		z-index: 9999;
-		backdrop-filter: blur(8px);
-		animation: fadeIn 0.2s ease-out;
-	}
-
-	@keyframes fadeIn {
-		from { opacity: 0; }
-		to { opacity: 1; }
 	}
 
 	.loader {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 1.25rem;
+		display: grid;
+		justify-items: center;
+		gap: 0.75rem;
+		padding: 0.95rem 1.05rem;
+		border-radius: 0.78rem;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
 	}
 
 	.spinner {
-		width: 48px;
-		height: 48px;
-		border: 3px solid rgba(30, 144, 255, 0.2);
-		border-top-color: #1e90ff;
+		width: 36px;
+		height: 36px;
+		border: 3px solid rgba(201, 169, 98, 0.25);
+		border-top-color: var(--color-primary);
 		border-radius: 50%;
-		animation: spin 0.8s linear infinite;
+		animation: spin 0.9s linear infinite;
 	}
 
 	.loading-text {
-		font-size: 0.9rem;
-		color: rgba(255, 255, 255, 0.6);
+		font-size: 0.78rem;
 		font-weight: 500;
+		color: var(--color-text-secondary);
 	}
 
 	@keyframes spin {

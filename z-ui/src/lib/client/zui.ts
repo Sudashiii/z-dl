@@ -40,6 +40,8 @@ import { updateLibraryBookMetadata, type UpdateLibraryBookMetadataRequest } from
 import { getQueueStatus, type QueueStatusResponse } from './routes/getQueueStatus';
 import { getLibraryBookProgressHistory } from './routes/getLibraryBookProgressHistory';
 import type { BookProgressHistoryResponse } from '$lib/types/Library/BookProgressHistory';
+import { getReadingActivityStats } from './routes/getReadingActivityStats';
+import type { ReadingActivityStats } from '$lib/types/Stats/ReadingActivityStats';
 
 /**
  * Facade for all Z-Library UI client operations.
@@ -75,6 +77,9 @@ export const ZUI = {
 
 	getLibraryBookProgressHistory: (bookId: number): Promise<Result<BookProgressHistoryResponse, ApiError>> =>
 		getLibraryBookProgressHistory(bookId),
+
+	getReadingActivityStats: (days?: number): Promise<Result<ReadingActivityStats, ApiError>> =>
+		getReadingActivityStats(days),
 
 	refetchLibraryBookMetadata: (
 		bookId: number

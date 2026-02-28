@@ -10,14 +10,22 @@
 </div>
 
 <style>
-    .toast-container {
-        position: fixed;
-        bottom: 2rem;
-        right: 2rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-        z-index: 9999;
-        pointer-events: none; /* Allows clicking through the container area */
-    }
+	.toast-container {
+		position: fixed;
+		bottom: 1rem;
+		right: 1rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.55rem;
+		z-index: 9999;
+		pointer-events: none;
+	}
+
+	@media (max-width: 640px) {
+		.toast-container {
+			left: 0.75rem;
+			right: 0.75rem;
+			bottom: 0.75rem;
+		}
+	}
 </style>

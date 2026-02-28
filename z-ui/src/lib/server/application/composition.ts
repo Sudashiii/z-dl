@@ -47,6 +47,7 @@ import { UpdateBookRatingUseCase } from '$lib/server/application/use-cases/Updat
 import { ListLibraryRatingsUseCase } from '$lib/server/application/use-cases/ListLibraryRatingsUseCase';
 import { UpdateLibraryBookStateUseCase } from '$lib/server/application/use-cases/UpdateLibraryBookStateUseCase';
 import { UpdateLibraryBookMetadataUseCase } from '$lib/server/application/use-cases/UpdateLibraryBookMetadataUseCase';
+import { GetReadingActivityStatsUseCase } from '$lib/server/application/use-cases/GetReadingActivityStatsUseCase';
 
 export const zlibraryClient = new ZLibraryClient('https://1lib.sk');
 export const storage = new S3Storage();
@@ -122,3 +123,7 @@ export const updateBookRatingUseCase = new UpdateBookRatingUseCase(bookRepositor
 export const listLibraryRatingsUseCase = new ListLibraryRatingsUseCase(bookRepository);
 export const updateLibraryBookStateUseCase = new UpdateLibraryBookStateUseCase(bookRepository);
 export const updateLibraryBookMetadataUseCase = new UpdateLibraryBookMetadataUseCase(bookRepository);
+export const getReadingActivityStatsUseCase = new GetReadingActivityStatsUseCase(
+	bookRepository,
+	bookProgressHistoryRepository
+);

@@ -4,6 +4,7 @@
 	import Loading from "$lib/components/Loading.svelte";
 	import type { ApiError } from "$lib/types/ApiError";
 
+	type QueueTab = "all" | "queued" | "processing" | "completed" | "failed";
 	type QueueJob = {
 		id: string;
 		bookId: string;
@@ -14,16 +15,38 @@
 		createdAt: string;
 		updatedAt: string;
 		finishedAt?: string;
+		author?: string;
+		progress?: number;
+		maxRetries?: number;
 	};
+
+	const QUEUE_TABS: Array<{ key: QueueTab; label: string }> = [
+		{ key: "all", label: "All" },
+		{ key: "queued", label: "Queued" },
+		{ key: "processing", label: "Processing" },
+		{ key: "completed", label: "Completed" },
+		{ key: "failed", label: "Failed" }
+	];
 
 	let isLoading = $state(true);
 	let error = $state<ApiError | null>(null);
 	let queueJobs = $state<QueueJob[]>([]);
-	let queuePendingCount = $state(0);
-	let queueProcessingCount = $state(0);
+	let activeTab = $state<QueueTab>("all");
 	let queuePollTimer: ReturnType<typeof setInterval> | null = null;
-	let isRefreshing = false;
-	let refreshQueued = false;
+	let isRefreshing = $state(false);
+	let refreshQueued = $state(false);
+
+	let queueCounts = $derived({
+		all: queueJobs.length,
+		queued: queueJobs.filter((job) => job.status === "queued").length,
+		processing: queueJobs.filter((job) => job.status === "processing").length,
+		completed: queueJobs.filter((job) => job.status === "completed").length,
+		failed: queueJobs.filter((job) => job.status === "failed").length
+	});
+
+	let visibleJobs = $derived(
+		activeTab === "all" ? queueJobs : queueJobs.filter((job) => job.status === activeTab)
+	);
 
 	onMount(() => {
 		void refreshQueueStatus(true);
@@ -48,6 +71,7 @@
 		if (showLoader) {
 			isLoading = true;
 		}
+
 		try {
 			const result = await ZUI.getQueueStatus();
 			if (!result.ok) {
@@ -56,9 +80,7 @@
 			}
 
 			error = null;
-			queuePendingCount = result.value.queueStatus.pending;
-			queueProcessingCount = result.value.queueStatus.processing;
-			queueJobs = result.value.jobs;
+			queueJobs = result.value.jobs as QueueJob[];
 		} finally {
 			if (showLoader) {
 				isLoading = false;
@@ -71,233 +93,608 @@
 		}
 	}
 
-	function formatQueueDate(value: string): string {
+	function formatQueueDateTime(value: string): string {
 		return new Date(value).toLocaleString("en-US", {
-			year: "numeric",
 			month: "short",
-			day: "2-digit",
+			day: "numeric",
 			hour: "2-digit",
 			minute: "2-digit",
 			second: "2-digit"
 		});
+	}
+
+	function statusLabel(status: QueueJob["status"]): string {
+		if (status === "queued") return "Queued";
+		if (status === "processing") return "Processing";
+		if (status === "completed") return "Completed";
+		return "Failed";
+	}
+
+	function getJobAuthor(job: QueueJob): string {
+		return job.author?.trim() ? job.author : `Book #${job.bookId}`;
+	}
+
+	function getProgress(job: QueueJob): number | null {
+		if (typeof job.progress !== "number") {
+			return null;
+		}
+		return Math.max(0, Math.min(100, job.progress));
+	}
+
+	function getRetryLimit(job: QueueJob): number {
+		if (typeof job.maxRetries === "number" && job.maxRetries > 0) {
+			return job.maxRetries;
+		}
+		return 3;
 	}
 </script>
 
 <div class="queue-page">
 	<Loading bind:show={isLoading} />
 
-	<header class="page-header">
-		<h1>Download Queue</h1>
-		<p>Monitor queued downloads and their states</p>
-	</header>
-
-	<div class="summary-row">
-		<span class="summary-badge">Pending: {queuePendingCount}</span>
-		<span class="summary-badge">Processing: {queueProcessingCount}</span>
-		<button class="refresh-btn" onclick={() => refreshQueueStatus(false)}>Refresh</button>
-	</div>
-
 	{#if error}
-		<div class="error">
+		<div class="error-banner">
 			<p>{error.message}</p>
 		</div>
 	{/if}
 
-	{#if queueJobs.length === 0 && !isLoading}
+	<section class="stats-grid" aria-label="Queue stats">
+		<article class="stat-card">
+			<p>In Queue</p>
+			<h2 class="queued">{queueCounts.queued}</h2>
+		</article>
+		<article class="stat-card">
+			<p>Processing</p>
+			<h2 class="processing">{queueCounts.processing}</h2>
+		</article>
+		<article class="stat-card">
+			<p>Completed</p>
+			<h2 class="completed">{queueCounts.completed}</h2>
+		</article>
+		<article class="stat-card">
+			<p>Failed</p>
+			<h2 class="failed">{queueCounts.failed}</h2>
+		</article>
+	</section>
+
+	<div class="tabs-row" role="tablist" aria-label="Queue filters">
+		{#each QUEUE_TABS as tab}
+			<button
+				type="button"
+				role="tab"
+				class="tab-btn"
+				class:active={activeTab === tab.key}
+				aria-selected={activeTab === tab.key}
+				onclick={() => (activeTab = tab.key)}
+			>
+				<span class="tab-icon" aria-hidden="true">
+						{#if tab.key === "all"}
+							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="8" y1="6" x2="21" y2="6"></line>
+							<line x1="8" y1="12" x2="21" y2="12"></line>
+							<line x1="8" y1="18" x2="21" y2="18"></line>
+							<line x1="3" y1="6" x2="3.01" y2="6"></line>
+							<line x1="3" y1="12" x2="3.01" y2="12"></line>
+							<line x1="3" y1="18" x2="3.01" y2="18"></line>
+						</svg>
+						{:else if tab.key === "queued"}
+							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+							<circle cx="12" cy="12" r="10"></circle>
+							<polyline points="12 6 12 12 16 14"></polyline>
+						</svg>
+						{:else if tab.key === "processing"}
+							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="spin-icon">
+							<path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+						</svg>
+						{:else if tab.key === "completed"}
+							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+							<circle cx="12" cy="12" r="10"></circle>
+							<polyline points="9 12 12 15 17 10"></polyline>
+						</svg>
+						{:else}
+							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+							<circle cx="12" cy="12" r="10"></circle>
+							<line x1="12" y1="8" x2="12" y2="12"></line>
+							<line x1="12" y1="16" x2="12.01" y2="16"></line>
+						</svg>
+					{/if}
+				</span>
+				<span>{tab.label}</span>
+				<span class="tab-count">{queueCounts[tab.key]}</span>
+			</button>
+		{/each}
+	</div>
+
+	{#if visibleJobs.length === 0 && !isLoading}
 		<div class="empty-state">
-			<h3>No jobs yet</h3>
-			<p>Queue a download from Z-Library to see it here.</p>
+			<h3>Queue is empty</h3>
+			<p>Search for books and add them to your download queue.</p>
 		</div>
 	{:else}
-		<ul class="queue-list">
-			{#each queueJobs as job (job.id)}
-				<li class="queue-item">
-					<div class="queue-item-main">
-						<strong>{job.title}</strong>
-						<span class="queue-item-sub">Book #{job.bookId}</span>
+		<div class="queue-list">
+			{#each visibleJobs as job (job.id)}
+				<article class="queue-card" class:failed={job.status === "failed"}>
+					<div class="queue-head">
+						<div class="queue-head-left">
+							<span class={`job-icon ${job.status}`} aria-hidden="true">
+								{#if job.status === "queued"}
+									<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+										<circle cx="12" cy="12" r="10"></circle>
+										<polyline points="12 6 12 12 16 14"></polyline>
+									</svg>
+								{:else if job.status === "processing"}
+									<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="spin-icon">
+										<path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+									</svg>
+								{:else if job.status === "completed"}
+									<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+										<circle cx="12" cy="12" r="10"></circle>
+										<polyline points="9 12 12 15 17 10"></polyline>
+									</svg>
+								{:else}
+									<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+										<circle cx="12" cy="12" r="10"></circle>
+										<line x1="12" y1="8" x2="12" y2="12"></line>
+										<line x1="12" y1="16" x2="12.01" y2="16"></line>
+									</svg>
+								{/if}
+							</span>
+							<div class="queue-title-block">
+								<div class="queue-title-row">
+									<p class="queue-title" title={job.title}>{job.title}</p>
+									<span class={`queue-status-pill ${job.status}`}>
+										{#if job.status === "processing"}
+											<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="spin-icon status-pill-icon">
+												<path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+											</svg>
+										{/if}
+										{statusLabel(job.status)}
+									</span>
+								</div>
+								<p class="queue-author">{getJobAuthor(job)}</p>
+							</div>
+						</div>
 					</div>
-					<div class="queue-item-state">
-						<span class={`queue-state ${job.status}`}>{job.status}</span>
-						<span class="queue-attempts">Attempt {job.attempts}</span>
-					</div>
-					<div class="queue-times">
-						<span>Created: {formatQueueDate(job.createdAt)}</span>
-						<span>Updated: {formatQueueDate(job.updatedAt)}</span>
-					</div>
-					{#if job.error}
-						<p class="queue-item-error">{job.error}</p>
+
+					{#if job.status === "processing" && getProgress(job) !== null}
+						<div class="queue-progress-wrap">
+							<div class="queue-progress-track">
+								<div
+									class="queue-progress-fill"
+									style={`width: ${getProgress(job)}%; background: ${
+										getProgress(job) === 100 ? "#4ade80" : "linear-gradient(90deg, #c9a962, #e0c878)"
+									}`}
+								></div>
+							</div>
+							<span>{getProgress(job)}%</span>
+						</div>
 					{/if}
-				</li>
+
+					{#if job.error}
+						<p class="queue-error-msg">{job.error}</p>
+					{/if}
+
+					<div class="queue-meta-grid">
+						<div>
+							<span>Created</span>
+							<p>{formatQueueDateTime(job.createdAt)}</p>
+						</div>
+						<div>
+							<span>Updated</span>
+							<p>{formatQueueDateTime(job.updatedAt)}</p>
+						</div>
+						{#if job.finishedAt}
+							<div>
+								<span>Finished</span>
+								<p>{formatQueueDateTime(job.finishedAt)}</p>
+							</div>
+						{/if}
+						<div>
+							<span>Retries</span>
+							<p>
+								{job.attempts}/{getRetryLimit(job)}
+								{#if job.status === "failed" && job.attempts >= getRetryLimit(job)}
+									<em>(max reached)</em>
+								{/if}
+							</p>
+						</div>
+					</div>
+				</article>
 			{/each}
-		</ul>
+		</div>
 	{/if}
 </div>
 
 <style>
 	.queue-page {
-		padding: 2rem 0;
+		padding: 1.5rem 0;
+		display: grid;
+		gap: 1.5rem;
 		color: var(--color-text-primary);
 	}
 
-	.page-header {
-		margin-bottom: 1.2rem;
+	.error-banner {
+		padding: 0.625rem 0.75rem;
+		border-radius: 0.5rem;
+		border: 1px solid color-mix(in oklab, var(--color-danger), transparent 80%);
+		background: color-mix(in oklab, var(--color-danger), transparent 95%);
+		color: var(--color-danger);
 	}
 
-	.page-header h1 {
-		margin: 0 0 0.4rem;
-		font-size: 1.9rem;
-	}
-
-	.page-header p {
+	.error-banner p {
 		margin: 0;
+		font-size: 0.75rem;
+	}
+
+	.stats-grid {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 0.75rem;
+	}
+
+	.stat-card {
+		padding: 1rem;
+		border-radius: 0.75rem;
+		border: 1px solid var(--color-border);
+		background: #161921;
+		display: grid;
+		gap: 0.25rem;
+	}
+
+	.stat-card p {
+		margin: 0;
+		font-size: 0.75rem;
 		color: var(--color-text-muted);
 	}
 
-	.summary-row {
+	.stat-card h2 {
+		margin: 0;
+		font-size: 1.5rem;
+		font-weight: 400;
+		line-height: 1.1;
+		color: var(--color-text-primary);
+	}
+
+	.stat-card h2.queued {
+		color: #a0aec0;
+	}
+
+	.stat-card h2.processing {
+		color: #60a5fa;
+	}
+
+	.stat-card h2.completed {
+		color: #4ade80;
+	}
+
+	.stat-card h2.failed {
+		color: #f87171;
+	}
+
+	.tabs-row {
 		display: flex;
 		align-items: center;
-		gap: 0.65rem;
-		margin-bottom: 1rem;
-		flex-wrap: wrap;
+		gap: 0.25rem;
+		padding: 0.25rem;
+		border-radius: 0.75rem;
+		border: 1px solid var(--color-border);
+		background: #161921;
+		overflow-x: auto;
 	}
 
-	.summary-badge {
-		padding: 0.3rem 0.65rem;
-		border-radius: 999px;
-		font-size: 0.78rem;
-		background: rgba(61, 162, 255, 0.16);
-		border: 1px solid rgba(125, 195, 255, 0.32);
-		color: #9bd4ff;
-	}
-
-	.refresh-btn {
-		background: rgba(12, 28, 44, 0.76);
-		border: 1px solid rgba(167, 203, 237, 0.26);
-		color: rgba(228, 240, 255, 0.85);
+	.tab-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.5rem 0.75rem;
 		border-radius: 0.5rem;
-		padding: 0.38rem 0.68rem;
+		border: 1px solid transparent;
+		background: transparent;
+		color: var(--color-text-muted);
+		font-size: 0.875rem;
+		font-weight: 600;
+		font-family: inherit;
+		white-space: nowrap;
 		cursor: pointer;
+		transition: background 0.2s ease, color 0.2s ease;
+	}
+
+	.tab-btn:hover {
+		color: var(--color-text-primary);
+	}
+
+	.tab-btn.active {
+		background: #1e2230;
+		color: var(--color-text-primary);
+	}
+
+	.tab-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 0.875rem;
+		height: 0.875rem;
+	}
+
+	.tab-count {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.125rem;
+		height: 1.125rem;
+		padding: 0 0.375rem;
+		border-radius: 999px;
+		background: #1e2230;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	.tab-btn.active .tab-count {
+		background: rgba(201, 169, 98, 0.1);
+		color: #c9a962;
 	}
 
 	.queue-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
 		display: grid;
-		gap: 0.6rem;
+		gap: 0.5rem;
 	}
 
-	.queue-item {
-		background: rgba(9, 21, 34, 0.62);
-		border: 1px solid rgba(95, 139, 184, 0.2);
-		border-radius: 0.55rem;
-		padding: 0.7rem 0.8rem;
-		display: grid;
-		gap: 0.45rem;
-	}
-
-	.queue-item-main {
-		display: flex;
-		flex-direction: column;
-		gap: 0.15rem;
-	}
-
-	.queue-item-main strong {
-		font-size: 0.88rem;
-		color: rgba(236, 245, 255, 0.92);
-	}
-
-	.queue-item-sub {
-		font-size: 0.76rem;
-		color: rgba(190, 211, 235, 0.7);
-	}
-
-	.queue-item-state {
-		display: flex;
-		align-items: center;
-		gap: 0.55rem;
-	}
-
-	.queue-state {
-		font-size: 0.72rem;
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		padding: 0.14rem 0.45rem;
-		border-radius: 999px;
-		border: 1px solid transparent;
-	}
-
-	.queue-state.queued {
-		color: #9bd4ff;
-		background: rgba(61, 162, 255, 0.16);
-		border-color: rgba(125, 195, 255, 0.32);
-	}
-
-	.queue-state.processing {
-		color: #f9d084;
-		background: rgba(224, 169, 61, 0.14);
-		border-color: rgba(240, 191, 90, 0.32);
-	}
-
-	.queue-state.completed {
-		color: #91f3b8;
-		background: rgba(42, 159, 94, 0.16);
-		border-color: rgba(95, 211, 145, 0.3);
-	}
-
-	.queue-state.failed {
-		color: #ffb5be;
-		background: rgba(121, 38, 48, 0.2);
-		border-color: rgba(239, 116, 126, 0.32);
-	}
-
-	.queue-attempts {
-		font-size: 0.72rem;
-		color: rgba(190, 211, 235, 0.7);
-	}
-
-	.queue-times {
-		display: flex;
-		gap: 0.8rem;
-		flex-wrap: wrap;
-		font-size: 0.74rem;
-		color: rgba(190, 211, 235, 0.66);
-	}
-
-	.queue-item-error {
-		margin: 0;
-		font-size: 0.76rem;
-		color: #ffb5be;
-		word-break: break-word;
-	}
-
-	.error {
-		background: rgba(121, 38, 48, 0.44);
-		border: 1px solid rgba(239, 116, 126, 0.38);
+	.queue-card {
+		border: 1px solid var(--color-border);
 		border-radius: 0.75rem;
-		padding: 0.9rem 1rem;
-		margin-bottom: 1rem;
-		color: #ffb5be;
+		background: #161921;
+		padding: 1rem;
+		display: grid;
+		gap: 0.5rem;
 	}
 
-	.error p {
+	.queue-card.failed {
+		border-color: rgba(196, 68, 58, 0.2);
+	}
+
+	.queue-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: start;
+		gap: 0.75rem;
+	}
+
+	.queue-head-left {
+		display: flex;
+		align-items: start;
+		gap: 0.75rem;
+		min-width: 0;
+	}
+
+	.job-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		margin-top: 0.125rem;
+	}
+
+	.job-icon.queued {
+		color: #a0aec0;
+	}
+
+	.job-icon.processing {
+		color: #60a5fa;
+	}
+
+	.job-icon.completed {
+		color: #4ade80;
+	}
+
+	.job-icon.failed {
+		color: #f87171;
+	}
+
+	.spin-icon {
+		animation: queue-spin 1.1s linear infinite;
+	}
+
+	@keyframes queue-spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.queue-title-block {
+		min-width: 0;
+		display: grid;
+		gap: 0.125rem;
+	}
+
+	.queue-title-row {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-width: 0;
+	}
+
+	.queue-title {
 		margin: 0;
+		font-size: 0.875rem;
+		font-weight: 500;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.queue-author {
+		margin: 0;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	.queue-status-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.125rem 0.625rem;
+		border-radius: 999px;
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.02em;
+		line-height: 1;
+		white-space: nowrap;
+		text-transform: capitalize;
+	}
+
+	.status-pill-icon {
+		margin-left: -0.0625rem;
+	}
+
+	.queue-status-pill.queued {
+		background: #2a2d3a;
+		color: #a0aec0;
+	}
+
+	.queue-status-pill.processing {
+		background: #1a2a3a;
+		color: #60a5fa;
+	}
+
+	.queue-status-pill.completed {
+		background: #1a2a1a;
+		color: #4ade80;
+	}
+
+	.queue-status-pill.failed {
+		background: #2a1a1a;
+		color: #f87171;
+	}
+
+	.queue-progress-wrap {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.queue-progress-track {
+		height: 0.375rem;
+		border-radius: 999px;
+		overflow: hidden;
+		background: #1e2230;
+	}
+
+	.queue-progress-fill {
+		height: 100%;
+		background: linear-gradient(90deg, #c9a962, #e0c878);
+		border-radius: 999px;
+	}
+
+	.queue-progress-wrap span {
+		font-size: 0.75rem;
+		font-weight: 400;
+		color: var(--color-text-muted);
+		min-width: 2rem;
+		text-align: right;
+	}
+
+	.queue-error-msg {
+		margin: 0;
+		padding: 0.375rem 0.5rem;
+		border-radius: 0.5rem;
+		background: rgba(196, 68, 58, 0.05);
+		color: #c4443a;
+		font-size: 0.75rem;
+	}
+
+	.queue-meta-grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 0.25rem 1rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.5rem;
+		background: rgba(30, 34, 48, 0.2);
+	}
+
+	.queue-meta-grid div {
+		display: grid;
+		gap: 0.125rem;
+	}
+
+	.queue-meta-grid span {
+		font-size: 0.625rem;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--color-text-muted);
+	}
+
+	.queue-meta-grid p {
+		margin: 0;
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+	}
+
+	.queue-meta-grid em {
+		font-style: normal;
+		color: var(--color-danger);
+		margin-left: 0.25rem;
 	}
 
 	.empty-state {
-		padding: 2rem 1rem;
+		padding: 2.6rem 1.2rem;
+		border-radius: 0.75rem;
+		border: 1px dashed var(--color-border);
+		background: #161921;
 		text-align: center;
-		background: rgba(11, 25, 40, 0.55);
-		border: 1px dashed rgba(160, 194, 226, 0.2);
-		border-radius: 1rem;
 	}
 
 	.empty-state h3 {
-		margin: 0 0 0.4rem;
+		margin: 0 0 0.25rem;
+		font-size: 1.05rem;
+		font-weight: 500;
 	}
 
 	.empty-state p {
 		margin: 0;
-		color: rgba(203, 222, 245, 0.72);
+		font-size: 0.84rem;
+		color: var(--color-text-muted);
+	}
+
+	@media (max-width: 1120px) {
+		.stats-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		.queue-meta-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@media (max-width: 760px) {
+		.queue-page {
+			padding-top: 1rem;
+			gap: 1rem;
+		}
+
+		.stats-grid {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.queue-card {
+			padding: 0.875rem;
+		}
+
+		.queue-title {
+			font-size: 0.875rem;
+		}
+	}
+
+	@media (max-width: 560px) {
+		.queue-meta-grid {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.tab-btn {
+			padding: 0.5rem 0.625rem;
+		}
 	}
 </style>

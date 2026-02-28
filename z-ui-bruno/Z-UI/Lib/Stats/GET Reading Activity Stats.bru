@@ -1,0 +1,20 @@
+meta {
+  name: GET Reading Activity Stats
+  type: http
+}
+
+get {
+  url: {{base_url}}/api/stats/reading-activity?days={{days}}
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  base_url: http://localhost:5173
+  days: 365
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
