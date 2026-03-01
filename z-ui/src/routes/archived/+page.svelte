@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount } from "svelte";
-	import { goto } from "$app/navigation";
+	import BookDetailModalShell from "$lib/components/BookDetailModalShell.svelte";
 	import Loading from "$lib/components/Loading.svelte";
 	import { ZUI } from "$lib/client/zui";
 	import { toastStore } from "$lib/client/stores/toastStore.svelte";
 	import type { ApiError } from "$lib/types/ApiError";
 	import type { LibraryBook } from "$lib/types/Library/Book";
+	import type { LibraryBookDetail } from "$lib/types/Library/BookDetail";
 
 	type BookStatus = "unread" | "reading" | "read";
 
@@ -13,10 +14,46 @@
 	let error = $state<ApiError | null>(null);
 	let archivedBooks = $state<LibraryBook[]>([]);
 	let unarchivingBookId = $state<number | null>(null);
+	let selectedBook = $state<LibraryBook | null>(null);
+	let selectedBookDetail = $state<LibraryBookDetail | null>(null);
+	let showDetailModal = $state(false);
+	let isDetailLoading = $state(false);
+	let detailError = $state<string | null>(null);
 
 	onMount(() => {
-		void loadArchived();
+		(async () => {
+			await loadArchived();
+
+			const params = new URLSearchParams(window.location.search);
+			const openBookIdRaw = params.get("openBookId");
+			const openBookId = openBookIdRaw ? Number.parseInt(openBookIdRaw, 10) : NaN;
+			if (Number.isNaN(openBookId)) {
+				return;
+			}
+
+			const candidate = archivedBooks.find((book) => book.id === openBookId);
+			if (candidate) {
+				await openDetailModal(candidate);
+			}
+		})();
 	});
+
+	function updateArchivedUrl(openBookId?: number | null): void {
+		if (typeof window === "undefined") {
+			return;
+		}
+
+		const params = new URLSearchParams(window.location.search);
+		if (typeof openBookId === "number") {
+			params.set("openBookId", String(openBookId));
+		} else {
+			params.delete("openBookId");
+		}
+
+		const query = params.toString();
+		const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+		window.history.replaceState(window.history.state, "", nextUrl);
+	}
 
 	async function loadArchived(): Promise<void> {
 		isLoading = true;
@@ -88,11 +125,45 @@
 		}
 
 		archivedBooks = archivedBooks.filter((candidate) => candidate.id !== book.id);
+		if (selectedBook?.id === book.id) {
+			closeDetailModal();
+		}
 		toastStore.add(`"${book.title}" restored to library`, "success");
 	}
 
-	function openDetailModal(book: LibraryBook): void {
-		void goto(`/library?view=archived&openBookId=${book.id}`);
+	function clampProgress(value: number | null | undefined): number {
+		if (value === null || value === undefined || Number.isNaN(value)) {
+			return 0;
+		}
+		return Math.max(0, Math.min(100, value));
+	}
+
+	async function openDetailModal(book: LibraryBook): Promise<void> {
+		selectedBook = book;
+		selectedBookDetail = null;
+		detailError = null;
+		showDetailModal = true;
+		isDetailLoading = true;
+		updateArchivedUrl(book.id);
+
+		const result = await ZUI.getLibraryBookDetail(book.id);
+		isDetailLoading = false;
+
+		if (!result.ok) {
+			detailError = result.error.message;
+			return;
+		}
+
+		selectedBookDetail = result.value;
+	}
+
+	function closeDetailModal(): void {
+		showDetailModal = false;
+		selectedBook = null;
+		selectedBookDetail = null;
+		detailError = null;
+		isDetailLoading = false;
+		updateArchivedUrl(null);
 	}
 </script>
 
@@ -134,11 +205,11 @@
 					role="button"
 					tabindex="0"
 					aria-label={`Show details for ${book.title}`}
-					onclick={() => openDetailModal(book)}
+					onclick={() => void openDetailModal(book)}
 					onkeydown={(event) => {
 						if (event.key === "Enter" || event.key === " ") {
 							event.preventDefault();
-							openDetailModal(book);
+							void openDetailModal(book);
 						}
 					}}
 				>
@@ -203,6 +274,59 @@
 		</div>
 	{/if}
 </div>
+
+{#if showDetailModal && selectedBook}
+	<BookDetailModalShell title="Book Details" onClose={closeDetailModal}>
+		{#if isDetailLoading}
+			<p class="detail-muted">Loading details...</p>
+		{:else if detailError}
+			<p class="detail-error">{detailError}</p>
+		{:else if selectedBookDetail}
+			<div class="detail-grid">
+				<div>
+					<p class="detail-label">Author</p>
+					<p>{selectedBookDetail.author || "Unknown author"}</p>
+				</div>
+				<div>
+					<p class="detail-label">Format</p>
+					<p>{getFormat(selectedBook)}</p>
+				</div>
+				<div>
+					<p class="detail-label">Size</p>
+					<p>{formatFileSize(selectedBook.filesize)}</p>
+				</div>
+				<div>
+					<p class="detail-label">Archived</p>
+					<p>{formatDate(selectedBook.archived_at)}</p>
+				</div>
+				<div>
+					<p class="detail-label">Progress</p>
+					<div class="detail-progress">
+						<div class="detail-progress-track">
+							<div class="detail-progress-fill" style={`width: ${clampProgress(selectedBookDetail.progressPercent)}%`}></div>
+						</div>
+						<span>{clampProgress(selectedBookDetail.progressPercent).toFixed(0)}%</span>
+					</div>
+				</div>
+				<div>
+					<p class="detail-label">Downloaded Devices</p>
+					<p>{selectedBookDetail.downloadedDevices.length}</p>
+				</div>
+			</div>
+
+			<div class="detail-actions">
+				<button
+					type="button"
+					class="detail-unarchive"
+					onclick={() => selectedBook && void handleUnarchive(selectedBook)}
+					disabled={unarchivingBookId !== null}
+				>
+					{unarchivingBookId === selectedBook.id ? "Saving..." : "Unarchive"}
+				</button>
+			</div>
+		{/if}
+	</BookDetailModalShell>
+{/if}
 
 <style>
 	.archived-page {
@@ -500,6 +624,77 @@
 		color: var(--color-text-muted);
 	}
 
+	.detail-muted,
+	.detail-error {
+		margin: 0;
+		font-size: 0.82rem;
+		color: var(--color-text-muted);
+	}
+
+	.detail-error {
+		color: var(--color-danger);
+	}
+
+	.detail-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.7rem;
+	}
+
+	.detail-label {
+		margin: 0 0 0.2rem;
+		font-size: 0.68rem;
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.detail-grid p {
+		margin: 0;
+		font-size: 0.84rem;
+	}
+
+	.detail-progress {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45rem;
+	}
+
+	.detail-progress-track {
+		width: 130px;
+		height: 0.38rem;
+		background: #1f2433;
+		border-radius: 999px;
+		overflow: hidden;
+	}
+
+	.detail-progress-fill {
+		height: 100%;
+		background: linear-gradient(90deg, #60a5fa, #3b82f6);
+		border-radius: inherit;
+	}
+
+	.detail-actions {
+		display: flex;
+		justify-content: flex-end;
+	}
+
+	.detail-unarchive {
+		padding: 0.48rem 0.75rem;
+		border-radius: 0.5rem;
+		border: 1px solid rgba(91, 152, 255, 0.32);
+		background: rgba(52, 112, 208, 0.2);
+		color: #d8e5ff;
+		font-size: 0.78rem;
+		font-family: inherit;
+		cursor: pointer;
+	}
+
+	.detail-unarchive:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
 	@media (max-width: 900px) {
 		.archived-card {
 			grid-template-columns: auto 1fr;
@@ -525,6 +720,10 @@
 			flex-direction: column;
 			align-items: flex-start;
 			gap: 0.45rem;
+		}
+
+		.detail-grid {
+			grid-template-columns: minmax(0, 1fr);
 		}
 	}
 </style>

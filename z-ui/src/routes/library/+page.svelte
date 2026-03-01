@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import { onMount } from "svelte";
 	import type { LibraryBook } from "$lib/types/Library/Book";
 	import type { LibraryBookDetail } from "$lib/types/Library/BookDetail";
 	import type { BookProgressHistoryEntry } from "$lib/types/Library/BookProgressHistory";
 	import type { ApiError } from "$lib/types/ApiError";
 	import Loading from "$lib/components/Loading.svelte";
+	import BookDetailModalShell from "$lib/components/BookDetailModalShell.svelte";
 	import { ZUI } from "$lib/client/zui";
 
 	import { toastStore } from "$lib/client/stores/toastStore.svelte";
@@ -35,6 +37,13 @@
 	};
 	const LIBRARY_SORT_KEY = "librarySort";
 
+	function parseViewFromUrl(value: string | null): LibraryView | null {
+		if (value === "library" || value === "archived" || value === "trash") {
+			return value;
+		}
+		return null;
+	}
+
 	let books = $state<LibraryBook[]>([]);
 	let trashBooks = $state<LibraryBook[]>([]);
 	let isLoading = $state(true);
@@ -52,6 +61,7 @@
 	let showDetailModal = $state(false);
 	let selectedBook = $state<LibraryBook | null>(null);
 	let selectedBookDetail = $state<LibraryBookDetail | null>(null);
+	let detailModalView = $state<LibraryView | null>(null);
 	let activeDetailTab = $state<DetailTab>("overview");
 	let isDetailLoading = $state(false);
 	let isRefetchingMetadata = $state(false);
@@ -131,16 +141,25 @@
 			}
 
 			const params = new URLSearchParams(window.location.search);
-			const requestedView = params.get("view");
+			const requestedView = parseViewFromUrl(params.get("view"));
 			const openBookIdParam = params.get("openBookId");
 			const openBookId = openBookIdParam ? Number.parseInt(openBookIdParam, 10) : NaN;
 
-			if (
-				requestedView === "library" ||
-				requestedView === "archived" ||
-				requestedView === "trash"
-			) {
-				currentView = requestedView;
+			if (requestedView === "archived") {
+				const archivedTarget = Number.isNaN(openBookId)
+					? "/archived"
+					: `/archived?openBookId=${openBookId}`;
+				await goto(archivedTarget, { replaceState: true });
+				return;
+			}
+
+			if (requestedView === "trash") {
+				await goto("/trash", { replaceState: true });
+				return;
+			}
+
+			if (requestedView === "library") {
+				currentView = "library";
 			}
 
 			if (currentView === "trash") {
@@ -162,6 +181,24 @@
 			}
 		})();
 	});
+
+	function updateLibraryUrl(openBookId?: number | null): void {
+		if (typeof window === "undefined") {
+			return;
+		}
+
+		const params = new URLSearchParams(window.location.search);
+		params.delete("view");
+		if (typeof openBookId === "number") {
+			params.set("openBookId", String(openBookId));
+		} else {
+			params.delete("openBookId");
+		}
+
+		const query = params.toString();
+		const next = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+		window.history.replaceState(window.history.state, "", next);
+	}
 
 	async function loadLibrary() {
 		isLoading = true;
@@ -205,6 +242,8 @@
 	}
 
 	async function openDetailModal(book: LibraryBook) {
+		detailModalView = currentView;
+		updateLibraryUrl(book.id);
 		selectedBook = book;
 		selectedBookDetail = null;
 		activeDetailTab = "overview";
@@ -233,9 +272,14 @@
 			return;
 		}
 
+		const nextView = detailModalView ?? currentView;
+		currentView = nextView;
+		updateLibraryUrl(null);
+
 		showDetailModal = false;
 		selectedBook = null;
 		selectedBookDetail = null;
+		detailModalView = null;
 		detailError = null;
 		isDetailLoading = false;
 		isProgressHistoryLoading = false;
@@ -1038,13 +1082,13 @@
 
 		if (option === "archivedView") {
 			statusFilter = "all";
-			await switchView("archived");
+			await goto("/archived");
 			return;
 		}
 
 		if (option === "trashView") {
 			statusFilter = "all";
-			await switchView("trash");
+			await goto("/trash");
 			return;
 		}
 
@@ -1084,6 +1128,9 @@
 		showSortMenu = false;
 		showFilters = false;
 		currentView = nextView;
+		if (!showDetailModal) {
+			updateLibraryUrl(null);
+		}
 		if (nextView === "library" || nextView === "archived") {
 			await loadLibrary();
 			return;
@@ -1397,26 +1444,12 @@
 </div>
 
 {#if showDetailModal && selectedBook}
-	<div
-		class="detail-modal-overlay"
-		role="button"
-		tabindex="0"
-		aria-label="Close book detail modal"
-		onclick={closeDetailModal}
-		onkeydown={(event) => event.key === "Escape" && closeDetailModal()}
+	<BookDetailModalShell
+		title="Book Details"
+		showTabs={true}
+		onClose={closeDetailModal}
 	>
-		<div
-			class="detail-modal-content detail-v2-shell"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="book-detail-title"
-			tabindex="-1"
-			onclick={(event) => event.stopPropagation()}
-			onkeydown={(event) => event.stopPropagation()}
-		>
-			<div class="detail-v2-header">
-				<h2 id="book-detail-title">Book Details</h2>
-				<div class="detail-v2-header-actions">
+		{#snippet headerActions()}
 					<button
 						type="button"
 						class="detail-v2-btn detail-v2-btn-secondary"
@@ -1453,16 +1486,8 @@
 							<span>Edit</span>
 						</button>
 					{/if}
-					<button class="detail-v2-close-btn" onclick={closeDetailModal} aria-label="Close details">
-						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-							<line x1="18" y1="6" x2="6" y2="18"></line>
-							<line x1="6" y1="6" x2="18" y2="18"></line>
-						</svg>
-					</button>
-				</div>
-			</div>
-
-			<div class="detail-v2-tabs" role="tablist" aria-label="Book detail sections">
+		{/snippet}
+		{#snippet tabs()}
 				<button
 					type="button"
 					role="tab"
@@ -1499,9 +1524,7 @@
 				>
 					Devices ({selectedBookDetail?.downloadedDevices.length ?? 0})
 				</button>
-			</div>
-
-			<div class="detail-v2-body">
+		{/snippet}
 				{#if isDetailLoading}
 					<p class="detail-loading">Loading details...</p>
 				{:else if detailError}
@@ -1811,9 +1834,7 @@
 						</div>
 					{/if}
 				{/if}
-			</div>
-		</div>
-	</div>
+	</BookDetailModalShell>
 {/if}
 
 <!-- Confirmation Modal -->
@@ -2801,13 +2822,13 @@
 		display: block;
 	}
 
-	.detail-v2-shell .rating-row {
+	.rating-row {
 		display: flex;
 		gap: 0.125rem;
 		align-items: center;
 	}
 
-	.detail-v2-shell .rating-star {
+	.rating-star {
 		width: auto;
 		height: auto;
 		padding: 0;
@@ -2820,12 +2841,12 @@
 		transition: color 0.15s ease;
 	}
 
-	.detail-v2-shell .rating-star.active {
+	.rating-star.active {
 		color: #c9a962;
 		border: 0;
 	}
 
-	.detail-v2-shell .rating-clear-btn {
+	.rating-clear-btn {
 		margin-left: 0.4rem;
 		padding: 0.14rem 0.5rem;
 		border-radius: 999px;
@@ -2839,12 +2860,12 @@
 		transition: background 0.15s ease, color 0.15s ease;
 	}
 
-	.detail-v2-shell .rating-clear-btn:hover:not(:disabled) {
+	.rating-clear-btn:hover:not(:disabled) {
 		background: #252a3b;
 		color: var(--color-text-primary);
 	}
 
-	.detail-v2-shell .rating-clear-btn:disabled {
+	.rating-clear-btn:disabled {
 		opacity: 0.7;
 		cursor: default;
 	}

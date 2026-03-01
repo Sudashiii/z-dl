@@ -2,7 +2,6 @@
 	import { goto } from "$app/navigation";
 	import { page } from "$app/stores";
 	import { onMount } from "svelte";
-	import favicon from "$lib/assets/favicon.svg";
 	import { ZUI } from "$lib/client/zui";
 	import { ZLibAuthService } from "$lib/client/services/zlibAuthService";
 	import Sidebar from "$lib/components/Sidebar.svelte";
@@ -131,7 +130,7 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
+	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link
 		rel="preconnect"

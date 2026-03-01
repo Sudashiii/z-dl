@@ -131,10 +131,19 @@
 
 			const monthKey = `${cursor.getUTCFullYear()}-${cursor.getUTCMonth()}`;
 			if (monthKey !== lastMonth) {
-				monthLabels.push({
+				const nextLabel = {
 					label: cursor.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }),
 					col: weekIndex
-				});
+				};
+
+				// A month boundary can happen within the same week column.
+				// Replace the previous label for that column to avoid overlapping text.
+				const previousLabel = monthLabels[monthLabels.length - 1];
+				if (previousLabel && previousLabel.col === nextLabel.col) {
+					monthLabels[monthLabels.length - 1] = nextLabel;
+				} else {
+					monthLabels.push(nextLabel);
+				}
 				lastMonth = monthKey;
 			}
 
@@ -327,11 +336,13 @@
 										<div class="heatmap-week">
 											{#each week as cell}
 												{#if cell}
-													<div
+													<button
+														type="button"
 														class="heat-cell"
 														style={`background: ${getHeatColor(cell.pagesRead, heatmap.maxPages)}`}
-														title={`${formatDate(cell.date)}: ${cell.pagesRead} pages`}
-													></div>
+														data-tooltip={`${cell.date}: ${cell.pagesRead} page${cell.pagesRead === 1 ? '' : 's'}`}
+														aria-label={`${cell.date}: ${cell.pagesRead} page${cell.pagesRead === 1 ? '' : 's'}`}
+													></button>
 												{:else}
 													<div class="heat-cell empty"></div>
 												{/if}
@@ -703,7 +714,10 @@
 
 	.heatmap-scroll {
 		overflow-x: auto;
+		overflow-y: visible;
 		padding-bottom: 0.2rem;
+		padding-top: 1.95rem;
+		margin-top: -1.95rem;
 	}
 
 	.heatmap-inner {
@@ -727,6 +741,7 @@
 		top: 0;
 		font-size: 0.62rem;
 		color: var(--color-text-muted);
+		white-space: nowrap;
 	}
 
 	.heatmap-grid-wrap {
@@ -764,10 +779,44 @@
 		width: 13px;
 		height: 13px;
 		border-radius: 3px;
+		border: 0;
+		padding: 0;
+		cursor: pointer;
+		position: relative;
 	}
 
 	.heat-cell.empty {
 		background: transparent;
+	}
+
+	.heat-cell:not(.empty)::after {
+		content: attr(data-tooltip);
+		position: absolute;
+		left: 50%;
+		bottom: calc(100% + 0.45rem);
+		transform: translateX(-50%);
+		background: #0f1420;
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: 0.4rem;
+		padding: 0.3rem 0.42rem;
+		font-size: 0.62rem;
+		line-height: 1.1;
+		white-space: nowrap;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 80ms ease;
+		z-index: 3;
+	}
+
+	.heat-cell:not(.empty):hover::after,
+	.heat-cell:not(.empty):focus-visible::after {
+		opacity: 1;
+	}
+
+	.heat-cell:not(.empty):focus-visible {
+		outline: 1px solid #60a5fa;
+		outline-offset: 1px;
 	}
 
 	.heat-legend {
@@ -804,6 +853,7 @@
 		justify-items: center;
 		gap: 0.3rem;
 		min-width: 1.1rem;
+		flex: 0 0 auto;
 	}
 
 	.bar-track {
@@ -845,9 +895,55 @@
 		max-width: 2.2rem;
 	}
 
+	.bar-chart[data-compact='true'] .bar-col {
+		flex: 1 1 0;
+		min-width: 1.45rem;
+	}
+
+	.bar-chart[data-compact='false'] .bar-col {
+		flex: 1 1 0;
+		min-width: 2.8rem;
+	}
+
+	.bar-chart[data-compact='false'] .bar-col span {
+		max-width: none;
+		white-space: nowrap;
+	}
+
 	.weekly-chart .bar-track,
 	.hourly-chart .bar-track {
 		height: 9rem;
+	}
+
+	.weekly-chart {
+		gap: 0.36rem;
+	}
+
+	.weekly-chart .bar-col {
+		flex: 1 1 0;
+		min-width: 2.2rem;
+	}
+
+	.weekly-chart .bar-col span {
+		max-width: 3.1rem;
+		white-space: normal;
+	}
+
+	.hourly-chart {
+		gap: 0.48rem;
+		padding-bottom: 0.3rem;
+	}
+
+	.hourly-chart .bar-col {
+		min-width: 1.5rem;
+		gap: 0.38rem;
+	}
+
+	.hourly-chart .bar-col span {
+		min-width: 2rem;
+		max-width: none;
+		white-space: nowrap;
+		font-size: 0.66rem;
 	}
 
 	.split-grid {
@@ -1209,6 +1305,30 @@
 		.weekly-chart .bar-track,
 		.hourly-chart .bar-track {
 			height: 7.2rem;
+		}
+
+		.weekly-chart .bar-col {
+			min-width: 1.95rem;
+		}
+
+		.bar-chart[data-compact='false'] .bar-col {
+			min-width: 2.25rem;
+		}
+
+		.bar-chart[data-compact='true'] .bar-col {
+			min-width: 1.15rem;
+		}
+
+		.hourly-chart {
+			gap: 0.38rem;
+		}
+
+		.hourly-chart .bar-col {
+			min-width: 1.35rem;
+		}
+
+		.hourly-chart .bar-col span {
+			min-width: 1.75rem;
 		}
 
 		.streak-main strong {
