@@ -113,6 +113,14 @@
 	}
 
 	onMount(async () => {
+		if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+			void navigator.serviceWorker
+				.register("/service-worker.js", { type: "module" })
+				.catch((error: unknown) => {
+					console.error("Service worker registration failed", error);
+				});
+		}
+
 		zlibName = ZLibAuthService.getStoredUserName();
 
 		// Restore sidebar state
