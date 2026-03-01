@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { goto } from "$app/navigation";
+	import SakeLogo from "$lib/assets/svg/SakeLogo.svelte";
 	import { AuthService } from "$lib/client/services/authService";
 	import type { ApiError } from "$lib/types/ApiError";
 
@@ -64,7 +65,9 @@
 		<section class="login-wrap">
 			<div class="login-panel">
 				<div class="brand-row">
-					<div class="logo">ZD</div>
+					<div class="logo">
+						<SakeLogo size={28} decorative={true} />
+					</div>
 					<div class="brand-copy">
 						<h1>Welcome back</h1>
 						<p>Sign in to your private digital library.</p>
@@ -122,7 +125,7 @@
 			<div class="visual-panel" aria-hidden="true">
 				<div class="visual-overlay"></div>
 				<div class="visual-content">
-					<h2>Z-DL</h2>
+					<h2>Sake</h2>
 					<p>Search, queue, sync progress, and curate your personal reading library with a focused workflow.</p>
 				</div>
 			</div>

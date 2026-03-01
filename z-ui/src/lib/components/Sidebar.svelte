@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import SakeLogo from '$lib/assets/svg/SakeLogo.svelte';
 	import { menuItems, type MenuItem } from '$lib/types/Navigation';
 
 	interface Props {
@@ -29,12 +30,9 @@
 		{#if !collapsed}
 			<div class="logo">
 				<span class="logo-icon" aria-hidden="true">
-					<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-						<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-					</svg>
+					<SakeLogo size={18} decorative={true} />
 				</span>
-				<span class="logo-text">Z-DL</span>
+				<span class="logo-text">Sake</span>
 			</div>
 		{/if}
 		<button class="toggle-btn" onclick={handleToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
