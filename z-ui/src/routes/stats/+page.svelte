@@ -340,8 +340,8 @@
 														type="button"
 														class="heat-cell"
 														style={`background: ${getHeatColor(cell.pagesRead, heatmap.maxPages)}`}
-														data-tooltip={`${cell.date}: ${cell.pagesRead} page${cell.pagesRead === 1 ? '' : 's'}`}
-														aria-label={`${cell.date}: ${cell.pagesRead} page${cell.pagesRead === 1 ? '' : 's'}`}
+														data-tooltip={`${formatDate(cell.date)}: ${cell.pagesRead} page${cell.pagesRead === 1 ? '' : 's'}`}
+														aria-label={`${formatDate(cell.date)}: ${cell.pagesRead} page${cell.pagesRead === 1 ? '' : 's'}`}
 													></button>
 												{:else}
 													<div class="heat-cell empty"></div>
