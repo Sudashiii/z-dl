@@ -13,6 +13,21 @@ jobs:
     environment: prod
 
     steps:
+      - name: Prepare .env payload
+        id: prepare_env
+        env:
+          ENV_CLOUDFLARE: ${{ secrets.ENV_CLOUDFLARE }}
+          ENV_DB: ${{ secrets.ENV_DB }}
+          ENV_USERS: ${{ secrets.ENV_USERS }}
+        run: |
+          set -euo pipefail
+          ENV_CONTENT="$(printf '%s\n%s\n%s\n' \
+            "$ENV_CLOUDFLARE" \
+            "$ENV_DB" \
+            "$ENV_USERS")"
+          ENV_B64="$(printf '%s' "$ENV_CONTENT" | base64 | tr -d '\n')"
+          echo "env_b64=$ENV_B64" >> "$GITHUB_OUTPUT"
+
       - name: SSH and Deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -31,7 +46,7 @@ jobs:
             
             git pull origin master
             
-            echo "${{ secrets.Z_UI_ENV }}" | sudo tee ./z-ui/.env > /dev/null
+            printf '%s' '${{ steps.prepare_env.outputs.env_b64 }}' | base64 -d | sudo tee ./z-ui/.env > /dev/null
             
             sudo docker compose build --no-cache --progress=plain
             sudo docker compose run --rm z-ui-migrator

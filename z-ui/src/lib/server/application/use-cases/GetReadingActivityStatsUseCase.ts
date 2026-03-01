@@ -146,65 +146,95 @@ export class GetReadingActivityStatsUseCase {
 		}));
 
 		const books = await this.bookRepository.getAll();
+		const historiesByBook = new Map<number, Awaited<ReturnType<BookProgressHistoryRepositoryPort['getByBookId']>>>();
 
 		await Promise.all(
 			books.map(async (book) => {
-				if (!book.pages || book.pages <= 0) {
-					return;
-				}
-
 				const history = await this.progressHistoryRepository.getByBookId(book.id);
-				if (history.length === 0) {
-					return;
-				}
-
-				const ascending = [...history].sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
-				let previousPercent = 0;
-
-				for (const entry of ascending) {
-					const currentPercent = clampPercent(entry.progressPercent);
-
-					if (currentPercent < previousPercent) {
-						// Reading state may have been reset; continue from new baseline.
-						previousPercent = currentPercent;
-						continue;
-					}
-
-					const deltaPercent = currentPercent - previousPercent;
-					if (deltaPercent <= 0) {
-						continue;
-					}
-
-					const pagesDelta = Math.max(0, Math.round(deltaPercent * book.pages));
-					previousPercent = currentPercent;
-					if (pagesDelta <= 0) {
-						continue;
-					}
-
-					const entryDate = new Date(entry.recordedAt);
-					if (Number.isNaN(entryDate.getTime())) {
-						continue;
-					}
-
-					const entryDateKey = toUtcDateKey(entryDate);
-					if (entryDateKey < startDateKey || entryDateKey > endDateKey) {
-						continue;
-					}
-
-					const day = dailyMap.get(entryDateKey);
-					if (!day) {
-						continue;
-					}
-
-					day.pagesRead += pagesDelta;
-					day.sessions += 1;
-
-					const hour = entryDate.getUTCHours();
-					hourlyBuckets[hour].pages += pagesDelta;
-					hourlyBuckets[hour].sessions += 1;
-				}
+				historiesByBook.set(book.id, history);
 			})
 		);
+		let globalFirstEntry: { bookId: number; id: number; recordedAt: string } | null = null;
+		for (const [bookId, history] of historiesByBook.entries()) {
+			for (const entry of history) {
+				if (
+					!globalFirstEntry ||
+					entry.recordedAt < globalFirstEntry.recordedAt ||
+					(entry.recordedAt === globalFirstEntry.recordedAt && entry.id < globalFirstEntry.id)
+				) {
+					globalFirstEntry = { bookId, id: entry.id, recordedAt: entry.recordedAt };
+				}
+			}
+		}
+
+		for (const book of books) {
+			if (!book.pages || book.pages <= 0) {
+				continue;
+			}
+
+			const history = historiesByBook.get(book.id) ?? [];
+			if (history.length === 0) {
+				continue;
+			}
+
+			const ascending = [...history].sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
+			let previousPercent = 0;
+			const firstEntryId = globalFirstEntry?.id;
+			const firstEntryBookId = globalFirstEntry?.bookId;
+
+			for (const entry of ascending) {
+				const currentPercent = clampPercent(entry.progressPercent);
+				if (
+					firstEntryId !== undefined &&
+					firstEntryBookId !== undefined &&
+					entry.id === firstEntryId &&
+					book.id === firstEntryBookId
+				) {
+					// Ignore page credit for the very first history record in the whole library.
+					previousPercent = currentPercent;
+					continue;
+				}
+
+				if (currentPercent < previousPercent) {
+					// Reading state may have been reset; continue from new baseline.
+					previousPercent = currentPercent;
+					continue;
+				}
+
+				const deltaPercent = currentPercent - previousPercent;
+				if (deltaPercent <= 0) {
+					continue;
+				}
+
+				const pagesDelta = Math.max(0, Math.round(deltaPercent * book.pages));
+				previousPercent = currentPercent;
+				if (pagesDelta <= 0) {
+					continue;
+				}
+
+				const entryDate = new Date(entry.recordedAt);
+				if (Number.isNaN(entryDate.getTime())) {
+					continue;
+				}
+
+				const entryDateKey = toUtcDateKey(entryDate);
+				if (entryDateKey < startDateKey || entryDateKey > endDateKey) {
+					continue;
+				}
+
+				const day = dailyMap.get(entryDateKey);
+				if (!day) {
+					continue;
+				}
+
+				day.pagesRead += pagesDelta;
+				day.sessions += 1;
+
+				const hour = entryDate.getUTCHours();
+				hourlyBuckets[hour].pages += pagesDelta;
+				hourlyBuckets[hour].sessions += 1;
+			}
+		}
 
 		const daily = Array.from(dailyMap.values());
 		const daysActive = daily.filter((day) => day.pagesRead > 0).length;
