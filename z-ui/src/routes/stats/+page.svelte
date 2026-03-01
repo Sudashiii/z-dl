@@ -304,38 +304,42 @@
 
 			{#if heatmap.weeks.length > 0}
 				<div class="heatmap-shell">
-					<div class="month-labels">
-						{#each heatmap.monthLabels as label}
-							<span style={`left: ${label.col * 16}px`}>{label.label}</span>
-						{/each}
-					</div>
+					<div class="heatmap-scroll">
+						<div class="heatmap-inner" style={`--heatmap-weeks: ${heatmap.weeks.length}`}>
+							<div class="month-labels">
+								{#each heatmap.monthLabels as label}
+									<span style={`left: ${label.col * 16}px`}>{label.label}</span>
+								{/each}
+							</div>
 
-					<div class="heatmap-grid-wrap">
-						<div class="day-labels">
-							<span>Mon</span>
-							<span></span>
-							<span>Wed</span>
-							<span></span>
-							<span>Fri</span>
-							<span></span>
-							<span>Sun</span>
-						</div>
-						<div class="heatmap-weeks">
-							{#each heatmap.weeks as week}
-								<div class="heatmap-week">
-									{#each week as cell}
-										{#if cell}
-											<div
-												class="heat-cell"
-												style={`background: ${getHeatColor(cell.pagesRead, heatmap.maxPages)}`}
-												title={`${formatDate(cell.date)}: ${cell.pagesRead} pages`}
-											></div>
-										{:else}
-											<div class="heat-cell empty"></div>
-										{/if}
+							<div class="heatmap-grid-wrap">
+								<div class="day-labels">
+									<span>Mon</span>
+									<span></span>
+									<span>Wed</span>
+									<span></span>
+									<span>Fri</span>
+									<span></span>
+									<span>Sun</span>
+								</div>
+								<div class="heatmap-weeks">
+									{#each heatmap.weeks as week}
+										<div class="heatmap-week">
+											{#each week as cell}
+												{#if cell}
+													<div
+														class="heat-cell"
+														style={`background: ${getHeatColor(cell.pagesRead, heatmap.maxPages)}`}
+														title={`${formatDate(cell.date)}: ${cell.pagesRead} pages`}
+													></div>
+												{:else}
+													<div class="heat-cell empty"></div>
+												{/if}
+											{/each}
+										</div>
 									{/each}
 								</div>
-							{/each}
+							</div>
 						</div>
 					</div>
 
@@ -535,12 +539,18 @@
 	{/if}
 </div>
 
-<style>
+	<style>
 	.stats-page {
 		padding: 1.5rem 0;
 		display: grid;
 		gap: 1.5rem;
 		color: var(--color-text-primary);
+		min-width: 0;
+		overflow-x: hidden;
+	}
+
+	.stats-page > * {
+		min-width: 0;
 	}
 
 	.error-banner {
@@ -590,6 +600,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: 0.75rem;
 		padding: 1rem;
+		min-width: 0;
 	}
 
 	.summary-card p,
@@ -643,6 +654,7 @@
 		justify-content: space-between;
 		gap: 0.75rem;
 		margin-bottom: 0.75rem;
+		min-width: 0;
 	}
 
 	.card-head h3 {
@@ -655,6 +667,7 @@
 		margin: 0;
 		font-size: 0.75rem;
 		color: var(--color-text-muted);
+		max-width: 100%;
 	}
 
 	.range-switch {
@@ -685,6 +698,22 @@
 
 	.heatmap-shell {
 		position: relative;
+		min-width: 0;
+	}
+
+	.heatmap-scroll {
+		overflow-x: auto;
+		padding-bottom: 0.2rem;
+	}
+
+	.heatmap-inner {
+		width: max(100%, calc(var(--heatmap-weeks, 0) * 16px + 1.75rem));
+	}
+
+	.heatmap-inner,
+	.heatmap-grid-wrap,
+	.heatmap-weeks {
+		min-width: 0;
 	}
 
 	.month-labels {
@@ -705,7 +734,6 @@
 		align-items: flex-start;
 		gap: 0.45rem;
 		margin-top: 0.25rem;
-		overflow-x: auto;
 	}
 
 	.day-labels {
@@ -768,6 +796,7 @@
 		min-height: 12rem;
 		overflow-x: auto;
 		padding-bottom: 0.15rem;
+		min-width: 0;
 	}
 
 	.bar-col {
@@ -1115,8 +1144,33 @@
 			gap: 1rem;
 		}
 
+		.summary-card,
+		.highlight-card,
+		.card {
+			padding: 0.85rem;
+		}
+
 		.summary-grid {
 			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.summary-card h2 {
+			font-size: 1.35rem;
+		}
+
+		.card-head {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+
+		.range-switch {
+			width: 100%;
+			justify-content: flex-start;
+		}
+
+		.heatmap-inner {
+			width: calc(var(--heatmap-weeks, 0) * 16px + 1.75rem);
+			min-width: max-content;
 		}
 
 		.monthly-row {
@@ -1130,6 +1184,39 @@
 
 		.bar-col {
 			min-width: 0.95rem;
+		}
+
+		.monthly-table-wrap table {
+			min-width: 440px;
+		}
+	}
+
+	@media (max-width: 560px) {
+		.stats-page {
+			padding-top: 0.8rem;
+			gap: 0.85rem;
+		}
+
+		.error-banner {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+
+		.bar-track {
+			height: 8.4rem;
+		}
+
+		.weekly-chart .bar-track,
+		.hourly-chart .bar-track {
+			height: 7.2rem;
+		}
+
+		.streak-main strong {
+			font-size: 1.65rem;
+		}
+
+		.streak-range {
+			overflow-wrap: anywhere;
 		}
 	}
 </style>

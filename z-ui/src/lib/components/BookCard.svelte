@@ -80,6 +80,7 @@
 		border: 1px solid var(--color-border);
 		background: var(--color-surface);
 		transition: border-color 0.16s ease;
+		min-width: 0;
 	}
 
 	.book-card:hover {
@@ -122,20 +123,29 @@
 		min-width: 0;
 	}
 
+	.book-header {
+		min-width: 0;
+		overflow: hidden;
+	}
+
 	.book-title {
+		display: block;
 		margin: 0;
 		font-size: 0.9rem;
 		font-weight: 600;
 		color: var(--color-text-primary);
+		max-width: 100%;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
 	.book-author {
+		display: block;
 		margin: 0;
 		font-size: 0.78rem;
 		color: var(--color-text-muted);
+		max-width: 100%;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
